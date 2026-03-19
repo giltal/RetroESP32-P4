@@ -29,13 +29,8 @@ Designed for both **performance and usability**, it combines optimized emulation
 
 ## 📸 Screenshots
 
-```
-![Launcher](docs/images/launcher.png)
-![Game](docs/images/gameplay.png)
-![Hardware](docs/images/hardware.png)
-```
+<img width="461" height="464" alt="image" src="https://github.com/user-attachments/assets/3823e33e-b138-437e-b063-3f2558e1ef88" />
 
----
 
 ## 🚀 Features
 
