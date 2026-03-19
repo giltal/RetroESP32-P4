@@ -30,7 +30,7 @@ Designed for both **performance and usability**, it combines optimized emulation
 ## 📸 Screenshots
 
 <img width="461" height="464" alt="image" src="https://github.com/user-attachments/assets/3823e33e-b138-437e-b063-3f2558e1ef88" />
-
+<img width="376" height="385" alt="image" src="https://github.com/user-attachments/assets/78103cdd-7762-476b-90b0-7cfaa3a09947" />
 
 ## 🚀 Features
 
