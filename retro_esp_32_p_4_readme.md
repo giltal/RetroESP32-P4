@@ -34,13 +34,11 @@ It's cheap and works great, soon I will release a board that will make the platf
 ## 🚀 Features
 
 - 🎮 13 emulators + OpenTyrian
-- ⚡ Near full-speed emulation (60 FPS on most systems)
+- ⚡ Near full-speed emulation (60 FPS on all systems except for SNES - I will try to improve)
 - 💾 Save / Load states
 - 🖥️ Touchscreen-optimized UI
 - 🎯 USB controller support
-- 🕹️ Paddle support for Atari
-
----
+- 🕹️ Paddle support for Atari (Via IO51)
 
 ## 🎮 Supported Systems
 
@@ -53,8 +51,7 @@ It's cheap and works great, soon I will release a board that will make the platf
 - ZX Spectrum (Kempston + virtual keyboard)
 - ColecoVision
 - SNES
-
----
+- OpenTyrian full game with stunning looks and speed
 
 ## ⚡ Performance Breakdown
 
@@ -63,8 +60,9 @@ It's cheap and works great, soon I will release a board that will make the platf
 | NES / GB / GBA | ✅ 60 FPS | Full speed |
 | SMS / GG | ✅ 60 FPS | Stable |
 | Atari family | ✅ 60 FPS | Fixed legacy bugs |
-| PCE | ✅ 60 FPS | Major improvement |
+| PCE | ✅ 60 FPS | Major improvements |
 | SNES | ⚠️ ~50 FPS | No SuperFX |
+The P4's PPA (Pixel Processing Accelerator) is in action for smooth graphics and speed
 
 ### SNES Limitations
 
