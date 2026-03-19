@@ -10,7 +10,8 @@
 
 ## 🧠 Overview
 
-**RetroESP32-P4** is a high-performance retro gaming platform built on the ESP32-P4, bringing together multiple classic systems into a single, compact device with a modern touchscreen interface.
+**RetroESP32-P4** is a high-performance retro gaming platform built on off the shelf ESP32-P4 platform (see picture), bringing together multiple classic systems into a single, compact device with a modern touchscreen interface.
+The platform and USB SNES controller available at AliExpress for around 35$ (both)
 
 Designed for both **performance and usability**, it combines optimized emulation with a clean, responsive GUI.
 
