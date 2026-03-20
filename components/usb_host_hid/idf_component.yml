@@ -1,0 +1,26 @@
+dependencies:
+  idf: '>=5.0'
+  usb:
+    public: true
+    rules:
+    - if: idf_version >=6.0
+    - if: target not in ["linux"]
+    version: ^1.0.0
+description: USB Host HID driver
+files:
+  exclude:
+  - test_app
+  - host_test
+issues: https://github.com/espressif/esp-usb/issues
+repository: git://github.com/espressif/esp-usb.git
+repository_info:
+  commit_sha: 8add017b798aa7f36f2405a7f0a3ea0b79be36ea
+  path: host/class/hid/usb_host_hid
+targets:
+- esp32s2
+- esp32s3
+- esp32p4
+- esp32h4
+- linux
+url: https://github.com/espressif/esp-usb/tree/master/host/class/hid/usb_host_hid
+version: 1.1.0

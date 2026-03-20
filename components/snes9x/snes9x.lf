@@ -1,0 +1,5 @@
+[mapping:snes9x_iram]
+archive: libsnes9x.a
+entries:
+    fxinst (noflash_text)
+    fxemu (noflash_text)

@@ -1,0 +1,21 @@
+# RetroESP32-P4 OTA Multi-Binary Partition Table (16 MB flash)
+#
+# Binary sizes (measured):
+#   launcher=620KB nes=542KB gb=514KB sms=1206KB spectrum=574KB
+#   stella=1157KB prosystem=550KB handy=508KB
+#
+# Name,     Type, SubType, Offset,    Size,    Flags
+nvs,        data, nvs,     0x9000,    0x4000,
+otadata,    data, ota,     0xD000,    0x2000,
+factory,    app,  factory, 0x10000,   0x100000,
+ota_0,      app,  ota_0,   0x110000,  0x0E0000,
+ota_1,      app,  ota_1,   0x1F0000,  0x0E0000,
+ota_2,      app,  ota_2,   0x2D0000,  0x180000,
+ota_3,      app,  ota_3,   0x450000,  0x0E0000,
+ota_4,      app,  ota_4,   0x530000,  0x180000,
+ota_5,      app,  ota_5,   0x6B0000,  0x0E0000,
+ota_6,      app,  ota_6,   0x790000,  0x0E0000,
+ota_7,      app,  ota_7,   0x870000,  0x180000,
+ota_8,      app,  ota_8,   0x9F0000,  0x180000,
+ota_9,      app,  ota_9,   0xB70000,  0x280000,
+ota_10,     app,  ota_10,  0xDF0000,  0x210000,

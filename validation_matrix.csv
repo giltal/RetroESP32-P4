@@ -1,0 +1,10 @@
+Emulator,System,OTA Slot,Partition Addr,Display,Exit to Launcher,In-Game Menu,FPS,Audio,Gamepad Controls,Save State,Load State,Auto-Resume,ROM Loading (SD),Color Accuracy,Stability,Frame Skip,Scaling/Aspect,Boot Time (s),ROM Compatibility,PPA Input Scaling,PPA Flush,Frame Skip Mode,Optimization,Notes
+NES (nofrendo),Nintendo NES,ota_0,0x110000,,,,,,,,,,,,,,,,,Yes (256x224→320x240 sx=1.25 sy=1.071),Yes (270°+2x→480x640),None,-Os,
+GB/GBC (gnuboy),Game Boy / Game Boy Color,ota_1,0x1F0000,,,,,,,,,,,,,,,,,Yes (160x144→320x240 sx=2.0 sy=1.667),Yes (270°+2x→480x640),None,-Os,
+SMS/GG/COL (smsplus),Sega Master System / Game Gear / ColecoVision,ota_2,0x2D0000,,,,,,,,,,,,,,,,,Yes (256x192→320x240 / 160x144→320x240),Yes (270°+2x→480x640),None,-Os,
+ZX Spectrum,ZX Spectrum 48K,ota_3,0x450000,,,,,,,,,,,,,,,,,No (native 320x240),Yes (270°+2x→480x640),None,-Os,
+Atari 2600 (stella),Atari 2600,ota_4,0x530000,,,,,,,,,,,,,,,,,No (native 320x240),Yes (270°+2x→480x640),None,-Os,
+Atari 7800 (prosystem),Atari 7800,ota_5,0x6B0000,,,,,,,,,,,,,,,,,No (native 320x240),Yes (270°+2x→480x640),Every other frame (RenderFlag=frame&1),-Os,
+Atari Lynx (handy),Atari Lynx,ota_6,0x790000,,,,,,,,,,,,,,,,,Yes (160x102→320x240 sx=2.0 sy=2.353),Yes (270°+2x→480x640),None,-Os,
+PC Engine (huexpress),TurboGrafx-16 / PC Engine,ota_7,0x870000,,,,,,,,,,,,,,,,,No (palette convert 256x240→320x240),Yes (270°+2x→480x640),None,-Os,
+Atari 800 (atari800),Atari 800 / 5200,ota_8,0x9F0000,,,,,,,,,,,,,,,,,No (palette convert 320x240),Yes (270°+2x→480x640),None,-Os,
