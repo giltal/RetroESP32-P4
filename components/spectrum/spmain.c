@@ -129,9 +129,12 @@ void videoTask(void)
 
 void DoMenuHome(bool save)
 {
+    uint16_t* discard;
+    while (xQueueReceive(sp_vidQueue, &discard, 0) == pdTRUE) {}
     uint16_t* param = TASK_BREAK;
-    xQueueSend(sp_vidQueue, &param, portMAX_DELAY);
-    while (sp_videoTaskIsRunning) {}
+    xQueueOverwrite(sp_vidQueue, &param);
+    int timeout = 500;
+    while (sp_videoTaskIsRunning && --timeout > 0) { vTaskDelay(1); }
     endofsingle = 1;
 }
 

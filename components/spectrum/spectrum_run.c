@@ -755,7 +755,7 @@ void spectrum_run(const char *rom_path)
     /* Stop video task */
     uint16_t *null_ptr = NULL;
     xQueueOverwrite(zx_vidQueue, &null_ptr);
-    vTaskDelay(pdMS_TO_TICKS(100));
+    { int timeout = 500; while (videoTaskIsRunning && --timeout > 0) vTaskDelay(1); }
 
     /* Free resources */
     if (sp_framebuffer) { heap_caps_free(sp_framebuffer); sp_framebuffer = NULL; }

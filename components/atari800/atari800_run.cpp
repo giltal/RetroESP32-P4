@@ -1094,15 +1094,21 @@ cleanup:
     /* Stop audio task */
     if (audioQueue && audioTaskIsRunning) {
         audio_msg_t poison = { NULL, 0 };
+        /* Drain any pending audio buffers, then send poison pill */
+        audio_msg_t discard;
+        while (xQueueReceive(audioQueue, &discard, 0) == pdTRUE) {}
         xQueueSend(audioQueue, &poison, portMAX_DELAY);
-        while (audioTaskIsRunning) vTaskDelay(1);
+        int timeout = 500;  /* max 500ms wait */
+        while (audioTaskIsRunning && --timeout > 0) vTaskDelay(1);
     }
 
     /* Stop video task */
     if (vidQueue && videoTaskIsRunning) {
         uint8_t *stop = (uint8_t *)(uintptr_t)1;
-        xQueueSend(vidQueue, &stop, portMAX_DELAY);
-        while (videoTaskIsRunning) vTaskDelay(1);
+        /* Overwrite ensures delivery even if queue has a pending frame */
+        xQueueOverwrite(vidQueue, &stop);
+        int timeout = 500;  /* max 500ms wait */
+        while (videoTaskIsRunning && --timeout > 0) vTaskDelay(1);
     }
 
     odroid_audio_terminate();

@@ -856,16 +856,22 @@ void gnuboy_run(const char *rom_path)
 
     /* Stop audio */
     {
+        uint16_t* discard;
+        while (xQueueReceive(audioQueue, &discard, 0) == pdTRUE) {}
         uint16_t* param = (uint16_t*)1;
-        xQueueSend(audioQueue, &param, portMAX_DELAY);
-        while (audioTaskIsRunning) vTaskDelay(1);
+        xQueueOverwrite(audioQueue, &param);
+        int timeout = 500;
+        while (audioTaskIsRunning && --timeout > 0) vTaskDelay(1);
     }
 
     /* Stop video */
     {
+        uint16_t* discard;
+        while (xQueueReceive(vidQueue, &discard, 0) == pdTRUE) {}
         uint16_t* param = (uint16_t*)1;
-        xQueueSend(vidQueue, &param, portMAX_DELAY);
-        while (videoTaskIsRunning) vTaskDelay(1);
+        xQueueOverwrite(vidQueue, &param);
+        int timeout = 500;
+        while (videoTaskIsRunning && --timeout > 0) vTaskDelay(1);
     }
 
 cleanup:

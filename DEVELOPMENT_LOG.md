@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** March 2026 — **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480×640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
+> **Last Updated:** March 2026 — **GitHub push** (RetroESP32-P4 repo, .gitignore, merged firmware), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480×640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -833,6 +833,43 @@ This was determined empirically over 5 iterations: BGR swap only → raw (no swa
 
 ---
 
+### Phase 23: Exit Hang Fix — All Emulators
+
+**Goal:** Fix intermittent hangs when exiting emulators back to launcher. Root cause: video/audio task cleanup used `xQueueSend(..., portMAX_DELAY)` which blocks forever if the queue is full, and polling loops had no timeout so they spin infinitely if the task never exits.
+
+**Root Cause:** The peek-process-receive video task pattern creates a deadlock window:
+1. Video task does `xQueuePeek` (success) → processes frame → `xQueueReceive` (removes item)
+2. If cleanup drains the queue between peek and receive, `xQueueReceive(..., portMAX_DELAY)` blocks forever because the queue is now empty
+3. Additionally, `xQueueSend(..., portMAX_DELAY)` for the stop sentinel blocks forever if the queue is already full (video task busy rendering)
+4. Polling loops like `while (videoTaskIsRunning) vTaskDelay(1)` have no timeout — infinite wait if task is stuck
+
+**Fix pattern applied to all emulators:**
+1. Drain queue before sending stop sentinel (ensures space)
+2. Use `xQueueOverwrite` instead of `xQueueSend` for size-1 queues (guaranteed non-blocking)
+3. Add 500ms timeout to all polling loops
+4. Change `xQueueReceive(..., portMAX_DELAY)` to `xQueueReceive(..., pdMS_TO_TICKS(100))` in video tasks (Stella)
+5. Use separate `st_videoTaskExited` flag where cleanup sets the same flag it polls (Stella)
+
+**Emulators fixed:**
+
+| Emulator | File | Changes |
+|----------|------|---------|
+| Stella (2600) | `components/stella/stella_run.cpp` | Added `st_videoTaskExited` flag, timeout on peek/receive, drain + poll cleanup |
+| gnuboy (GB) | `components/gnuboy/gnuboy_run.c` | Drain + `xQueueOverwrite` + 500ms timeout for audio & video |
+| SMS Plus (SMS/GG) | `components/smsplus/smsplus_run.c` | Drain + `xQueueOverwrite` + 500ms timeout |
+| ProSystem (7800) | `components/prosystem/prosystem_run.c` | Drain + `xQueueOverwrite` + 500ms timeout |
+| nofrendo (NES) | `components/nofrendo/esp32/video_audio.c` | Drain + `xQueueOverwrite` + 500ms timeout |
+| Spectrum (ZX) | `components/spectrum/spectrum_run.c` | Poll with 500ms timeout (was fixed 100ms delay) |
+| Spectrum (single) | `components/spectrum/spmain.c` | Drain + `xQueueOverwrite` + 500ms timeout |
+| Handy (Lynx) | `components/handy/handy_run.cpp` | Drain + `xQueueOverwrite` + 500ms timeout (menu + exit) |
+| HuExpress (PCE) | `components/huexpress/huexpress_run.c` | Drain + `xQueueOverwrite` + 500ms timeout for audio task |
+
+**Already safe (no changes needed):**
+- Atari 800 — fixed in earlier session with `xQueueOverwrite` + timeout
+- SNES — already used `xQueueOverwrite` + timeout polling
+
+---
+
 ## 11. Bugs Fixed This Session
 
 ### Bug 1: Stack Overflow (Main Task)
@@ -1013,6 +1050,9 @@ Start-Sleep -Seconds 2
 - [x] SNES emulator (snes9x) — ota_10 ✅ Ported, 45-67 FPS, dual-core optimized, save/load state
 - [ ] AY-3-8912 PSG sound emulation for ZX Spectrum
 
+### Source Control
+- [x] GitHub repository: `https://github.com/giltal/RetroESP32-P4` — 1148 source files, merged firmware binary, .gitignore excludes build artifacts/logs/temp files
+
 ### Architecture Notes for Future Changes
 
 - **Adding a new emulator:** Create `apps/<name>/` with CMakeLists.txt requiring `app_common` + emulator component. Add ROM extension mapping in `get_ota_slot()` in `launcher/main/main.c`. Add entry to `EMULATORS[]`, `DIRECTORIES[]`, `EXTENSIONS[]` arrays. Update `partitions_ota.csv` if needed. Add to `build_all.ps1` and `flash_all.ps1`.
@@ -1072,7 +1112,7 @@ app_main()
 | 6 | **Atari 7800** (prosystem) | `prosystem/` | 320×240 | `ili9341_write_frame_prosystem()` | No | Yes | **Yes** ¹ | `-Os` | ota_5 | `0x6B0000` | 896 KB |
 | 7 | **Atari Lynx** (handy) | `handy/` | 160×102 | `ili9341_write_frame_lynx()` | **Yes** ² | Yes | No | `-Os` | ota_6 | `0x790000` | 896 KB |
 | 8 | **PC Engine** (huexpress) | `huexpress/` | 256×240 | `ili9341_write_frame_prosystem()` | No ³ | Yes ⁷ | No | **`-O2`** ⁸ | ota_7 | `0x870000` | 1536 KB |
-| 9 | **Atari 800** (atari800) | `atari800/` | 320×240 | `ili9341_write_frame_prosystem()` | No | Yes | No | **`-O2`** ⁷ | ota_8 | `0x9F0000` | 1536 KB |
+| 9 | **Atari 800/5200** (atari800) | `atari800/` | 320×240 | `ili9341_write_frame_rgb565_ex()` | No | **Direct** | No | **`-O2`** ⁷ | ota_8 | `0x9F0000` | 1536 KB |
 | 10 | **OpenTyrian** | `opentyrian/` | 320×200 | custom PPA ⁹ | No | Yes | No | `-Os` | ota_9 | `0xBF0000` | 1536 KB |
 | 11 | **SNES** (snes9x) | `snes9x/` | 256×224 | `ili9341_write_frame_rgb565_custom()` ¹¹ | No | **Custom** ¹² | **Yes** | **`-O2`/`-O3`** | ota_10 | `0xDF0000` | 2112 KB |
 
@@ -1081,7 +1121,7 @@ app_main()
 1. **Atari 7800 frame skip:** `RenderFlag = frame & 1` in `prosystem_run.c` — renders every other frame to maintain performance.
 2. **Atari Lynx scaling:** The Handy core renders in RAW format (per-line palette + 4-bit packed pixels). The video task decodes RAW → 160×102 RGB565, then `ili9341_write_frame_lynx()` PPA-scales 160×102 → 320×240 (sx=2.0, sy≈2.353).
 3. **PC Engine scaling:** The emulator renders into a 256×240 virtual framebuffer which is palette-converted and written to the 320×240 display buffer via `ili9341_write_frame_prosystem()` (8-bit indexed → RGB565 palette lookup). No PPA at Stage 1.
-4. **`ili9341_write_frame_prosystem()`** does palette conversion (8-bit indexed → RGB565) with no PPA scaling — used by Atari 7800, PC Engine, and Atari 800.
+4. **`ili9341_write_frame_prosystem()`** does palette conversion (8-bit indexed → RGB565) with no PPA scaling — used by Atari 7800 and PC Engine. Atari 800 previously used this path but was migrated to the direct PPA pipeline (`ili9341_write_frame_rgb565_ex()`) in Phase 22.
 5. **`ili9341_write_frame_rgb565()`** — backward-compatible wrapper for standard emulators (Stella, Launcher). **`ili9341_write_frame_rgb565_ex(buf, byte_swap)`** — optimized direct PPA path used by ZX Spectrum (bypasses 800×480 framebuffer, PPA does 2× scale + rotate + byte-swap in one HW op).
 6. **ZX Spectrum direct path:** PPA processes 320×240 (77K pixels) instead of 800×480 (384K pixels), reducing PPA time from 19.4ms to 5.3ms. Output is 480×640, centered on 480×800 LCD with 80px black bars.
 6. **`ili9341_write_frame_lynx()`** receives decoded 160×102 RGB565, PPA-scales to 320×240 — used by Atari Lynx.

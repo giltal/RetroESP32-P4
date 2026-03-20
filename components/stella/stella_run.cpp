@@ -69,6 +69,7 @@ bool RenderFlag = true;
 static QueueHandle_t st_vidQueue = NULL;
 static TaskHandle_t  st_videoTaskHandle = NULL;
 static volatile bool st_videoTaskIsRunning = false;
+static volatile bool st_videoTaskExited = true;
 static volatile bool st_exitRequested = false;
 static volatile bool st_menu_request = false;
 
@@ -106,6 +107,7 @@ static bool     st_phosphorEnabled = false;
 static void st_videoTask(void *arg)
 {
     st_videoTaskIsRunning = true;
+    st_videoTaskExited = false;
     while (st_videoTaskIsRunning)
     {
         uint8_t *param;
@@ -203,9 +205,11 @@ static void st_videoTask(void *arg)
 
             ili9341_write_frame_rgb565(st_displayBuffer);
 
-            xQueueReceive(st_vidQueue, &param, portMAX_DELAY);
+            xQueueReceive(st_vidQueue, &param, pdMS_TO_TICKS(100));
         }
     }
+    st_videoTaskIsRunning = false;
+    st_videoTaskExited = true;
     vTaskDelete(NULL);
 }
 
@@ -658,7 +662,14 @@ static void stella_cleanup(void)
 {
     st_videoTaskIsRunning = false;
     if (st_videoTaskHandle) {
-        vTaskDelay(pdMS_TO_TICKS(200));
+        /* Drain video queue so the task can see the flag on next peek timeout */
+        if (st_vidQueue) {
+            uint8_t *discard;
+            while (xQueueReceive(st_vidQueue, &discard, 0) == pdTRUE) {}
+        }
+        /* Wait for video task to actually exit */
+        int timeout = 500;
+        while (!st_videoTaskExited && --timeout > 0) vTaskDelay(1);
         st_videoTaskHandle = NULL;
     }
     if (st_vidQueue) {

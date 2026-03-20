@@ -683,14 +683,18 @@ static void LoadState(void)
 
 static void DoQuit(void)
 {
-    uint8_t *param = (uint8_t *)(uintptr_t)1;
-
     printf("A7800 DoQuit: stopping audio.\n");
     odroid_audio_terminate();
 
     printf("A7800 DoQuit: stopping video task.\n");
-    xQueueSend(vidQueue, &param, portMAX_DELAY);
-    while (videoTaskIsRunning) { vTaskDelay(1); }
+    {
+        uint8_t *discard;
+        while (xQueueReceive(vidQueue, &discard, 0) == pdTRUE) {}
+        uint8_t *param = (uint8_t *)(uintptr_t)1;
+        xQueueOverwrite(vidQueue, &param);
+        int timeout = 500;
+        while (videoTaskIsRunning && --timeout > 0) { vTaskDelay(1); }
+    }
 
     printf("A7800 DoQuit: saving state.\n");
     SaveState();

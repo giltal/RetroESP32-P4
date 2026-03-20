@@ -496,9 +496,12 @@ static void hn_process_input(void)
     {
         /* Stop video task */
         if (hn_videoTaskIsRunning) {
+            uint16_t *discard;
+            while (xQueueReceive(hn_vidQueue, &discard, 0) == pdTRUE) {}
             uint16_t *stop = NULL;
-            xQueueSend(hn_vidQueue, &stop, portMAX_DELAY);
-            while (hn_videoTaskIsRunning) vTaskDelay(1);
+            xQueueOverwrite(hn_vidQueue, &stop);
+            int timeout = 500;
+            while (hn_videoTaskIsRunning && --timeout > 0) vTaskDelay(1);
         }
 
         int choice = show_handy_menu();
@@ -627,9 +630,12 @@ extern "C" void handy_run(const char *rom_path)
 
     /* Stop video task */
     if (hn_videoTaskIsRunning) {
+        uint16_t *discard;
+        while (xQueueReceive(hn_vidQueue, &discard, 0) == pdTRUE) {}
         uint16_t *stop = NULL;
-        xQueueSend(hn_vidQueue, &stop, portMAX_DELAY);
-        while (hn_videoTaskIsRunning) vTaskDelay(1);
+        xQueueOverwrite(hn_vidQueue, &stop);
+        int timeout = 500;
+        while (hn_videoTaskIsRunning && --timeout > 0) vTaskDelay(1);
     }
     if (hn_vidQueue) {
         vQueueDelete(hn_vidQueue);

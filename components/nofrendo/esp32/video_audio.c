@@ -837,8 +837,6 @@ static void SaveState()
 
 static void DoQuit()
 {
-    uint16_t* param = 1;
-
     // Stop the NES emulation loop
     nes_poweroff();
 
@@ -847,8 +845,14 @@ static void DoQuit()
 
     // Stop video task
     printf("DoQuit: stopping tasks.\n");
-    xQueueSend(vidQueue, &param, portMAX_DELAY);
-    while (!exitVideoTaskFlag) { vTaskDelay(1); }
+    {
+        uint8_t *discard;
+        while (xQueueReceive(vidQueue, &discard, 0) == pdTRUE) {}
+        uint16_t* param = 1;
+        xQueueOverwrite(vidQueue, &param);
+        int timeout = 500;
+        while (!exitVideoTaskFlag && --timeout > 0) { vTaskDelay(1); }
+    }
 
     // state
     printf("DoQuit: Saving state.\n");

@@ -975,9 +975,12 @@ static void start_audio(void)
 static void stop_audio(void)
 {
     if (!audioTaskIsRunning) return;
+    void *discard;
+    while (xQueueReceive(audioQueue, &discard, 0) == pdTRUE) {}
     void *sig = TASK_BREAK;
-    xQueueSend(audioQueue, &sig, portMAX_DELAY);
-    while (audioTaskIsRunning) vTaskDelay(1);
+    xQueueOverwrite(audioQueue, &sig);
+    int timeout = 500;
+    while (audioTaskIsRunning && --timeout > 0) vTaskDelay(1);
 }
 
 /* ────────────────────────────────────────────────────────────────── */
