@@ -86,6 +86,19 @@ uint16_t *display_get_emu_buffer(void);
  * @brief Flush the 320×240 emulator buffer via PPA 2× scale + 270° rotate → 480×640 LCD.
  */
 void display_emu_flush(void);
+
+/**
+ * @brief Draw raw RGB565 pixels directly to the LCD at portrait coordinates.
+ * Thread-safe (takes/releases the display lock).
+ * @param x  Portrait x position
+ * @param y  Portrait y position
+ * @param w  Width in pixels (portrait x direction)
+ * @param h  Height in pixels (portrait y direction)
+ * @param data  RGB565 pixel data (w*h elements, DMA-capable memory)
+ */
+void display_lcd_draw_raw(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
+                          const uint16_t *data);
+
 /* ─── Emulator-specific display write functions ───────────────── */
 
 /**
