@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** March 2026 — **GitHub push** (RetroESP32-P4 repo, .gitignore, merged firmware), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480×640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
+> **Last Updated:** March 2026 — **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480×640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -233,48 +233,43 @@ Slot 8 (ota_8): .xex, .atr, .a52 → atari800
 
 ## 6. Display Pipeline (PPA)
 
-> **IMPORTANT: Emulators scale to 640×480 (not full 800×480). Only the launcher uses the full 800×480 native resolution.**
+> **CRITICAL RULE — DO NOT MIX UP THE TWO PIPELINES:**
+> - **Launcher ONLY** uses `s_framebuffer` (800×480) + `display_flush()` / `display_flush_force()`
+> - **ALL emulators** use `s_emu_scaled` (320×240) + `display_emu_flush_320x240()` (internal) or `display_emu_flush()` (public API for menus)
+> - **NEVER use `FB_W` (800) or `FB_H` (480) in emulator display code** — always use `EMU_W` (320) and `EMU_H` (240)
+> - **NEVER use `display_get_framebuffer()` or `display_flush_force()` from emulator code** — these return/push the 800×480 launcher buffer
+> - In-game menus must draw into `display_get_emu_buffer()` (320×240) and call `display_emu_flush()` — NOT `display_get_framebuffer()` + `display_flush_force()`
 
-The display uses PPA hardware acceleration with two distinct pipelines:
+The display uses PPA hardware acceleration with two pipelines. **Phase 24 unified all emulators onto the fast direct path.**
 
-### Pipeline A: Standard Emulators (two-stage via 800×480 framebuffer)
+### Emulator Pipeline (all emulators — direct PPA 2× + rotate)
 
-Most emulators render to a 320×240 RGB565 virtual framebuffer. For non-native resolutions, PPA hardware scaling is used at Stage 1:
+All emulators render to a shared 320×240 RGB565 buffer (`s_emu_scaled`). For non-native resolutions, PPA hardware scaling is used as Stage 1 to reach 320×240. Then `display_emu_flush_320x240()` does Stage 2: PPA 2× scale + 270° rotation in a single hardware operation → 480×640 → LCD centered with 80px black bars.
+
+**Stage 1 — Scale native → 320×240:**
 
 | Emulator | Native Res | Scale X | Scale Y | Method |
 |----------|-----------|---------|---------|--------|
-| NES | 256×224 | 1.25× | 1.071× | PPA scale → 320×240 FB |
-| Game Boy | 160×144 | 2.0× | 1.667× | PPA scale → 320×240 FB |
-| Game Gear | 160×144 | 2.0× | 1.667× | PPA scale → 320×240 FB |
-| SMS | 256×192 | 1.25× | 1.25× | PPA scale → 320×240 FB |
-| ColecoVision | 256×192 | 1.25× | 1.25× | PPA scale (via SMS path) |
-| Atari 7800 | 320×240 | 1.0× | 1.0× | Direct write (native match) |
-| Atari 2600 | 320×240 | 1.0× | 1.0× | Direct RGB565 memcpy |
-| Atari Lynx | 160×102 | 2.0× | 2.353× | PPA scale → 320×240 FB |
-| C64 | 384×272 | crop | crop | CPU crop 384×272→320×240 center |
+| NES | 256×224 | 1.25× | 1.071× | PPA scale → `s_emu_scaled` |
+| Game Boy | 160×144 | 2.0× | 1.667× | PPA scale → `s_emu_scaled` |
+| Game Gear | 160×144 | 2.0× | 1.667× | PPA scale → `s_emu_scaled` |
+| SMS | 256×192 | 1.25× | 1.25× | PPA scale → `s_emu_scaled` |
+| ColecoVision | 256×192 | 1.25× | 1.25× | PPA scale (via SMS path) → `s_emu_scaled` |
+| Atari 7800 | 320×240 | 1.0× | 1.0× | Palette convert → `s_emu_scaled` (native match) |
+| Atari 2600 | 320×240 | 1.0× | 1.0× | Direct RGB565 → `s_emu_scaled` |
+| Atari Lynx | 160×102 | 2.0× | 2.353× | PPA scale → `s_emu_scaled` |
+| C64 | 384×272 | crop | crop | CPU crop center → `s_emu_scaled` |
+| ZX Spectrum | 320×240 | — | — | Direct (native match, byte-swap in Stage 2) |
+| SNES | 256×224 | — | — | Own path (direct 2× PPA, doesn't use `s_emu_scaled`) |
+| Atari 800 | 336×240 | — | — | Own async path (crop+scale, doesn't use `s_emu_scaled`) |
+| OpenTyrian | 320×200 | — | — | Uses 800×480 launcher path (not a console emulator) |
 
-Stage 2 copies 320×240 into 800×480 framebuffer (with borders), then PPA rotates 270° → 480×800:
-
-```
-s_framebuffer (800×480 RGB565, 320×240 centered with borders)
-    │
-    ▼ PPA rotate 270° CCW (no scaling, 1:1)
-    │
-s_ppa_out_buf (480×800 RGB565)
-    │
-    ▼ st7701_lcd_draw_rgb_bitmap(0, 0, 480, 800)
-    │
-Physical LCD (480×800 MIPI DSI)
-```
-
-### Pipeline B: ZX Spectrum (optimized direct PPA path)
-
-**ZX Spectrum bypasses the 800×480 framebuffer entirely.** PPA does 2× scale + 270° rotation + byte-swap in a single hardware operation directly from the 320×240 emulator output:
+**Stage 2 — `display_emu_flush_320x240()` (shared by all Pipeline A emulators):**
 
 ```
-Emulator 320×240 RGB565 (BE, in PSRAM)
+s_emu_scaled (320×240 RGB565, DMA-aligned, PSRAM)
     │
-    ▼ PPA: scale 2× + rotate 270° + byte-swap (single HW op)
+    ▼ PPA: scale 2× + rotate 270° + optional byte-swap (single HW op)
     │
 s_ppa_out_buf (480×640 RGB565)
     │
@@ -283,32 +278,63 @@ s_ppa_out_buf (480×640 RGB565)
 Physical LCD (480×800, 80px black bars top+bottom)
 ```
 
-**Performance comparison (PPA time per frame):**
-| Path | PPA Input | PPA Time | FPS |
-|------|-----------|----------|-----|
-| Old (via 800×480 FB) | 800×480 = 384K pixels | 19.4ms | 41.3 |
-| New (direct 320×240) | 320×240 = 77K pixels | **5.3ms** | **50.1** |
+**Performance:** PPA processes only 320×240 = 77K pixels (not 800×480 = 384K). PPA time ~5.3ms per frame.
 
-**The direct path is 3.7× faster** because PPA processes 5× fewer pixels.
+### In-Game Menu Rendering (all emulators)
+
+> **CRITICAL:** Menus use helper functions (`draw_char`, `fill_rect`) that draw with a **hardcoded 320-pixel stride** (`fb[yy * 320 + xx]`). They MUST draw into a 320-wide buffer.
+
+Correct pattern for in-game menus and volume overlays:
+```c
+uint16_t *fb = display_get_emu_buffer();   // returns s_emu_scaled (320×240)
+// ... draw menu using fb with 320-pixel stride ...
+display_emu_flush();                        // PPA 2× + rotate → LCD
+```
+
+**WRONG (causes twisted/repeated menu):**
+```c
+uint16_t *fb = display_get_framebuffer();  // WRONG: returns s_framebuffer (800×480)
+// draw with 320-stride into 800-wide buffer → rows misaligned → garbage
+display_flush_force();                      // WRONG: pushes 800×480 → PPA rotate → LCD
+```
 
 ### Launcher Pipeline (native 800×480)
 
-The launcher writes directly to an 800×480 framebuffer at native resolution. PPA does rotation only (no scaling). See Phase 17.
+The launcher writes directly to an 800×480 framebuffer (`s_framebuffer`) at native resolution. PPA does rotation only (no scaling). Uses `display_get_framebuffer()` + `display_flush()`. See Phase 17.
+
+OpenTyrian also uses this path since it renders at 320×200 but uses the launcher's 800×480 infrastructure.
 
 ### Buffer Allocations
 
 | Buffer | Size | Location | Purpose |
 |--------|------|----------|---------|
-| `s_framebuffer` | 768,000 bytes | PSRAM+DMA, 64-byte aligned | 800×480 RGB565 virtual FB (standard emulators + launcher) |
+| `s_framebuffer` | 768,000 bytes | PSRAM+DMA, 64-byte aligned | 800×480 RGB565 — **LAUNCHER ONLY** |
+| `s_emu_scaled` | 153,600 bytes | PSRAM+DMA, 64-byte aligned | 320×240 RGB565 — **ALL EMULATORS** (shared) |
 | `s_ppa_out_buf` | 768,000 bytes | PSRAM+DMA, 64-byte aligned | 480×800 max rotated+scaled output |
-| `s_nes_temp` | 114,688 bytes | PSRAM+DMA, 64-byte aligned | NES 256×224 RGB565 temp |
-| `s_gb_temp` | 46,080 bytes | PSRAM+DMA, 64-byte aligned | GB 160×144 RGB565 temp |
-| `s_sms_temp` | 98,304 bytes | PSRAM+DMA, 64-byte aligned | SMS 256×192 RGB565 temp |
-| `s_lynx_temp` | 32,640 bytes | PSRAM+DMA, 64-byte aligned | Lynx 160×102 RGB565 temp |
+| `s_nes_temp` | 114,688 bytes | PSRAM+DMA, 64-byte aligned | NES 256×224 RGB565 temp (Stage 1 input) |
+| `s_gb_temp` | 46,080 bytes | PSRAM+DMA, 64-byte aligned | GB 160×144 RGB565 temp (Stage 1 input) |
+| `s_sms_temp` | 98,304 bytes | PSRAM+DMA, 64-byte aligned | SMS 256×192 RGB565 temp (Stage 1 input) |
+| `s_lynx_temp` | 32,640 bytes | PSRAM+DMA, 64-byte aligned | Lynx 160×102 RGB565 temp (Stage 1 input) |
 
-All static buffers are lazy-allocated on first use and persist for the app lifetime.
+### Key Constants (odroid_display.c)
 
-> **Note:** The ZX Spectrum direct path (`ili9341_write_frame_rgb565_ex()`) does not use `s_framebuffer` — it goes straight from the emulator's double-buffer to PPA to LCD.
+| Constant | Value | Used By |
+|----------|-------|---------|
+| `FB_W` | 800 | Launcher framebuffer width — **NEVER use in emulator code** |
+| `FB_H` | 480 | Launcher framebuffer height — **NEVER use in emulator code** |
+| `EMU_W` | 320 | Emulator display width — use this in all emulator display functions |
+| `EMU_H` | 240 | Emulator display height — use this in all emulator display functions |
+| `EMU_PIXELS` | 76,800 | `EMU_W × EMU_H` — use for loop counts in emulator pixel processing |
+
+### Public API Summary
+
+| Function | Returns/Does | Used By |
+|----------|-------------|--------|
+| `display_get_framebuffer()` | `s_framebuffer` (800×480) | Launcher, OpenTyrian ONLY |
+| `display_flush()` / `display_flush_force()` | Push 800×480 → PPA rotate → LCD | Launcher, OpenTyrian ONLY |
+| `display_get_emu_buffer()` | `s_emu_scaled` (320×240) | Emulator in-game menus |
+| `display_emu_flush()` | Push 320×240 → PPA 2×+rotate → LCD | Emulator in-game menus |
+| `ili9341_write_frame_*()` | Emulator-specific render (internal) | Called by each emulator's video task |
 
 ---
 
@@ -867,6 +893,54 @@ This was determined empirically over 5 iterations: BGR swap only → raw (no swa
 **Already safe (no changes needed):**
 - Atari 800 — fixed in earlier session with `xQueueOverwrite` + timeout
 - SNES — already used `xQueueOverwrite` + timeout polling
+
+### Phase 24: Display Pipeline & Menu Rendering Fix
+
+**Goal:** Fix broken display scaling and corrupted in-game menus across NES, GB/GBC, SMS/GG/ColecoVision, Atari 7800, PCE, and Lynx.
+
+**Symptoms reported:**
+- NES, GB, GBC, SMS, GG, ColecoVision: Resizing to full screen 800×480 instead of 640×480
+- Atari 7800, PCE: Total garbage on screen
+- In-game menus: Appeared "multiple times twisted" when pressing X
+- Atari 2600, Lynx, Atari 800, SNES, OpenTyrian: Unaffected (used separate display paths)
+
+**Root Cause 1 — Display scaling used wrong constants:**
+All Pipeline A emulator display functions (`ili9341_write_frame_gb/nes/sms/prosystem/lynx/c64`) used `FB_W` (800) and `FB_H` (480) for scale factor calculations and output buffer addressing. These constants are for the **launcher's** 800×480 framebuffer. Emulators should target 320×240.
+
+- **Scale factors were wrong:** e.g., NES computed `sx = FB_W/256 = 3.125×` instead of `320/256 = 1.25×`
+- **Output buffer overflow:** ProSystem & PCE looped `FB_PIXELS/4 = 96,000` iterations instead of `EMU_PIXELS/4 = 19,200` — reading past the end of the input buffer → garbage pixels
+- **PPA pushed 800×480 to LCD** instead of the fast 320×240 direct path
+
+**Root Cause 2 — In-game menus drew into wrong buffer:**
+Menu helper functions (`draw_char`, `fill_rect`) use hardcoded 320-pixel stride: `fb[yy * 320 + xx]`. But `display_get_framebuffer()` returns the 800-wide `s_framebuffer`. Writing 320-stride rows into an 800-wide buffer creates wrong row offsets → twisted/repeated rendering. Then `display_flush_force()` pushes the full 800×480 through PPA rotate, making the corruption worse.
+
+**Fix 1 — Unified emulator display pipeline (`odroid_display.c`):**
+- Added `EMU_W=320`, `EMU_H=240`, `EMU_PIXELS`, `EMU_SIZE` constants
+- Added `s_emu_scaled` — shared 320×240 DMA-aligned buffer for all emulators
+- Added `display_emu_flush_320x240()` — internal helper: PPA 2× scale + 270° rotate → 480×640 → LCD centered with 80px bars
+- Rewrote all 6 Pipeline A display functions to: scale native → `s_emu_scaled` (320×240) → `display_emu_flush_320x240()`
+- Added public APIs: `display_get_emu_buffer()` (returns `s_emu_scaled`) and `display_emu_flush()` (calls the 320x240 flush helper)
+
+**Fix 2 — In-game menu rendering (5 emulators):**
+
+| Emulator | File | Change |
+|----------|------|--------|
+| NES | `components/nofrendo/esp32/video_audio.c` | `display_get_framebuffer()` → `display_get_emu_buffer()`, `display_flush_force()` → `display_emu_flush()` |
+| GB/GBC | `components/gnuboy/gnuboy_run.c` | Same pattern (volume + menu) |
+| SMS/GG/COL | `components/smsplus/smsplus_run.c` | Same pattern |
+| Atari 7800 | `components/prosystem/prosystem_run.c` | Same pattern |
+| PCE | `components/huexpress/huexpress_run.c` | Same pattern |
+
+**Lesson learned — Rules to prevent recurrence:**
+1. **Never use `FB_W`/`FB_H` in emulator display code** — these are 800/480 for the launcher only
+2. **Never use `display_get_framebuffer()` from emulators** — it returns the 800×480 launcher buffer
+3. **Emulator menus must use `display_get_emu_buffer()` + `display_emu_flush()`** — this gives the correct 320-wide buffer matching the hardcoded stride
+4. **Loop counts processing emulator pixels must use `EMU_PIXELS`** (76,800) not `FB_PIXELS` (384,000)
+5. **All emulator display functions output to `s_emu_scaled` and call `display_emu_flush_320x240()`** — never write to `s_framebuffer`
+
+**Files changed (7):** `odroid_display.c`, `odroid_display.h`, `video_audio.c`, `gnuboy_run.c`, `smsplus_run.c`, `prosystem_run.c`, `huexpress_run.c`
+
+**Apps rebuilt & flashed:** NES, GB, SMS, ProSystem, PCE, Spectrum, Handy
 
 ---
 
