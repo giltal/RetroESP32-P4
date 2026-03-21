@@ -87,9 +87,6 @@ Simply swap 3.3V and GND
 ![Launcher Demo](docs/images/launcher.gif)
 ![SNES Gameplay](docs/images/snes.gif)
 ```
-
----
-
 ## 📸 Screenshots
 
 <img width="461" height="464" alt="image" src="https://github.com/user-attachments/assets/3823e33e-b138-437e-b063-3f2558e1ef88" />
@@ -99,9 +96,9 @@ Simply swap 3.3V and GND
 
 - 🎮 13 emulators + OpenTyrian
 - ⚡ Near full-speed emulation (60 FPS on all systems except for SNES - I will try to improve)
-- 💾 Save / Load states
+- 💾 Save / Load states (**SNES from within the game**)
 - 🖥️ Touchscreen-optimized UI
-- 🎯 USB controller support
+- 🎯 USB controller support (currentltly the one showed in the picture)
 - 🕹️ Paddle support for Atari (Via IO51)
 
 ## 🎮 Supported Systems
@@ -121,7 +118,7 @@ Simply swap 3.3V and GND
 
 | System | Status | Notes |
 |--------|--------|------|
-| NES / GB / GBA | ✅ 60 FPS | Full speed |
+| NES / GB / GBA | ✅ 60 FPS |
 | SMS / GG | ✅ 60 FPS |
 | Atari family | ✅ 60 FPS | Fixed legacy bugs |
 | PCE | ✅ 60 FPS | Major improvements |
@@ -133,14 +130,12 @@ The P4's PPA (Pixel Processing Accelerator) is in action for smooth graphics and
 - ❌ No Super FX support
 - ✔️ Most standard titles run well
 
----
-
 ## 🧩 Architecture (Developer Insight)
 
 This project is designed with performance and modularity in mind:
 
 - Separate emulator cores per system
-- Shared rendering pipeline (LCD optimized)
+- Shared rendering pipeline (LCD optimized), using the **2D accelator** of the P4 for scale and rotate
 - Input abstraction layer (USB + touch)
 - Optimized memory usage for large ROMs
 
@@ -151,24 +146,10 @@ This project is designed with performance and modularity in mind:
 - Input latency minimization
 - Cross-emulator UI integration
 
----
-
-## 🎨 User Interface
-
-- Fully redesigned launcher
-- Smooth transitions
-- Touch-first navigation
-- Clean, modern layout
-
----
-
 ## 🎮 Controls
 
 - USB SNES controller (recommended)
-- Touchscreen (UI + keyboard)
 - Atari paddle support
-
----
 
 ## 🔧 Improvements Over Original RetroESP32
 
@@ -176,8 +157,8 @@ This project is designed with performance and modularity in mind:
 - PCE now runs at full speed
 - Better stability across all systems
 - Enhanced UI/UX
-
----
+- Added more emulators
+- Save / load support for all emulators
 
 ## 🛠️ Hardware Requirements
 
@@ -185,50 +166,19 @@ This project is designed with performance and modularity in mind:
 - 4.3" 480x800 touchscreen
 - USB controller
 
----
-
-## 📦 Installation
-
-```bash
-# Clone
-git clone https://github.com/your-repo/RetroESP32-P4.git
-cd RetroESP32-P4
-
-# Build
-idf.py build
-
-# Flash
-idf.py flash monitor
-```
-
----
-
 ## 📁 ROM Setup
 
 Place ROMs in their respective folders.
 
 > ⚠️ Use only legally owned ROMs.
 
----
-
 ## 🧩 Roadmap
 
 - [ ] Improve SNES performance
 - [ ] Investigate SuperFX feasibility
-- [ ] Add more emulators
 - [ ] UI polish & animations
 - [ ] Bluetooth controller support
-
----
-
-## 📊 Why This Project Matters
-
-- Pushes ESP32-P4 to real limits
-- Demonstrates advanced embedded graphics
-- Combines multiple systems in one device
-- Great reference for embedded + UI integration
-
----
+- [ ] Dedicated board to make it a stand alone console (WIP)
 
 ## 🤝 Contributing
 
@@ -238,13 +188,9 @@ Contributions welcome:
 - Emulator fixes
 - UI improvements
 
----
-
 ## 📜 License
 
 MIT License
-
----
 
 ## ⭐ Support
 
