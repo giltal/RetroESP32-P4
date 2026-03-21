@@ -206,7 +206,7 @@ static void LoadState(void);
 /* ─── Volume Overlay ──────────────────────────────────────────── */
 static void pro_show_volume_overlay(void)
 {
-    uint16_t *fb = display_get_framebuffer();
+    uint16_t *fb = display_get_emu_buffer();
     if (!fb) return;
 
     static const char *level_names[ODROID_VOLUME_LEVEL_COUNT] = {
@@ -262,7 +262,7 @@ static void pro_show_volume_overlay(void)
             pro_fill_rect(fb, sx, bar_y, 1, bar_h, PRO_COLOR_WHITE);
         }
 
-        display_flush_force();
+        display_emu_flush();
         odroid_display_unlock();
 
         vTaskDelay(pdMS_TO_TICKS(80));
@@ -348,7 +348,7 @@ static bool pro_delete_save(void)
 /* Returns: true = keep running, false = exit game */
 static bool pro_show_ingame_menu(void)
 {
-    uint16_t *fb = display_get_framebuffer();
+    uint16_t *fb = display_get_emu_buffer();
     if (!fb) return true;
 
     bool has_save = pro_check_save_exists();
@@ -422,7 +422,7 @@ static bool pro_show_ingame_menu(void)
             if (flash_timer == 0) flash_msg = NULL;
         }
 
-        display_flush_force();
+        display_emu_flush();
         odroid_display_unlock();
 
         vTaskDelay(pdMS_TO_TICKS(80));

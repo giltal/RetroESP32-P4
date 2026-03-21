@@ -509,7 +509,7 @@ static void pce_menu_fill_rect(uint16_t *fb, int x, int y, int w, int h, uint16_
 /* ────────────────────────────────────────────────────────────────── */
 static void pce_show_volume_overlay(void)
 {
-    uint16_t *fb = display_get_framebuffer();
+    uint16_t *fb = display_get_emu_buffer();
     if (!fb) return;
 
     static const char *level_names[ODROID_VOLUME_LEVEL_COUNT] = {
@@ -571,7 +571,7 @@ static void pce_show_volume_overlay(void)
             pce_menu_fill_rect(fb, sx, bar_y, 1, bar_h, PCE_COLOR_WHITE);
         }
 
-        display_flush_force();
+        display_emu_flush();
         odroid_display_unlock_nes_display();
 
         usleep(80000);
@@ -635,7 +635,7 @@ static void pce_resume_load_cb(void)
 /* Returns: true = keep running, false = exit game */
 static bool show_game_menu(void)
 {
-    uint16_t *fb = display_get_framebuffer();
+    uint16_t *fb = display_get_emu_buffer();
     if (!fb) return true;
 
     bool has_save = pce_check_save_exists();
@@ -714,7 +714,7 @@ static bool show_game_menu(void)
             if (flash_timer == 0) flash_msg = NULL;
         }
 
-        display_flush_force();
+        display_emu_flush();
         odroid_display_unlock_nes_display();
 
         usleep(60000);

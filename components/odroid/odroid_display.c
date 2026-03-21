@@ -76,6 +76,16 @@ static void backlight_init(void)
 static void *s_ppa_out_buf = NULL;
 static size_t s_ppa_out_size = 0;
 
+/* Emulator standard resolution (all Pipeline A emulators scale to this) */
+#define EMU_W 320
+#define EMU_H 240
+#define EMU_PIXELS (EMU_W * EMU_H)
+#define EMU_SIZE   (EMU_PIXELS * sizeof(uint16_t))
+
+/* Shared 320×240 intermediate buffer for Pipeline A emulators */
+static uint16_t *s_emu_scaled = NULL;
+static bool s_emu_borders_cleared_a = false;
+
 /* Configurable scale factors (1×1 = native resolution → 480×800) */
 static float s_scale_x = 1.0f;
 static float s_scale_y = 1.0f;
@@ -157,6 +167,71 @@ void display_set_scale(float sx, float sy)
     ESP_LOGI(TAG, "PPA scale set to %.2fx%.2f", sx, sy);
 }
 
+/* ─── Pipeline A helper: 320×240 → PPA 2× + 270° → 480×640 LCD ─
+ *
+ * Called from Pipeline A functions that already hold the display lock.
+ * Does the same thing as ili9341_write_frame_rgb565_ex() but without
+ * lock/unlock, since the caller already owns the mutex.
+ */
+static void display_emu_flush_320x240(const uint16_t *buf, bool byte_swap)
+{
+    /* Lazy-allocate the persistent PPA output buffer */
+    if (!s_ppa_out_buf) {
+        s_ppa_out_buf = heap_caps_aligned_calloc(
+            PPA_BUF_ALIGN, 1, PPA_OUT_ALIGNED,
+            MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+        if (!s_ppa_out_buf) {
+            ESP_LOGE(TAG, "Failed to allocate PPA output buffer (%d bytes)", PPA_OUT_ALIGNED);
+            return;
+        }
+        s_ppa_out_size = PPA_OUT_ALIGNED;
+    }
+
+    /* Clear LCD border areas once (top/bottom 80 rows) */
+    if (!s_emu_borders_cleared_a) {
+        size_t border_size = 480 * 80 * sizeof(uint16_t);
+        memset(s_ppa_out_buf, 0, border_size);
+        st7701_lcd_draw_rgb_bitmap(0, 0, 480, 80, (const uint16_t *)s_ppa_out_buf);
+        st7701_lcd_draw_rgb_bitmap(0, 720, 480, 80, (const uint16_t *)s_ppa_out_buf);
+        s_emu_borders_cleared_a = true;
+    }
+
+    /* PPA: 320×240 → scale 2× + rotate 270° → 480×640 */
+    uint32_t out_w = 0, out_h = 0;
+    int64_t t0 = esp_timer_get_time();
+    esp_err_t ret = ppa_rotate_scale_rgb565_to(
+        buf, EMU_W, EMU_H,
+        270, 2.0f, 2.0f,
+        s_ppa_out_buf, s_ppa_out_size,
+        &out_w, &out_h, byte_swap);
+    int64_t t1 = esp_timer_get_time();
+
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "PPA emu 2x+rot failed (0x%x)", ret);
+        return;
+    }
+
+    /* Center on 480×800 LCD: y_off = (800 - 640) / 2 = 80 */
+    uint16_t lcd_h = st7701_lcd_height();
+    uint16_t y_off = (lcd_h > out_h) ? (lcd_h - out_h) / 2 : 0;
+    st7701_lcd_draw_rgb_bitmap(0, y_off, out_w, out_h, (const uint16_t *)s_ppa_out_buf);
+    int64_t t2 = esp_timer_get_time();
+
+    s_timing_ppa_acc += (t1 - t0);
+    s_timing_lcd_acc += (t2 - t1);
+    s_timing_count++;
+    if (s_timing_count >= TIMING_INTERVAL) {
+        printf("DISP TIMING (%d frames): PPA=%.1fms  LCD=%.1fms\n",
+               s_timing_count,
+               s_timing_ppa_acc / (s_timing_count * 1000.0f),
+               s_timing_lcd_acc / (s_timing_count * 1000.0f));
+        s_timing_ppa_acc = 0;
+        s_timing_lcd_acc = 0;
+        s_timing_pal_acc = 0;
+        s_timing_count = 0;
+    }
+}
+
 /* ─── ILI9341-compatible API ──────────────────────────────────── */
 
 void ili9341_init(void)
@@ -215,6 +290,22 @@ uint16_t *display_get_framebuffer(void)
     return s_framebuffer;
 }
 
+uint16_t *display_get_emu_buffer(void)
+{
+    if (!s_emu_scaled) {
+        s_emu_scaled = heap_caps_aligned_calloc(
+            64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+    }
+    return s_emu_scaled;
+}
+
+void display_emu_flush(void)
+{
+    if (s_emu_scaled) {
+        display_emu_flush_320x240(s_emu_scaled, false);
+    }
+}
+
 /* ─── Display mutex for exclusive access ──────────────────────── */
 static SemaphoreHandle_t s_display_mutex = NULL;
 
@@ -266,24 +357,32 @@ void ili9341_write_frame_gb(uint16_t *buffer, int scale)
         /* Copy input into DMA-aligned temp buffer */
         memcpy(s_gb_temp, buffer, GB_PIXELS * sizeof(uint16_t));
 
-        /* PPA scale 160×144 → 320×240 directly into framebuffer */
-        float sx = (float)FB_W / GAMEBOY_WIDTH;   /* 2.0 */
-        float sy = (float)FB_H / GAMEBOY_HEIGHT;  /* 1.6667 */
+        /* Lazy-allocate shared 320×240 intermediate buffer */
+        if (!s_emu_scaled) {
+            s_emu_scaled = heap_caps_aligned_calloc(
+                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock_gb_display(); return; }
+        }
+
+        /* PPA scale 160×144 → 320×240 */
+        float sx = (float)EMU_W / GAMEBOY_WIDTH;   /* 2.0 */
+        float sy = (float)EMU_H / GAMEBOY_HEIGHT;  /* 1.6667 */
         uint32_t out_w = 0, out_h = 0;
         esp_err_t ret = ppa_rotate_scale_rgb565_to(
             s_gb_temp, GAMEBOY_WIDTH, GAMEBOY_HEIGHT,
             0, sx, sy,
-            s_framebuffer, FB_SIZE,
+            s_emu_scaled, EMU_SIZE,
             &out_w, &out_h, false);
 
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "PPA GB scale failed: %s", esp_err_to_name(ret));
-        } else {
-            s_fb_dirty = true;
+            odroid_display_unlock_gb_display();
+            return;
         }
+
+        display_emu_flush_320x240(s_emu_scaled, false);
     }
 
-    display_flush();
     odroid_display_unlock_gb_display();
 }
 
@@ -321,24 +420,32 @@ void ili9341_write_frame_nes(uint8_t *buffer, uint16_t *myPalette, uint8_t scale
             s_nes_temp[i] = (pixel >> 8) | (pixel << 8);
         }
 
-        /* PPA scale 256×224 → 320×240 directly into framebuffer */
-        float sx = (float)FB_W / NES_GAME_WIDTH;   /* 1.25 */
-        float sy = (float)FB_H / NES_GAME_HEIGHT;  /* 1.0714 */
+        /* Lazy-allocate shared 320×240 intermediate buffer */
+        if (!s_emu_scaled) {
+            s_emu_scaled = heap_caps_aligned_calloc(
+                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock_nes_display(); return; }
+        }
+
+        /* PPA scale 256×224 → 320×240 */
+        float sx = (float)EMU_W / NES_GAME_WIDTH;   /* 1.25 */
+        float sy = (float)EMU_H / NES_GAME_HEIGHT;  /* 1.0714 */
         uint32_t out_w = 0, out_h = 0;
         esp_err_t ret = ppa_rotate_scale_rgb565_to(
             s_nes_temp, NES_GAME_WIDTH, NES_GAME_HEIGHT,
             0, sx, sy,
-            s_framebuffer, FB_SIZE,
+            s_emu_scaled, EMU_SIZE,
             &out_w, &out_h, false);
 
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "PPA NES scale failed: %s", esp_err_to_name(ret));
-        } else {
-            s_fb_dirty = true;
+            odroid_display_unlock_nes_display();
+            return;
         }
+
+        display_emu_flush_320x240(s_emu_scaled, false);
     }
 
-    display_flush();
     odroid_display_unlock_nes_display();
 }
 
@@ -387,24 +494,32 @@ void ili9341_write_frame_sms(uint8_t *buffer, uint16_t color[], uint8_t isGameGe
             }
         }
 
-        /* PPA scale src_w×src_h → 320×240 directly into framebuffer */
-        float sx = (float)FB_W / src_w;
-        float sy = (float)FB_H / src_h;
+        /* Lazy-allocate shared 320×240 intermediate buffer */
+        if (!s_emu_scaled) {
+            s_emu_scaled = heap_caps_aligned_calloc(
+                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock_sms_display(); return; }
+        }
+
+        /* PPA scale src_w×src_h → 320×240 */
+        float sx = (float)EMU_W / src_w;
+        float sy = (float)EMU_H / src_h;
         uint32_t out_w = 0, out_h = 0;
         esp_err_t ret = ppa_rotate_scale_rgb565_to(
             s_sms_temp, src_w, src_h,
             0, sx, sy,
-            s_framebuffer, FB_SIZE,
+            s_emu_scaled, EMU_SIZE,
             &out_w, &out_h, false);
 
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "PPA SMS scale failed: %s", esp_err_to_name(ret));
-        } else {
-            s_fb_dirty = true;
+            odroid_display_unlock_sms_display();
+            return;
         }
+
+        display_emu_flush_320x240(s_emu_scaled, false);
     }
 
-    display_flush();
     odroid_display_unlock_sms_display();
 }
 
@@ -419,26 +534,32 @@ void ili9341_write_frame_c64(uint8_t *buffer, uint16_t *palette)
     if (buffer == NULL) {
         ili9341_clear(0x0000);
     } else {
-        const int offX = (C64_DISPLAY_X - FB_W) / 2; /* (384-320)/2 = 32 */
-        const int offY = (C64_DISPLAY_Y - FB_H) / 2; /* (272-240)/2 = 16 */
+        /* Lazy-allocate shared 320×240 intermediate buffer */
+        if (!s_emu_scaled) {
+            s_emu_scaled = heap_caps_aligned_calloc(
+                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock(); return; }
+        }
 
-        for (int y = 0; y < FB_H; ++y) {
+        /* Crop 384×272 → center 320×240 with palette conversion */
+        const int offX = (C64_DISPLAY_X - EMU_W) / 2; /* (384-320)/2 = 32 */
+        const int offY = (C64_DISPLAY_Y - EMU_H) / 2; /* (272-240)/2 = 16 */
+
+        for (int y = 0; y < EMU_H; ++y) {
             int src_base = (y + offY) * C64_DISPLAY_X + offX;
-            int dst_base = y * FB_W;
-            for (int x = 0; x < FB_W; ++x) {
-                /* Palette must be native-endian RGB565 (no byte swap — PPA expects native). */
-                s_framebuffer[dst_base + x] = palette[buffer[src_base + x]];
+            int dst_base = y * EMU_W;
+            for (int x = 0; x < EMU_W; ++x) {
+                s_emu_scaled[dst_base + x] = palette[buffer[src_base + x]];
             }
         }
-        s_fb_dirty = true;
-    }
 
-    display_flush();
+        display_emu_flush_320x240(s_emu_scaled, false);
+    }
 
     odroid_display_unlock();
 }
 
-/* ─── Atari 7800 display: 320×240 8-bit indexed → direct to FB ── */
+/* ─── Atari 7800 / PCE display: 320×240 8-bit indexed → Pipeline B ── */
 void ili9341_write_frame_prosystem(uint8_t *buffer, uint16_t *palette)
 {
     odroid_display_lock();
@@ -446,12 +567,18 @@ void ili9341_write_frame_prosystem(uint8_t *buffer, uint16_t *palette)
     if (buffer == NULL) {
         ili9341_clear(0x0000);
     } else {
+        /* Lazy-allocate shared 320×240 intermediate buffer */
+        if (!s_emu_scaled) {
+            s_emu_scaled = heap_caps_aligned_calloc(
+                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock(); return; }
+        }
+
         int64_t tp0 = esp_timer_get_time();
-        /* Optimized palette lookup: process 4 input pixels per iteration
-         * to reduce PSRAM cache line fetches and loop overhead. */
+        /* Palette lookup: 320×240 8-bit indexed → RGB565 into s_emu_scaled */
         const uint32_t *in32  = (const uint32_t *)buffer;
-        uint32_t       *out32 = (uint32_t *)s_framebuffer;
-        for (int i = 0; i < FB_PIXELS / 4; i++) {
+        uint32_t       *out32 = (uint32_t *)s_emu_scaled;
+        for (int i = 0; i < EMU_PIXELS / 4; i++) {
             uint32_t pix4 = in32[i];
             uint16_t p0 = palette[(pix4 >>  0) & 0xFF];
             uint16_t p1 = palette[(pix4 >>  8) & 0xFF];
@@ -461,10 +588,10 @@ void ili9341_write_frame_prosystem(uint8_t *buffer, uint16_t *palette)
             out32[i * 2 + 1] = p2 | ((uint32_t)p3 << 16);
         }
         s_timing_pal_acc += (esp_timer_get_time() - tp0);
-        s_fb_dirty = true;
+
+        display_emu_flush_320x240(s_emu_scaled, false);
     }
 
-    display_flush();
     odroid_display_unlock();
 }
 
@@ -495,23 +622,32 @@ void ili9341_write_frame_lynx(const uint16_t *buffer)
 
         memcpy(s_lynx_temp, buffer, LYNX_PIXELS * sizeof(uint16_t));
 
-        float sx = (float)FB_W / LYNX_GAME_WIDTH;   /* 2.0 */
-        float sy = (float)FB_H / LYNX_GAME_HEIGHT;  /* ~2.353 */
+        /* Lazy-allocate shared 320×240 intermediate buffer */
+        if (!s_emu_scaled) {
+            s_emu_scaled = heap_caps_aligned_calloc(
+                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock(); return; }
+        }
+
+        /* PPA scale 160×102 → 320×240 */
+        float sx = (float)EMU_W / LYNX_GAME_WIDTH;   /* 2.0 */
+        float sy = (float)EMU_H / LYNX_GAME_HEIGHT;  /* ~2.353 */
         uint32_t out_w = 0, out_h = 0;
         esp_err_t ret = ppa_rotate_scale_rgb565_to(
             s_lynx_temp, LYNX_GAME_WIDTH, LYNX_GAME_HEIGHT,
             0, sx, sy,
-            s_framebuffer, FB_SIZE,
+            s_emu_scaled, EMU_SIZE,
             &out_w, &out_h, false);
 
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "PPA Lynx scale failed: %s", esp_err_to_name(ret));
-        } else {
-            s_fb_dirty = true;
+            odroid_display_unlock();
+            return;
         }
+
+        display_emu_flush_320x240(s_emu_scaled, false);
     }
 
-    display_flush();
     odroid_display_unlock();
 }
 

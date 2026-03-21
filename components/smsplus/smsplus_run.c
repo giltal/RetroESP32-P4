@@ -200,7 +200,7 @@ static void LoadState(void);
 /* ─── Volume Overlay for SMS/GG ──────────────────────────────────── */
 static void sms_show_volume_overlay(void)
 {
-    uint16_t *fb = display_get_framebuffer();
+    uint16_t *fb = display_get_emu_buffer();
     if (!fb) return;
 
     static const char *level_names[ODROID_VOLUME_LEVEL_COUNT] = {
@@ -256,7 +256,7 @@ static void sms_show_volume_overlay(void)
             sms_fill_rect(fb, sx, bar_y, 1, bar_h, SMS_COLOR_WHITE);
         }
 
-        display_flush_force();
+        display_emu_flush();
         odroid_display_unlock_sms_display();
 
         vTaskDelay(pdMS_TO_TICKS(80));
@@ -364,7 +364,7 @@ static bool sms_delete_save(void)
 /* Returns: true = keep running, false = exit game */
 static bool sms_show_ingame_menu(void)
 {
-    uint16_t *fb = display_get_framebuffer();
+    uint16_t *fb = display_get_emu_buffer();
     if (!fb) return true;
 
     bool has_save = sms_check_save_exists();
@@ -438,7 +438,7 @@ static bool sms_show_ingame_menu(void)
             if (flash_timer == 0) flash_msg = NULL;
         }
 
-        display_flush_force();
+        display_emu_flush();
         odroid_display_unlock_sms_display();
 
         vTaskDelay(pdMS_TO_TICKS(80));

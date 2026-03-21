@@ -75,6 +75,17 @@ bool is_backlight_initialized(void);
  * @return Pointer to the RGB565 framebuffer (320*240 = 76,800 elements)
  */
 uint16_t *display_get_framebuffer(void);
+
+/**
+ * @brief Get a pointer to the 320×240 emulator-scaled buffer.
+ * Used by in-game menus. Draw with 320-pixel stride, then call display_emu_flush().
+ */
+uint16_t *display_get_emu_buffer(void);
+
+/**
+ * @brief Flush the 320×240 emulator buffer via PPA 2× scale + 270° rotate → 480×640 LCD.
+ */
+void display_emu_flush(void);
 /* ─── Emulator-specific display write functions ───────────────── */
 
 /**

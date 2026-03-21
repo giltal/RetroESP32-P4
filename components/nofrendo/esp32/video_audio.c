@@ -508,7 +508,7 @@ static bool menu_delete_save(void)
    ~2 seconds of no input. */
 static void show_volume_overlay(void)
 {
-    uint16_t *fb = display_get_framebuffer();
+    uint16_t *fb = display_get_emu_buffer();
     if (!fb) return;
 
     static const char *level_names[ODROID_VOLUME_LEVEL_COUNT] = {
@@ -579,7 +579,7 @@ static void show_volume_overlay(void)
             menu_fill_rect(fb, sx, bar_y, 1, bar_h, COLOR_WHITE);
         }
 
-        display_flush_force();
+        display_emu_flush();
         odroid_display_unlock_nes_display();
 
         /* Read input */
@@ -625,7 +625,7 @@ static void show_volume_overlay(void)
    false if DoQuit was called and we should exit. */
 static bool show_ingame_menu(void)
 {
-    uint16_t *fb = display_get_framebuffer();
+    uint16_t *fb = display_get_emu_buffer();
     if (!fb) return true;
 
     bool has_save = menu_check_save_exists();
@@ -710,7 +710,7 @@ static bool show_ingame_menu(void)
             if (flash_timer == 0) flash_msg = NULL;
         }
 
-        display_flush_force();
+        display_emu_flush();
         odroid_display_unlock_nes_display();
 
         /* ── Read input ── */
