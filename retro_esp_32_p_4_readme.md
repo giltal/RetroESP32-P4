@@ -13,9 +13,43 @@
 **RetroESP32-P4** is a high-performance retro gaming platform built on off the shelf ESP32-P4 platform (see picture), bringing together multiple classic systems into a single, compact device.
 The platform and the USB SNES controller available at AliExpress for around 35$ (both)
 
-It's cheap and works great, soon I will release a board that will make the platform a stand alone console.
-In order to get it working, prepare a SD card (FAT32), place on it the content from the SD card folder.
-Flash the 
+🚀 Getting Started
+🧰 Setup Instructions
+Prepare SD Card
+Format your SD card as FAT32
+Copy all files from the SD folder onto the card
+
+Flash Firmware
+Flash **RetroESP32_P4_v1.bin** to address 0x0
+Recommended tool:
+👉 https://espressif.github.io/esptool-js/
+Add ROMs
+Copy your ROM files to the SD card (same structure as RetroESP32)
+Power On & Enjoy 🎮
+
+🖥️ GUI Improvements
+Files are now sorted
+File browser supports Page Up / Page Down
+Improved usability compared to the original RetroESP32
+
+⚠️ Recovery Mode
+If an emulator gets stuck:
+Press RESET
+Immediately touch and hold the screen
+The system will reboot back into the launcher
+
+🎮 Controls Notes
+SNES requires full button access, so:
+Menu and volume controls are handled via the touch screen
+
+🕹️ Atari Paddle Support
+To use paddle input:
+Connect a potentiometer:
+One side → 3.3V
+Other side → GND
+Middle (wiper) → IO51
+If rotation is reversed:
+Simply swap 3.3V and GND
 
 ## 🎬 Demo (Add GIFs!)
 
@@ -60,7 +94,7 @@ Flash the
 | System | Status | Notes |
 |--------|--------|------|
 | NES / GB / GBA | ✅ 60 FPS | Full speed |
-| SMS / GG | ✅ 60 FPS | Stable |
+| SMS / GG | ✅ 60 FPS |
 | Atari family | ✅ 60 FPS | Fixed legacy bugs |
 | PCE | ✅ 60 FPS | Major improvements |
 | SNES | ⚠️ ~50 FPS | No SuperFX |
