@@ -14,41 +14,69 @@
 The platform and the USB SNES controller available at AliExpress for around 35$ (both)
 
 🚀 Getting Started
+
+This platform is affordable, reliable, and performs great.
+Soon, I’ll be releasing a dedicated board that turns it into a fully standalone console.
+
 🧰 Setup Instructions
+
 Prepare SD Card
+
 Format your SD card as FAT32
+
 Copy all files from the SD folder onto the card
 
 Flash Firmware
-Flash **RetroESP32_P4_v1.bin** to address 0x0
+
+Flash RetroESP32_P4_v1.bin to address 0x0
+
 Recommended tool:
 👉 https://espressif.github.io/esptool-js/
+
 Add ROMs
+
 Copy your ROM files to the SD card (same structure as RetroESP32)
+
 Power On & Enjoy 🎮
 
 🖥️ GUI Improvements
+
 Files are now sorted
+
 File browser supports Page Up / Page Down
+
 Improved usability compared to the original RetroESP32
 
 ⚠️ Recovery Mode
+
 If an emulator gets stuck:
+
 Press RESET
+
 Immediately touch and hold the screen
+
 The system will reboot back into the launcher
 
 🎮 Controls Notes
+
 SNES requires full button access, so:
+
 Menu and volume controls are handled via the touch screen
 
 🕹️ Atari Paddle Support
+
 To use paddle input:
+
 Connect a potentiometer:
+
 One side → 3.3V
+
 Other side → GND
+
 Middle (wiper) → IO51
+
 If rotation is reversed:
+
 Simply swap 3.3V and GND
 
 ## 🎬 Demo (Add GIFs!)
