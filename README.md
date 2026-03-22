@@ -26,7 +26,7 @@ Format your SD card as FAT32
 
 Copy all files from the SD folder onto the card
 
-Flash Firmware
+**Flash Firmware**
 
 Flash RetroESP32_P4_v1.bin to address 0x0
 
