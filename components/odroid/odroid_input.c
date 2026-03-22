@@ -50,6 +50,7 @@ static int64_t      s_touch_last_us = 0;
 #define PADDLE_ADC_CHANNEL ADC_CHANNEL_3   /* GPIO 52 */
 
 volatile int odroid_paddle_adc_raw = -1;
+bool odroid_input_xy_menu_disable = false;
 static adc_oneshot_unit_handle_t s_paddle_adc_handle = NULL;
 
 void odroid_input_gamepad_init(void)
@@ -126,9 +127,11 @@ void odroid_input_gamepad_read(odroid_gamepad_state *state)
         state->values[ODROID_INPUT_VOLUME] |= s_touch_volume;
     }
 
-    /* X → Menu, Y → Volume for all emulators (SNES also reads X/Y directly) */
-    state->values[ODROID_INPUT_MENU]   |= state->values[ODROID_INPUT_X];
-    state->values[ODROID_INPUT_VOLUME] |= state->values[ODROID_INPUT_Y];
+    /* X → Menu, Y → Volume for emulators that lack native X/Y (skip for SNES) */
+    if (!odroid_input_xy_menu_disable) {
+        state->values[ODROID_INPUT_MENU]   |= state->values[ODROID_INPUT_X];
+        state->values[ODROID_INPUT_VOLUME] |= state->values[ODROID_INPUT_Y];
+    }
 }
 
 odroid_gamepad_state odroid_input_read_raw(void)

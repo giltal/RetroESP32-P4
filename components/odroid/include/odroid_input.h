@@ -98,6 +98,12 @@ void odroid_input_battery_monitor_enabled_set(bool enabled);
 extern volatile int odroid_paddle_adc_raw;
 
 /**
+ * @brief When true, X/Y gamepad buttons are NOT mapped to MENU/VOLUME.
+ *        Set by emulators that use X/Y natively (e.g. SNES).
+ */
+extern bool odroid_input_xy_menu_disable;
+
+/**
  * @brief Initialise the ADC for the analog paddle on GPIO 52 (ADC2_CH3).
  * Call once before reading odroid_paddle_adc_raw.
  */

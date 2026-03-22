@@ -41,6 +41,7 @@
 #include "odroid_system.h"
 #include "odroid_display.h"
 #include "odroid_sdcard.h"
+#include "st7701_lcd.h"
 
 static const char *TAG = "SNES_RUN";
 
@@ -61,6 +62,9 @@ extern SGFX GFX;
 static volatile bool snes_quit_flag = false;
 static volatile bool videoTaskRunning = false;
 static volatile bool audioTaskRunning = false;
+
+/* Forward declarations */
+static void snes_blit_sidebar_buttons(void);
 
 static uint16_t *snes_fb[2] = { NULL, NULL };  /* double-buffer for SNES output */
 static uint8_t  *snes_subscreen = NULL;         /* dedicated SubScreen buffer */
@@ -179,6 +183,7 @@ static void snes_video_task(void *arg)
 {
     uint16_t *frame = NULL;
     videoTaskRunning = true;
+    int sidebar_countdown = 2;  /* blit sidebar on first 2 frames, then stop */
 
     while (1) {
         xQueuePeek(vidQueue, &frame, portMAX_DELAY);
@@ -199,6 +204,12 @@ static void snes_video_task(void *arg)
         /* Direct 2× scale + 270° rotate — no 320×240 staging buffer */
         ili9341_write_frame_rgb565_custom(frame, SNES_FB_W, SNES_FB_H,
                                            2.0f, false);
+
+        /* Draw sidebar buttons once after the first frame clears borders */
+        if (sidebar_countdown > 0) {
+            snes_blit_sidebar_buttons();
+            sidebar_countdown--;
+        }
 
         xQueueReceive(vidQueue, &frame, portMAX_DELAY);
     }
@@ -584,67 +595,75 @@ static bool snes_show_menu(void)
 
 /* ─── Sidebar button labels ───────────────────────────────────── */
 /*
- * Draw "MENU" and "VOL" button labels in the black side bars around
- * the SNES game area.  Called once after the first frames render.
+ * Draw "MENU" and "VOL" button labels in the black side bars.
  *
- * LCD 480×800 (portrait), viewed as 800×480 (landscape, device 90° CCW).
- * SNES: 256×224 → PPA 2×+270° → 448×512 at LCD (16, 144).
- * Left bar  (MENU):  landscape x=0..143   (touch zone: portrait y < 170)
- * Right bar (VOL):   landscape x=656..799 (touch zone: portrait y > 630)
+ * LCD portrait: 480 wide (x) × 800 tall (y).
+ * Device held landscape with portrait-top on LEFT:
+ *   landscape_x = portrait_y          (small portrait_y → landscape LEFT)
+ *   landscape_y = 479 − portrait_x    (small portrait_x → landscape BOTTOM)
  *
- * Landscape→portrait mapping:  px = 479 − ly,  py = lx.
+ * Touch zone: portrait y < 170 = landscape LEFT  = MENU
+ *             portrait y > 630 = landscape RIGHT = VOL
+ *
+ * SNES game area on LCD: portrait (16, 144) to (463, 655).
+ *   LEFT sidebar  = portrait y   0..143  → MENU
+ *   RIGHT sidebar = portrait y 656..799  → VOL
+ *
+ * Glyph rendering (upright text, reading L→R in landscape):
+ *   font_col (left=0..right=4)    → portrait_y INCREASES (landscape L→R)
+ *   font_row (top=0..bottom=4)    → portrait_x DECREASES (landscape top→bottom)
+ *   Characters march in portrait +y direction (= landscape L→R).
  */
-static void snes_draw_sidebar_buttons(void)
+
+/* Persistent sidebar button buffers — allocated once, reused every frame */
+static uint16_t *s_sidebar_buf[2] = { NULL, NULL };
+static const struct { const char *text; int px, py, pw, ph; } s_sidebar_btns[] = {
+    { "MENU", 200, 22,  80, 100 },       /* landscape LEFT  sidebar (portrait y < 144) */
+    { "VOL",  200, 700, 80,  84 },       /* landscape RIGHT sidebar (portrait y > 656) */
+};
+
+static void snes_init_sidebar_buttons(void)
 {
-    enum { SB_SC = 3 };                      /* font scale: 5×5 → 15×15 */
-    enum { SB_CW = 5 * SB_SC, SB_CH = 5 * SB_SC, SB_GAP = SB_SC };
-    const uint16_t COL_BG  = 0x18E3;         /* dark charcoal */
-    const uint16_t COL_BRD = 0x6B4D;         /* medium grey */
-    const uint16_t COL_TXT = 0xFFFF;         /* white */
-
-    /* Write landscape pixel (lx,ly) into portrait buffer.
-     * Portrait width = lh, stored row-major with row index = lx. */
-    #define SB_PUT(buf, pw, lx, ly, c) \
-        (buf)[(lx) * (pw) + ((pw) - 1 - (ly))] = (c)
-
-    static const struct { const char *text; int lx, ly, lw, lh; } btns[] = {
-        { "MENU", 22,  224, 100, 32 },        /* left bar, centred  */
-        { "VOL",  686, 224,  84, 32 },        /* right bar, centred */
-    };
+    enum { SC = 3 };
+    enum { CW = 5 * SC, CH = 5 * SC, GAP = SC };
+    const uint16_t COL_BG  = 0x18E3;
+    const uint16_t COL_BRD = 0x6B4D;
+    const uint16_t COL_TXT = 0xFFFF;
 
     for (int b = 0; b < 2; b++) {
-        const int lw = btns[b].lw, lh = btns[b].lh;
-        const int pw = lh, ph = lw;             /* portrait dims */
+        const int pw = s_sidebar_btns[b].pw, ph = s_sidebar_btns[b].ph;
 
-        uint16_t *pbuf = (uint16_t *)heap_caps_aligned_calloc(
+        s_sidebar_buf[b] = (uint16_t *)heap_caps_aligned_calloc(
             64, pw * ph, sizeof(uint16_t),
             MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
-        if (!pbuf) continue;
+        if (!s_sidebar_buf[b]) { ESP_LOGE(TAG, "Sidebar buf alloc failed b=%d", b); continue; }
+
+        uint16_t *buf = s_sidebar_buf[b];
 
         /* Background fill */
-        for (int y = 0; y < lh; y++)
-            for (int x = 0; x < lw; x++)
-                SB_PUT(pbuf, pw, x, y, COL_BG);
+        for (int i = 0; i < pw * ph; i++) buf[i] = COL_BG;
 
         /* 2-pixel border */
         for (int t = 0; t < 2; t++) {
-            for (int x = 0; x < lw; x++) {
-                SB_PUT(pbuf, pw, x, t,      COL_BRD);
-                SB_PUT(pbuf, pw, x, lh-1-t, COL_BRD);
+            for (int x = 0; x < pw; x++) {
+                buf[t * pw + x] = COL_BRD;
+                buf[(ph - 1 - t) * pw + x] = COL_BRD;
             }
-            for (int y = 0; y < lh; y++) {
-                SB_PUT(pbuf, pw, t,      y, COL_BRD);
-                SB_PUT(pbuf, pw, lw-1-t, y, COL_BRD);
+            for (int y = 0; y < ph; y++) {
+                buf[y * pw + t] = COL_BRD;
+                buf[y * pw + pw - 1 - t] = COL_BRD;
             }
         }
 
-        /* Centred text */
-        const char *s = btns[b].text;
+        /* Render upright text reading L→R in landscape */
+        const char *s = s_sidebar_btns[b].text;
         int nch = 0;
         for (const char *p = s; *p; p++) nch++;
-        int tw = nch * (SB_CW + SB_GAP) - SB_GAP;
-        int tx = (lw - tw) / 2;
-        int ty = (lh - SB_CH) / 2;
+        int txt_pw = CH;
+        int txt_ph = nch * (CW + GAP) - GAP;
+        int ox = (pw - txt_pw) / 2;
+        int oy = (ph - txt_ph) / 2;
+        int glyph_top_x = ox + txt_pw - 1;
 
         for (int ci = 0; ci < nch; ci++) {
             int idx = -1;
@@ -653,28 +672,38 @@ static void snes_draw_sidebar_buttons(void)
             else if (ch >= 'a' && ch <= 'z') idx = ch - 'a';
             if (idx < 0) continue;
 
-            int ox = tx + ci * (SB_CW + SB_GAP);
-            int oy = ty;
-            for (int r = 0; r < 5; r++)
-                for (int c = 0; c < 5; c++)
-                    if (font5x5[idx][r] & (0x10 >> c))
-                        for (int sr = 0; sr < SB_SC; sr++)
-                            for (int sc = 0; sc < SB_SC; sc++) {
-                                int lx = ox + c * SB_SC + sc;
-                                int ly = oy + r * SB_SC + sr;
-                                if (lx < lw && ly < lh)
-                                    SB_PUT(pbuf, pw, lx, ly, COL_TXT);
+            int char_by = oy + ci * (CW + GAP);
+
+            for (int fr = 0; fr < 5; fr++)
+                for (int fc = 0; fc < 5; fc++)
+                    if (font5x5[idx][fr] & (0x10 >> fc))
+                        for (int sr = 0; sr < SC; sr++)
+                            for (int sc = 0; sc < SC; sc++) {
+                                int bx = glyph_top_x - (fr * SC + sr);
+                                int by = char_by + fc * SC + sc;
+                                if (bx >= 0 && bx < pw && by >= 0 && by < ph)
+                                    buf[by * pw + bx] = COL_TXT;
                             }
         }
 
-        /* Blit to LCD at portrait position */
-        int port_x = 479 - btns[b].ly - lh + 1;
-        int port_y = btns[b].lx;
-        display_lcd_draw_raw((uint16_t)port_x, (uint16_t)port_y,
-                             (uint16_t)pw, (uint16_t)ph, pbuf);
-        heap_caps_free(pbuf);
+        ESP_LOGI(TAG, "Sidebar btn[%d] '%s' rendered, portrait (%d,%d) %dx%d",
+                 b, s_sidebar_btns[b].text, s_sidebar_btns[b].px, s_sidebar_btns[b].py, pw, ph);
     }
-    #undef SB_PUT
+}
+
+/* Blit pre-rendered sidebar buttons to LCD (called from video task AFTER each game frame).
+ * Uses direct CPU memcpy to the DPI framebuffer, bypassing the async DMA2D
+ * pipeline to avoid contention with the game-frame draw_bitmap (which holds
+ * a non-blocking semaphore while its DMA transfer is in-flight). */
+static void snes_blit_sidebar_buttons(void)
+{
+    for (int b = 0; b < 2; b++) {
+        if (!s_sidebar_buf[b]) continue;
+        st7701_lcd_draw_to_fb(
+            (uint16_t)s_sidebar_btns[b].px, (uint16_t)s_sidebar_btns[b].py,
+            (uint16_t)s_sidebar_btns[b].pw, (uint16_t)s_sidebar_btns[b].ph,
+            s_sidebar_buf[b]);
+    }
 }
 
 /* ─── Main emulation logic ──────────────────────────────────────── */
@@ -881,6 +910,12 @@ void snes_run(const char *rom_path)
     /* ── Initialize audio ── */
     odroid_audio_init(AUDIO_SAMPLE_RATE);
 
+    /* ── Pre-render sidebar button bitmaps ── */
+    snes_init_sidebar_buttons();
+
+    /* SNES has native X/Y face buttons — don't alias them to Menu/Volume */
+    odroid_input_xy_menu_disable = true;
+
     /* ── Create video queue and task ── */
     vidQueue = xQueueCreate(1, sizeof(uint16_t *));
     xTaskCreatePinnedToCore(snes_video_task, "snes_video", 4096,
@@ -909,8 +944,6 @@ void snes_run(const char *rom_path)
     /* Profiling accumulators */
     int64_t prof_cpu_acc = 0, prof_audio_acc = 0, prof_vid_acc = 0;
     int prof_cnt = 0, prof_skip = 0;
-
-    bool sidebar_drawn = false;
 
     odroid_gamepad_state gp_prev;
     odroid_input_gamepad_read(&gp_prev);
@@ -962,12 +995,6 @@ void snes_run(const char *rom_path)
             /* SubScreen stays at its dedicated buffer — do NOT alias to Screen */
         }
         int64_t t_vid1 = esp_timer_get_time();
-
-        /* Draw sidebar button labels once after borders are cleared */
-        if (!sidebar_drawn && frame_no >= 3) {
-            snes_draw_sidebar_buttons();
-            sidebar_drawn = true;
-        }
 
         /* Accumulate profiling */
         prof_cpu_acc   += (t_cpu1 - t_cpu0);

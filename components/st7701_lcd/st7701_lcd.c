@@ -13,6 +13,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_heap_caps.h"
+#include "esp_cache.h"
 #include <string.h>
 
 #include "esp_lcd_st7701.h"
@@ -121,6 +122,28 @@ esp_err_t st7701_lcd_draw_rgb_bitmap(uint16_t x, uint16_t y,
                                       const uint16_t *color_data)
 {
     return esp_lcd_panel_draw_bitmap(s_panel_handle, x, y, x + w, y + h, color_data);
+}
+
+esp_err_t st7701_lcd_draw_to_fb(uint16_t x, uint16_t y,
+                                uint16_t w, uint16_t h,
+                                const uint16_t *data)
+{
+    void *fb = NULL;
+    esp_err_t ret = esp_lcd_dpi_panel_get_frame_buffer(s_panel_handle, 1, &fb);
+    if (ret != ESP_OK || !fb) return ret ? ret : ESP_ERR_INVALID_STATE;
+
+    uint16_t *fb16 = (uint16_t *)fb;
+    for (int row = 0; row < h; row++) {
+        memcpy(&fb16[(y + row) * LCD_H_RES + x],
+               &data[row * w], w * sizeof(uint16_t));
+    }
+
+    /* Flush the modified framebuffer rows so the DPI controller sees them */
+    void *sync_start = &fb16[y * LCD_H_RES];
+    size_t sync_size = (size_t)h * LCD_H_RES * sizeof(uint16_t);
+    esp_cache_msync(sync_start, sync_size,
+                    ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
+    return ESP_OK;
 }
 
 esp_err_t st7701_lcd_fill_screen(uint16_t color)

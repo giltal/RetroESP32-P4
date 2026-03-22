@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** March 2026 — **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480×640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
+> **Last Updated:** March 2026 — **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480×640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -941,6 +941,42 @@ Menu helper functions (`draw_char`, `fill_rect`) use hardcoded 320-pixel stride:
 **Files changed (7):** `odroid_display.c`, `odroid_display.h`, `video_audio.c`, `gnuboy_run.c`, `smsplus_run.c`, `prosystem_run.c`, `huexpress_run.c`
 
 **Apps rebuilt & flashed:** NES, GB, SMS, ProSystem, PCE, Spectrum, Handy
+
+### Phase 25: SNES Sidebar Buttons & Input Fix
+
+**Goal:** Add visible MENU and VOL labels to the SNES emulator’s black side bars so users can see where to touch, and restore X/Y gamepad buttons to their native SNES function.
+
+**Context:** SNES outputs 256×224, scaled 2× + 270° rotated to 448×512 on the 480×800 portrait LCD. This leaves two black side bars: portrait y=0…143 (landscape left, 144px) and y=656…799 (landscape right, 144px). The touch screen maps these zones to MENU and VOLUME.
+
+**Implementation — Sidebar button rendering:**
+- Pre-rendered two button bitmaps (80×100 MENU, 80×84 VOL) with a 5×5 bitmap font at 3× scale
+- Buttons have dark gray background (`0x18E3`), border (`0x6B4D`), white text
+- Font rendering accounts for 270° rotation: font columns map to increasing portrait Y, font rows map to decreasing portrait X (so text reads L→R in landscape)
+- Persistent PSRAM buffers allocated once with `heap_caps_aligned_calloc(64, …, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA)`
+
+**Bug — DMA2D semaphore contention (only one button rendered):**
+- **Symptom:** Only the first sidebar button appeared; the second was invisible regardless of position
+- **Root cause:** The ESP-IDF DPI panel’s `draw_bitmap` with DMA2D uses `xSemaphoreTake(draw_sem, 0)` (non-blocking). When the game frame’s async DMA2D transfer is still in-flight, the next `draw_bitmap` call returns `ESP_ERR_INVALID_STATE` silently. The first button sometimes succeeded (DMA completed between calls), but the second always failed.
+- **Fix:** Added `st7701_lcd_draw_to_fb()` — writes directly to the DPI framebuffer via CPU memcpy + `esp_cache_msync()`, completely bypassing the async DMA2D pipeline. No semaphore contention possible.
+
+**Performance — Draw once, not every frame:**
+- The game frame only covers portrait (16,144)–(463,655); sidebar regions are never overwritten after the initial border clear
+- Sidebar buttons are blitted only on the first 2 video frames (covers the `s_custom_borders_cleared` one-time clear), then never again — zero per-frame overhead
+
+**Input fix — X/Y gamepad buttons:**
+- **Problem:** `odroid_input_gamepad_read()` globally mapped X→MENU and Y→VOLUME for all emulators. This was correct for emulators without native X/Y (NES, GB, etc.) but wrong for SNES which needs X/Y as face buttons.
+- **Fix:** Added `odroid_input_xy_menu_disable` global flag. SNES sets it `true` on init. When set, the input driver skips the X→Menu/Y→Volume aliasing. Touch screen MENU/VOLUME still works normally.
+
+**Files changed:**
+| File | Change |
+|------|--------|
+| `components/st7701_lcd/st7701_lcd.c` | Added `st7701_lcd_draw_to_fb()` — direct DPI framebuffer write |
+| `components/st7701_lcd/include/st7701_lcd.h` | Declaration for `st7701_lcd_draw_to_fb()` |
+| `components/st7701_lcd/CMakeLists.txt` | Added `esp_mm` to PRIV_REQUIRES (for `esp_cache_msync`) |
+| `components/odroid/odroid_input.c` | Added `odroid_input_xy_menu_disable` flag, conditional X/Y→Menu/Vol |
+| `components/odroid/include/odroid_input.h` | Declaration for `odroid_input_xy_menu_disable` |
+| `apps/snes/main/snes_run.c` | Sidebar init/blit system, draw-once logic, sets xy_menu_disable |
+| `apps/snes/main/CMakeLists.txt` | Added `st7701_lcd` to REQUIRES |
 
 ---
 

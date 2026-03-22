@@ -59,6 +59,15 @@ uint16_t st7701_lcd_width(void);
  */
 uint16_t st7701_lcd_height(void);
 
+/**
+ * @brief Write a bitmap directly to the DPI framebuffer via CPU memcpy.
+ *        Bypasses the async DMA2D pipeline, so it never contends with
+ *        a previous draw_bitmap call.
+ */
+esp_err_t st7701_lcd_draw_to_fb(uint16_t x, uint16_t y,
+                                uint16_t w, uint16_t h,
+                                const uint16_t *data);
+
 #ifdef __cplusplus
 }
 #endif
