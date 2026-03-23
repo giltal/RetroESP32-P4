@@ -46,7 +46,7 @@ static const char *TAG = "GENESIS_RUN";
 #define GEN_FB_H          224
 #define GEN_FB_H_PAL      240
 
-#define AUDIO_SAMPLE_RATE 26634    /* GWENESIS_AUDIO_FREQ_NTSC / 2 */
+#define AUDIO_SAMPLE_RATE 53267    /* GWENESIS_AUDIO_FREQ_NTSC — full native rate */
 #define AUDIO_FRAG_SIZE   512
 
 #ifndef GWENESIS_AUDIO_ACCURATE
@@ -268,21 +268,26 @@ static void menu_draw_str(uint16_t *fb, int stride, int x, int y, int h, const c
 }
 
 /* ─── Palette conversion: 8-bit indexed → RGB565 ────────────────── */
+/* src stride is always 320 (VDP framebuffer), but visible width may be 256 (H32) */
 static void gen_convert_frame(const uint8_t *src, uint16_t *dst,
                               const uint16_t *palette, int w, int h)
 {
-    int total = w * h;
-    /* Process 4 pixels at a time using 32-bit reads for PSRAM cache efficiency */
-    int i = 0;
-    for (; i + 3 < total; i += 4) {
-        uint32_t quad = *(const uint32_t *)(src + i);
-        dst[i + 0] = palette[(quad >>  0) & 0xFF];
-        dst[i + 1] = palette[(quad >>  8) & 0xFF];
-        dst[i + 2] = palette[(quad >> 16) & 0xFF];
-        dst[i + 3] = palette[(quad >> 24) & 0xFF];
-    }
-    for (; i < total; i++) {
-        dst[i] = palette[src[i]];
+    const int stride = 320;  /* VDP framebuffer stride is always 320 */
+    for (int y = 0; y < h; y++) {
+        const uint8_t *row = src + y * stride;
+        uint16_t *out = dst + y * w;
+        int x = 0;
+        /* Process 4 pixels at a time for PSRAM cache efficiency */
+        for (; x + 3 < w; x += 4) {
+            uint32_t quad = *(const uint32_t *)(row + x);
+            out[x + 0] = palette[(quad >>  0) & 0xFF];
+            out[x + 1] = palette[(quad >>  8) & 0xFF];
+            out[x + 2] = palette[(quad >> 16) & 0xFF];
+            out[x + 3] = palette[(quad >> 24) & 0xFF];
+        }
+        for (; x < w; x++) {
+            out[x] = palette[row[x]];
+        }
     }
 }
 
@@ -348,13 +353,15 @@ static void genesis_audio_task(void *arg)
         while (remaining > 0) {
             int n = (remaining < AUDIO_FRAG_SIZE) ? remaining : AUDIO_FRAG_SIZE;
 
-            /* Mix mono into interleaved stereo */
+            /* Mix mono into interleaved stereo with clamping */
             for (int i = 0; i < n; i++) {
                 int32_t sn = (src_off + i < sn76489_index) ? gwenesis_sn76489_buffer[src_off + i] : 0;
                 int32_t ym = (src_off + i < ym2612_index)  ? gwenesis_ym2612_buffer[src_off + i]  : 0;
-                int16_t mixed = (int16_t)((sn + ym) >> 1);
-                dest[i * 2 + 0] = mixed;  /* L */
-                dest[i * 2 + 1] = mixed;  /* R */
+                int32_t sum = sn + ym;
+                if (sum > 32767) sum = 32767;
+                if (sum < -32768) sum = -32768;
+                dest[i * 2 + 0] = (int16_t)sum;  /* L */
+                dest[i * 2 + 1] = (int16_t)sum;  /* R */
             }
 
             odroid_audio_submit(dest, n);
@@ -940,7 +947,7 @@ void genesis_run(const char *rom_path)
     gwenesis_vdp_set_buffer(gen_fb[0]);
 
     /* ── Audio init ── */
-    int audio_rate = REG1_PAL ? GWENESIS_AUDIO_FREQ_PAL / 2 : GWENESIS_AUDIO_FREQ_NTSC / 2;
+    int audio_rate = REG1_PAL ? GWENESIS_AUDIO_FREQ_PAL : GWENESIS_AUDIO_FREQ_NTSC;
     odroid_audio_init(audio_rate);
     ESP_LOGI(TAG, "Audio sample rate: %d Hz", audio_rate);
 

@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** March 2026 — **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480×640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
+> **Last Updated:** March 2026 — **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480×640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -1363,3 +1363,52 @@ app_main()
          │   (free ~5MB)        │
 0x1000000└──────────────────────┘  16MB flash
 ```
+
+### Phase 27: Genesis H32 Display Fix, Audio Quality & Boot Logo Scaling
+
+**Fix 1 — Genesis H32 mode display (Rockman Mega World):**
+
+**Problem:** Games running in H32 mode (256-pixel width, e.g., Rockman Mega World) had a completely garbled/skewed display.
+
+**Root cause:** The VDP framebuffer always uses a fixed 320-byte stride (`screen_buffer[line * 320]`), even when only 256 pixels per line are valid in H32 mode. The `gen_convert_frame()` function read w×h bytes contiguously (256×224 = 57,344 bytes), treating the data as having a 256-byte stride. This caused every scanline after the first to be offset by 64 bytes (320-256), producing a diagonal skew across the entire frame.
+
+**Fix:** Rewrote `gen_convert_frame()` to be stride-aware — iterates per-row using a fixed 320-byte source stride and outputs to a packed w-wide destination. The 4-pixel-at-a-time PSRAM optimization is preserved within each row.
+
+```c
+static void gen_convert_frame(const uint8_t *src, uint16_t *dst,
+                              const uint16_t *palette, int w, int h)
+{
+    const int stride = 320;  /* VDP framebuffer stride is always 320 */
+    for (int y = 0; y < h; y++) {
+        const uint8_t *row = src + y * stride;
+        uint16_t *out = dst + y * w;
+        /* ... 4-pixel optimized loop per row ... */
+    }
+}
+```
+
+**File changed:** `apps/genesis/main/genesis_run.c` — `gen_convert_frame()`
+
+---
+
+**Fix 2 — Genesis audio sample rate & mixing quality:**
+
+**Problem:** Genesis audio was unclear/distorted.
+
+**Root cause (sample rate):** The I2S output was initialized at half the native rate (`GWENESIS_AUDIO_FREQ_NTSC / 2` = 26634 Hz). The Gwenesis core generates ~888 samples per frame. At 26634 Hz, 888 samples take 33ms to play back — double the 16.67ms NTSC frame time. This caused audio buffer backup and timing-related distortion.
+
+**Root cause (mixing):** The SN76489 + YM2612 mixer used `(sn + ym) >> 1` which halves the dynamic range, producing muffled/quiet audio. It also doesn't handle overflow correctly.
+
+**Fix:** 
+1. Changed audio init from `GWENESIS_AUDIO_FREQ_NTSC / 2` to `GWENESIS_AUDIO_FREQ_NTSC` (53267 Hz) — now 888 samples play in exactly one frame period (16.67ms)
+2. Replaced `>> 1` mixing with additive mixing + int16 clamping: `sum = sn + ym; clamp to [-32768, 32767]` — fuller volume, no overflow artifacts
+
+**File changed:** `apps/genesis/main/genesis_run.c` — `AUDIO_SAMPLE_RATE`, `odroid_audio_init()` call, audio task mixing loop
+
+---
+
+**Fix 3 — Boot logo PNG scaling:**
+
+**Change:** Updated `show_png_logo_native()` in the launcher to scale the boot logo PNG to fill the full 480×800 LCD instead of displaying at 1:1 native size. Uses independent X/Y scale factors computed from LCD dimensions divided by rotated image dimensions, allowing non-uniform stretch to fill the screen entirely.
+
+**File changed:** `launcher/main/main.c` — `show_png_logo_native()`

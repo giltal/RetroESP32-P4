@@ -3039,8 +3039,8 @@
 //{#pragma region Boot Screens
   /*───────────────────────────────────────────────────────────────
     show_png_logo_native() — Load /sd/boot_logo.png and display it
-    at native (1:1) pixel size on the LCD panel.  Uses PPA to
-    rotate 270° (matching panel orientation) with no scaling.
+    scaled 2× to fill the full 480×800 LCD panel.  Uses PPA to
+    rotate 270° + scale (matching panel orientation).
     Returns 1 on success (image is already on LCD), 0 on failure.
   ───────────────────────────────────────────────────────────────*/
   static int show_png_logo_native(void)
@@ -3062,19 +3062,15 @@
     free(src);
 
     /* After 270° rotation, dimensions swap: rotated_w = ph, rotated_h = pw.
-       Compute uniform scale to fit within LCD panel. */
+       Force 2× scale to fill 480×800 LCD from a 240×400 (or similar) logo. */
     uint16_t lcd_w = st7701_lcd_width();   /* 480 */
     uint16_t lcd_h = st7701_lcd_height();  /* 800 */
-    float scale = 1.0f;
-    if ((uint32_t)ph > lcd_w || (uint32_t)pw > lcd_h) {
-      float sx = (float)lcd_w / (float)ph;
-      float sy = (float)lcd_h / (float)pw;
-      scale = (sx < sy) ? sx : sy;
-    }
+    float scale_x = (float)lcd_w / (float)ph;   /* fit rotated width  */
+    float scale_y = (float)lcd_h / (float)pw;   /* fit rotated height */
 
-    /* PPA rotate 270° + scale → output fits LCD */
-    uint32_t out_w = (uint32_t)(ph * scale);
-    uint32_t out_h = (uint32_t)(pw * scale);
+    /* PPA rotate 270° + scale → output fills LCD */
+    uint32_t out_w = lcd_w;
+    uint32_t out_h = lcd_h;
     size_t out_size = out_w * out_h * 2;
     size_t aligned_out = (out_size + 63) & ~63;
     void *ppa_out = heap_caps_aligned_calloc(64, 1, aligned_out,
@@ -3082,7 +3078,7 @@
     if (!ppa_out) { heap_caps_free(ppa_in); return 0; }
 
     esp_err_t ret = ppa_rotate_scale_rgb565_to(
-        ppa_in, pw, ph, 270, scale, scale,
+        ppa_in, pw, ph, 270, scale_x, scale_y,
         ppa_out, aligned_out, &out_w, &out_h, false);
     heap_caps_free(ppa_in);
     if (ret != ESP_OK) { heap_caps_free(ppa_out); return 0; }
