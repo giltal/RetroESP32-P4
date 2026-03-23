@@ -24,17 +24,18 @@ $flash_map = @(
     @{ Offset = "0x8000";   File = "partition-table.bin";  Desc = "Partition Table" },
     @{ Offset = "0xD000";   File = "ota_data_initial.bin"; Desc = "OTA Data (boot factory)" },
     @{ Offset = "0x10000";  File = "launcher.bin";         Desc = "Launcher (factory)" },
-    @{ Offset = "0x110000"; File = "nes_app.bin";          Desc = "NES (ota_0)" },
-    @{ Offset = "0x1F0000"; File = "gb_app.bin";           Desc = "GB/GBC (ota_1)" },
-    @{ Offset = "0x2D0000"; File = "sms_app.bin";          Desc = "SMS/GG/COL (ota_2)" },
-    @{ Offset = "0x450000"; File = "spectrum_app.bin";     Desc = "ZX Spectrum (ota_3)" },
-    @{ Offset = "0x530000"; File = "stella_app.bin";       Desc = "Stella / Atari 2600 (ota_4)" },
-    @{ Offset = "0x6B0000"; File = "prosystem_app.bin";    Desc = "ProSystem / Atari 7800 (ota_5)" },
-    @{ Offset = "0x790000"; File = "handy_app.bin";        Desc = "Handy / Atari Lynx (ota_6)" },
-    @{ Offset = "0x870000"; File = "pce_app.bin";          Desc = "PC Engine (ota_7)" },
-    @{ Offset = "0x9F0000"; File = "atari800_app.bin";     Desc = "Atari 800 (ota_8)" },
-    @{ Offset = "0xB70000"; File = "opentyrian_app.bin";   Desc = "OpenTyrian (ota_9)" },
-    @{ Offset = "0xDF0000"; File = "snes_app.bin";         Desc = "SNES (ota_10)" }
+    @{ Offset = "0x0C0000"; File = "nes_app.bin";          Desc = "NES (ota_0)" },
+    @{ Offset = "0x160000"; File = "gb_app.bin";           Desc = "GB/GBC (ota_1)" },
+    @{ Offset = "0x200000"; File = "sms_app.bin";          Desc = "SMS/GG/COL (ota_2)" },
+    @{ Offset = "0x350000"; File = "spectrum_app.bin";     Desc = "ZX Spectrum (ota_3)" },
+    @{ Offset = "0x410000"; File = "stella_app.bin";       Desc = "Stella / Atari 2600 (ota_4)" },
+    @{ Offset = "0x550000"; File = "prosystem_app.bin";    Desc = "ProSystem / Atari 7800 (ota_5)" },
+    @{ Offset = "0x5F0000"; File = "handy_app.bin";        Desc = "Handy / Atari Lynx (ota_6)" },
+    @{ Offset = "0x690000"; File = "pce_app.bin";          Desc = "PC Engine (ota_7)" },
+    @{ Offset = "0x730000"; File = "atari800_app.bin";     Desc = "Atari 800 (ota_8)" },
+    @{ Offset = "0x800000"; File = "opentyrian_app.bin";   Desc = "OpenTyrian (ota_9)" },
+    @{ Offset = "0x8C0000"; File = "snes_app.bin";         Desc = "SNES (ota_10)" },
+    @{ Offset = "0x9B0000"; File = "genesis_app.bin";      Desc = "Genesis (ota_11)" }
 )
 
 Write-Host "`n=== RetroESP32-P4 Merged Binary Generator ===" -ForegroundColor Cyan

@@ -24,7 +24,7 @@
 /*
   Emulator Count + 3 for Settings, Favorites, and Recently Played
 */
-#define COUNT 17
+#define COUNT 18
 
 /*
 

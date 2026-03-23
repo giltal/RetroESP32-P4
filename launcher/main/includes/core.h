@@ -74,6 +74,7 @@
 #include "../sprites/speaker.h"
 #include "../sprites/toggle.h"
 #include "../sprites/systems.h"
+#include "../sprites/genesis_icon.h"
 #include "../sprites/font8x16.h"
 
 /*

@@ -61,6 +61,7 @@ SYSTEM SYSTEMS[COUNT] = {
   /* ATARI 800 */{0, &a800 ,&a800_color},
   /* OPENTYRIAN */{0, &tyrian ,&tyrian_color},
   /* SUPER NINTENDO */{0, &snes ,&snes_color},
+  /* SEGA GENESIS */{0, &genesis ,&genesis_color},
 };
 
 // THEME

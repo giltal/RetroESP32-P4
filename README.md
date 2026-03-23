@@ -94,9 +94,9 @@ Simply swap 3.3V and GND
 
 ## 🚀 Features
 
-- 🎮 13 emulators + OpenTyrian
+- 🎮 14 emulators + OpenTyrian
 - ⚡ Near full-speed emulation (60 FPS on all systems except for SNES - I will try to improve)
-- 💾 Save / Load states (**SNES from within the game**)
+- 💾 Save / Load states (**SNES and Mega Drive from within the game**)
 - 🖥️ Touchscreen-optimized UI
 - 🎯 USB controller support (currentltly the one showed in the picture)
 - 🕹️ Paddle support for Atari (Via IO51)
@@ -111,23 +111,24 @@ Simply swap 3.3V and GND
 - PC Engine (PCE)
 - ZX Spectrum (Kempston + virtual keyboard)
 - ColecoVision
-- SNES
+- SNES (Titles which uses the FX accelerator are not supported for now)
+- SEGA Genesis - Mega Drive (Titles which uses the DSP accelerator are not supported for now)
 - OpenTyrian full game with stunning looks and speed
 
 ## ⚡ Performance Breakdown
 
 | System | Status | Notes |
 |--------|--------|------|
-| NES / GB / GBA | ✅ 60 FPS |
-| SMS / GG | ✅ 60 FPS |
+| NES / GB / GBA | ✅ 60 FPS ||
+| SMS / GG | ✅ 60 FPS ||
 | Atari family | ✅ 60 FPS | Fixed legacy bugs |
 | PCE | ✅ 60 FPS | Major improvements |
-| SNES | ⚠️ ~50 FPS | No SuperFX |
-The P4's PPA (Pixel Processing Accelerator) is in action for smooth graphics and speed
+| SNES / Mega Drive | ⚠️ ~50 FPS | No SuperFX / DSP |
+|The P4's PPA (Pixel Processing Accelerator) is in action for smooth graphics and speed|||
 
-### SNES Limitations
+### SNES Mega Drive \ Limitations
 
-- ❌ No Super FX support
+- ❌ No Super FX\DSP support
 - ✔️ Most standard titles run well
 
 ## 🧩 Architecture (Developer Insight)

@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** March 2026 — **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480×640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
+> **Last Updated:** March 2026 — **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480×640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -36,7 +36,7 @@
 
 **Workspace:** `C:\ESPIDFprojects\RetroESP32_P4`
 
-**Emulators Ported (10 total + 1 game):**
+**Emulators Ported (11 total + 1 game):**
 
 | # | Console | Emulator Core | OTA Slot | ROM Extensions | Status |
 |---|---------|---------------|----------|---------------|--------|
@@ -51,6 +51,7 @@
 | 9 | Atari 800 / 5200 | atari800 | ota_8 | .xex, .atr, .a52 | ✅ Confirmed **60FPS** (async audio, 5200 cart support) |
 | 10 | OpenTyrian | opentyrian | ota_9 | .tyr | ✅ Working (standalone game) |
 | 11 | **SNES** | snes9x | ota_10 | .smc, .sfc | ✅ Working, **45-67 FPS** (dual-core, 2× PPA, DKC crash fixed, save/load state) |
+| 12 | **Sega Genesis** | gwenesis | ota_11 | .md, .gen | ✅ Working, ~30 FPS (frameskip=2, internal RAM optimized, ROM bounds checking) |
 
 ---
 
@@ -204,29 +205,35 @@ File: `partitions_ota.csv`
 |------|------|---------|--------|------|---------|
 | nvs | data | nvs | 0x9000 | 16 KB | NVS storage |
 | otadata | data | ota | 0xD000 | 8 KB | OTA boot tracking |
-| factory | app | factory | 0x10000 | 1 MB | Launcher (620 KB) |
-| ota_0 | app | ota_0 | 0x110000 | 896 KB | NES/nofrendo (542 KB) |
-| ota_1 | app | ota_1 | 0x1F0000 | 896 KB | GB-GBC/gnuboy (514 KB) |
-| ota_2 | app | ota_2 | 0x2D0000 | 1.5 MB | SMS-GG-COL/smsplus (1206 KB) |
-| ota_3 | app | ota_3 | 0x450000 | 896 KB | ZX Spectrum (574 KB) |
-| ota_4 | app | ota_4 | 0x530000 | 1.5 MB | Atari 2600/stella (1157 KB) |
-| ota_5 | app | ota_5 | 0x6B0000 | 896 KB | Atari 7800/prosystem (550 KB) |
-| ota_6 | app | ota_6 | 0x790000 | 896 KB | Atari Lynx/handy (508 KB) |
-| ota_7 | app | ota_7 | 0x870000 | 1.5 MB | *(future: PC Engine)* |
-| ota_8 | app | ota_8 | 0x9F0000 | 1.5 MB | *(future: Atari 800)* |
+| factory | app | factory | 0x10000 | 704 KB | Launcher (620 KB) |
+| ota_0 | app | ota_0 | 0xC0000 | 640 KB | NES/nofrendo (563 KB) |
+| ota_1 | app | ota_1 | 0x160000 | 640 KB | GB-GBC/gnuboy (535 KB) |
+| ota_2 | app | ota_2 | 0x200000 | 1.31 MB | SMS-GG-COL/smsplus (1227 KB) |
+| ota_3 | app | ota_3 | 0x350000 | 768 KB | ZX Spectrum (661 KB) |
+| ota_4 | app | ota_4 | 0x410000 | 1.25 MB | Atari 2600/stella (1180 KB) |
+| ota_5 | app | ota_5 | 0x550000 | 640 KB | Atari 7800/prosystem (571 KB) |
+| ota_6 | app | ota_6 | 0x5F0000 | 640 KB | Atari Lynx/handy (531 KB) |
+| ota_7 | app | ota_7 | 0x690000 | 640 KB | PC Engine/huexpress (571 KB) |
+| ota_8 | app | ota_8 | 0x730000 | 832 KB | Atari 800-5200/atari800 (728 KB) |
+| ota_9 | app | ota_9 | 0x800000 | 768 KB | OpenTyrian (662 KB) |
+| ota_10 | app | ota_10 | 0x8C0000 | 960 KB | SNES/snes9x (864 KB) |
+| ota_11 | app | ota_11 | 0x9B0000 | 1.31 MB | Sega Genesis/gwenesis (1260 KB) |
 
 ### OTA Slot ↔ Extension Mapping (`get_ota_slot()` in launcher)
 
 ```
-Slot 0 (ota_0): .nes           → nofrendo
-Slot 1 (ota_1): .gb, .gbc      → gnuboy
-Slot 2 (ota_2): .sms, .gg, .col → smsplus
-Slot 3 (ota_3): .z80, .sna     → spectrum
-Slot 4 (ota_4): .a26, .bin     → stella
-Slot 5 (ota_5): .a78           → prosystem
-Slot 6 (ota_6): .lnx           → handy
-Slot 7 (ota_7): .pce           → huexpress (future)
-Slot 8 (ota_8): .xex, .atr, .a52 → atari800
+Slot 0  (ota_0):  .nes            → nofrendo
+Slot 1  (ota_1):  .gb, .gbc       → gnuboy
+Slot 2  (ota_2):  .sms, .gg, .col → smsplus
+Slot 3  (ota_3):  .z80, .sna      → spectrum
+Slot 4  (ota_4):  .a26, .bin      → stella
+Slot 5  (ota_5):  .a78            → prosystem
+Slot 6  (ota_6):  .lnx            → handy
+Slot 7  (ota_7):  .pce            → huexpress
+Slot 8  (ota_8):  .xex, .atr, .a52 → atari800
+Slot 9  (ota_9):  (OpenTyrian — launched directly, no ROM extension)
+Slot 10 (ota_10): .smc, .sfc      → snes9x
+Slot 11 (ota_11): .md, .gen       → gwenesis
 ```
 
 ---
@@ -978,6 +985,81 @@ Menu helper functions (`draw_char`, `fill_rect`) use hardcoded 320-pixel stride:
 | `apps/snes/main/snes_run.c` | Sidebar init/blit system, draw-once logic, sets xy_menu_disable |
 | `apps/snes/main/CMakeLists.txt` | Added `st7701_lcd` to REQUIRES |
 
+### Phase 26: Sega Genesis (Gwenesis) Emulator Port
+
+**Goal:** Port the Gwenesis Sega Genesis/Mega Drive emulator core to ESP32-P4 as ota_11, with full M68K + Z80 + VDP + YM2612 FM + SN76489 PSG emulation.
+
+**Emulation Core — Gwenesis:**
+- M68K CPU (main processor) + Z80 CPU (sound co-processor)
+- VDP (Video Display Processor) — 320×224 native resolution, 8-bit indexed framebuffer with 64-color CRAM palette
+- YM2612 FM synthesis (6-channel) + SN76489 PSG (4-channel square/noise)
+- Audio at 26634 Hz, frameskip=2 for performance
+
+**Display Pipeline:**
+- Genesis VDP renders 320×224 @ 8-bit indexed color into `gwenesis_vdp_get_framebuffer()`
+- Palette conversion: 8-bit indexed → RGB565 using CRAM palette (inline in render loop)
+- PPA 2× scale + 270° rotate: 320×224 → 448×640 on 480×800 LCD
+- Side bars: 80px each (portrait y=0…79 and y=721…799), MENU/VOL touch buttons at py=2/ph=76 and py=722/ph=76
+- Uses `ili9341_write_frame_rgb565_custom(buf, 320, 224, 2.0f, false)` — same path as SNES
+
+**Build & Integration:**
+- Component at `components/gwenesis/` with M68K, Z80, VDP, bus, sound sub-modules
+- App at `apps/genesis/` — `genesis_run.c` is the main emulation wrapper (~1100 lines)
+- Launcher: single "SEGA GENESIS" entry in carousel, handles both `.md` and `.gen` extensions via `matches_rom_extension()` in `get_ota_slot()` step 17
+- OTA slot 11, flash offset 0x9B0000, size 1.31 MB (binary 1260 KB)
+
+**Key Fixes During Porting:**
+
+1. **VRAM allocation collision:** Original code had both `unsigned char VRAM[0x10000]` in `gwenesis_vdp.c` and `unsigned char VRAM[0x10000]` as extern in `gwenesis_bus.c` — two separate 64 KB arrays. Resolved by making VDP's VRAM the canonical one and aliasing the bus reference.
+
+2. **`sizeof(OPNREGS)` — struct vs array mismatch:** `OPNREGS` was declared as `unsigned char OPNREGS[0x200]` (array, 512 bytes) but code used `sizeof(OPNREGS)` expecting struct size. Fixed by using explicit `0x200` constant.
+
+3. **LSB_FIRST endianness:** Gwenesis core required `#define LSB_FIRST` for correct byte ordering on the RISC-V ESP32-P4 (little-endian).
+
+4. **ROM bounds checking (Virtua Racing crash fix):** Games with the SVP chip (Virtua Racing) access ROM addresses beyond the 2 MB ROM buffer, causing `Load access fault` (MEPC=0x4005b338, MTVAL=0x5d789918). Added `gwenesis_rom_size` global variable set in `load_cartridge()`, and bounds-checked all FETCH macros in `m68k.h`:
+   ```c
+   extern unsigned int gwenesis_rom_size;
+   #define FETCH8ROM(A) (((unsigned int)((A)^1) < gwenesis_rom_size) ? ROM_DATA[((A)^1)] : 0xFF)
+   #define FETCH16ROM(A) (((unsigned int)(A) < gwenesis_rom_size) ? *(unsigned short*)&ROM_DATA[(A)] : 0xFFFF)
+   #define FETCH32ROM(A) (((unsigned int)(A)+2 < gwenesis_rom_size) ? ... : 0xFFFFFFFF)
+   ```
+
+5. **M68K address error emulation disabled:** Turned off `M68K_EMULATE_ADDRESS_ERROR` in `m68kconf.h` — removes setjmp/longjmp overhead per M68K instruction, measurable performance gain.
+
+**Internal RAM Optimization (~10% FPS improvement):**
+All hot emulation data moved from PSRAM to internal SRAM via `heap_caps_calloc(…, MALLOC_CAP_INTERNAL)`:
+- M68K CPU state (`m68ki_cpu` struct)
+- M68K RAM (64 KB) — with PSRAM fallback if internal allocation fails
+- Z80 RAM (ZRAM, 8 KB)
+- VRAM (64 KB) — with PSRAM fallback
+- CRAM palette (128 bytes), VSRAM (80 bytes)
+- VDP registers, render line buffers, sprite buffers
+- YM2612 FM synth state (OPNREGS 512B, sin_tab, tl_tab)
+- Audio mixing buffers (SN76489 + YM2612)
+
+**Input Mapping:**
+- X/Y buttons mapped to Genesis emulator (A button) — `odroid_input_xy_menu_disable = true`
+- D-pad → Genesis D-pad, A → B button, B → C button, Start → Start
+- Touch screen MENU/VOL zones still work normally
+
+**Launcher Integration:**
+- Single "SEGA GENESIS" entry (merged from separate .md/.gen entries)
+- `definitions.h` COUNT reduced 19→18
+- `matches_rom_extension()` handles both `.md` and `.gen` at slot 17 → ota_11
+- SD card paths: ROMs at `/sd/roms/gen/`, saves at `/sd/odroid/data/genesis/`, artwork at `/sd/system_art/gen.png`
+
+**Files changed:**
+| File | Change |
+|------|--------|
+| `apps/genesis/main/genesis_run.c` | Complete emulation wrapper — display, audio, input, internal RAM allocations |
+| `components/gwenesis/src/cpus/M68K/m68k.h` | Bounds-checked FETCH8ROM/FETCH16ROM/FETCH32ROM macros |
+| `components/gwenesis/src/bus/gwenesis_bus.c` | `gwenesis_rom_size` global, set in `load_cartridge()` |
+| `components/gwenesis/src/cpus/M68K/m68kconf.h` | `M68K_EMULATE_ADDRESS_ERROR` → OFF |
+| `launcher/main/includes/definitions.h` | COUNT 19→18 |
+| `launcher/main/main.c` | Merged Genesis entries, `.md`+`.gen` extension handling |
+| `launcher/main/includes/structures.h` | Single Genesis entry in SYSTEMS[] |
+| `partitions_ota.csv` | Added ota_11 at 0x9B0000/0x150000 for Genesis |
+
 ---
 
 ## 11. Bugs Fixed This Session
@@ -1158,6 +1240,7 @@ Start-Sleep -Seconds 2
 - [ ] Apply async display pipeline technique to other emulators (currently PCE, SNES)
 - [x] Atari 800 async audio pipeline — 52 → 60 FPS ✅
 - [x] SNES emulator (snes9x) — ota_10 ✅ Ported, 45-67 FPS, dual-core optimized, save/load state
+- [x] Sega Genesis emulator (gwenesis) — ota_11 ✅ Ported, ~30 FPS, internal RAM optimized, ROM bounds checking
 - [ ] AY-3-8912 PSG sound emulation for ZX Spectrum
 
 ### Source Control
@@ -1196,7 +1279,7 @@ app_main()
 
 ## 16. Emulator Comparison Table
 
-> **10 emulators + 1 launcher** — all sharing a two-stage PPA display pipeline.
+> **11 emulators + 1 launcher** — all sharing a two-stage PPA display pipeline.
 
 ### Display Pipeline Stages
 
@@ -1213,18 +1296,19 @@ app_main()
 
 | # | Emulator | Component | Native Res | Display Function | PPA Input Scaling | PPA Flush | Frame Skip | Optimization | OTA Slot | Flash Offset | Size |
 |---|----------|-----------|-----------|-----------------|:-----------------:|:---------:|:----------:|:------------:|----------|:------------:|:----:|
-| — | **Launcher** | `launcher/` | 320×240 | `ili9341_write_frame_rgb565()` | No | Yes | No | `-Os` | factory | `0x10000` | 1 MB |
-| 1 | **NES** (nofrendo) | `nofrendo/` | 256×224 | `ili9341_write_frame_nes()` | **Yes** | Yes | No | `-Os` | ota_0 | `0x110000` | 896 KB |
-| 2 | **GB / GBC** (gnuboy) | `gnuboy/` | 160×144 | `ili9341_write_frame_gb()` | **Yes** | Yes | No | `-Os` | ota_1 | `0x1F0000` | 896 KB |
-| 3 | **SMS / GG / COL** (smsplus) | `smsplus/` | 256×192 / 160×144 | `ili9341_write_frame_sms()` | **Yes** | Yes | No | `-Os` | ota_2 | `0x2D0000` | 1536 KB |
-| 4 | **ZX Spectrum** | `spectrum/` | 320×240 | `ili9341_write_frame_rgb565_ex()` ⁴ | No | **Direct** ⁵ | No | **`-O2`/`-O3`** ⁶ | ota_3 | `0x450000` | 896 KB |
-| 5 | **Atari 2600** (stella) | `stella/` | 320×240 | `ili9341_write_frame_rgb565()` | No | Yes | No | `-Os` | ota_4 | `0x530000` | 1536 KB |
-| 6 | **Atari 7800** (prosystem) | `prosystem/` | 320×240 | `ili9341_write_frame_prosystem()` | No | Yes | **Yes** ¹ | `-Os` | ota_5 | `0x6B0000` | 896 KB |
-| 7 | **Atari Lynx** (handy) | `handy/` | 160×102 | `ili9341_write_frame_lynx()` | **Yes** ² | Yes | No | `-Os` | ota_6 | `0x790000` | 896 KB |
-| 8 | **PC Engine** (huexpress) | `huexpress/` | 256×240 | `ili9341_write_frame_prosystem()` | No ³ | Yes ⁷ | No | **`-O2`** ⁸ | ota_7 | `0x870000` | 1536 KB |
-| 9 | **Atari 800/5200** (atari800) | `atari800/` | 320×240 | `ili9341_write_frame_rgb565_ex()` | No | **Direct** | No | **`-O2`** ⁷ | ota_8 | `0x9F0000` | 1536 KB |
-| 10 | **OpenTyrian** | `opentyrian/` | 320×200 | custom PPA ⁹ | No | Yes | No | `-Os` | ota_9 | `0xBF0000` | 1536 KB |
-| 11 | **SNES** (snes9x) | `snes9x/` | 256×224 | `ili9341_write_frame_rgb565_custom()` ¹¹ | No | **Custom** ¹² | **Yes** | **`-O2`/`-O3`** | ota_10 | `0xDF0000` | 2112 KB |
+| — | **Launcher** | `launcher/` | 320×240 | `ili9341_write_frame_rgb565()` | No | Yes | No | `-Os` | factory | `0x10000` | 704 KB |
+| 1 | **NES** (nofrendo) | `nofrendo/` | 256×224 | `ili9341_write_frame_nes()` | **Yes** | Yes | No | `-Os` | ota_0 | `0x0C0000` | 640 KB |
+| 2 | **GB / GBC** (gnuboy) | `gnuboy/` | 160×144 | `ili9341_write_frame_gb()` | **Yes** | Yes | No | `-Os` | ota_1 | `0x160000` | 640 KB |
+| 3 | **SMS / GG / COL** (smsplus) | `smsplus/` | 256×192 / 160×144 | `ili9341_write_frame_sms()` | **Yes** | Yes | No | `-Os` | ota_2 | `0x200000` | 1.31 MB |
+| 4 | **ZX Spectrum** | `spectrum/` | 320×240 | `ili9341_write_frame_rgb565_ex()` ⁴ | No | **Direct** ⁵ | No | **`-O2`/`-O3`** ⁶ | ota_3 | `0x350000` | 768 KB |
+| 5 | **Atari 2600** (stella) | `stella/` | 320×240 | `ili9341_write_frame_rgb565()` | No | Yes | No | `-Os` | ota_4 | `0x410000` | 1.25 MB |
+| 6 | **Atari 7800** (prosystem) | `prosystem/` | 320×240 | `ili9341_write_frame_prosystem()` | No | Yes | **Yes** ¹ | `-Os` | ota_5 | `0x550000` | 640 KB |
+| 7 | **Atari Lynx** (handy) | `handy/` | 160×102 | `ili9341_write_frame_lynx()` | **Yes** ² | Yes | No | `-Os` | ota_6 | `0x5F0000` | 640 KB |
+| 8 | **PC Engine** (huexpress) | `huexpress/` | 256×240 | `ili9341_write_frame_prosystem()` | No ³ | Yes ⁷ | No | **`-O2`** ⁸ | ota_7 | `0x690000` | 640 KB |
+| 9 | **Atari 800/5200** (atari800) | `atari800/` | 320×240 | `ili9341_write_frame_rgb565_ex()` | No | **Direct** | No | **`-O2`** ⁷ | ota_8 | `0x730000` | 832 KB |
+| 10 | **OpenTyrian** | `opentyrian/` | 320×200 | custom PPA ⁹ | No | Yes | No | `-Os` | ota_9 | `0x800000` | 768 KB |
+| 11 | **SNES** (snes9x) | `snes9x/` | 256×224 | `ili9341_write_frame_rgb565_custom()` ¹¹ | No | **Custom** ¹² | **Yes** | **`-O2`/`-O3`** | ota_10 | `0x8C0000` | 960 KB |
+| 12 | **Sega Genesis** (gwenesis) | `genesis/` | 320×224 | `ili9341_write_frame_rgb565_custom()` ¹³ | No | **Custom** | **Yes** ¹⁴ | `-Os` | ota_11 | `0x9B0000` | 1.31 MB |
 
 ### Notes
 
@@ -1241,6 +1325,8 @@ app_main()
 10. **OpenTyrian** uses custom PPA scaling via `display_set_scale(2.0f, 2.5f)` — fills the full 480×800 LCD from its 320×200 native resolution. Launched directly from carousel (no ROM browser). Game data on SD card at `/sd/tyrian/data/`.
 11. **SNES display:** `ili9341_write_frame_rgb565_custom(buf, 256, 224, 2.0f, false)` — takes the native 256×224 framebuffer directly (no 320×240 staging). Green expansion (5→6 bit) is done in-place by the video task before PPA call.
 12. **SNES custom path:** PPA does 2× scale + 270° rotation in one HW operation, producing 448×512 output centered on the 480×800 LCD. No byte-swap needed (snes9x already outputs LE). Audio mixing (`S9xMixSamples`) and I2S submission run entirely on Core 1 via task notification — Core 0 only runs `S9xMainLoop()` and signals the audio task.
+13. **Genesis display:** `ili9341_write_frame_rgb565_custom(buf, 320, 224, 2.0f, false)` — same custom PPA path as SNES. Palette conversion (8-bit indexed → RGB565 via CRAM) done inline in render loop before PPA call. 80px side bars with MENU/VOL touch buttons.
+14. **Genesis frame skip:** `frameskip=2` — renders every 3rd frame. Audio runs every frame for smooth sound. Internal RAM optimization moves all hot data (M68K state, RAM, VRAM, CRAM, YM2612 synth tables) to internal SRAM for ~10% FPS improvement.
 
 ### Flash Map (Visual)
 
@@ -1248,30 +1334,32 @@ app_main()
 0x000000 ┌──────────────────────┐
          │   Bootloader (64KB)  │
 0x010000 ├──────────────────────┤
-         │   Launcher (1MB)     │  factory
-0x110000 ├──────────────────────┤
-         │   NES (896KB)        │  ota_0
-0x1F0000 ├──────────────────────┤
-         │   GB/GBC (896KB)     │  ota_1
-0x2D0000 ├──────────────────────┤
-         │   SMS/GG/COL (1.5MB) │  ota_2
-0x450000 ├──────────────────────┤
-         │   ZX Spectrum (896KB)│  ota_3
-0x530000 ├──────────────────────┤
-         │   Atari 2600 (1.5MB) │  ota_4
-0x6B0000 ├──────────────────────┤
-         │   Atari 7800 (896KB) │  ota_5
-0x790000 ├──────────────────────┤
-         │   Atari Lynx (896KB) │  ota_6
-0x870000 ├──────────────────────┤
-         │   PC Engine (1.5MB)  │  ota_7
-0x9F0000 ├──────────────────────┤
-         │   Atari 800 (1.5MB)  │  ota_8
-0xBF0000 ├──────────────────────┤
-         │   OpenTyrian (1.5MB) │  ota_9
-0xDF0000 ├──────────────────────┤
-         │   SNES (2.1MB)       │  ota_10
-0xFF0000 ├──────────────────────┤
-         │   (free ~64KB)       │
+         │   Launcher (704KB)   │  factory
+0x0C0000 ├──────────────────────┤
+         │   NES (640KB)        │  ota_0
+0x160000 ├──────────────────────┤
+         │   GB/GBC (640KB)     │  ota_1
+0x200000 ├──────────────────────┤
+         │   SMS/GG/COL (1.3MB) │  ota_2
+0x350000 ├──────────────────────┤
+         │   ZX Spectrum (768KB)│  ota_3
+0x410000 ├──────────────────────┤
+         │   Atari 2600 (1.25MB)│  ota_4
+0x550000 ├──────────────────────┤
+         │   Atari 7800 (640KB) │  ota_5
+0x5F0000 ├──────────────────────┤
+         │   Atari Lynx (640KB) │  ota_6
+0x690000 ├──────────────────────┤
+         │   PC Engine (640KB)  │  ota_7
+0x730000 ├──────────────────────┤
+         │   Atari 800 (832KB)  │  ota_8
+0x800000 ├──────────────────────┤
+         │   OpenTyrian (768KB) │  ota_9
+0x8C0000 ├──────────────────────┤
+         │   SNES (960KB)       │  ota_10
+0x9B0000 ├──────────────────────┤
+         │   Genesis (1.31MB)   │  ota_11
+0xB00000 ├──────────────────────┤
+         │   (free ~5MB)        │
 0x1000000└──────────────────────┘  16MB flash
 ```

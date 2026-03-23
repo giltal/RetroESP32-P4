@@ -72,7 +72,8 @@
     "PC ENGINE",
     "ATARI 800",
     "OPENTYRIAN",
-    "SUPER NINTENDO"
+    "SUPER NINTENDO",
+    "SEGA GENESIS"
   };
 
   char DIRECTORIES[COUNT][10] = {
@@ -92,7 +93,8 @@
     "pce",      // huexpress
     "a800",     // atari800
     "tyrian",   // opentyrian
-    "snes"      // snes9x
+    "snes",     // snes9x
+    "gen"       // gwenesis
   };
 
   char EXTENSIONS[COUNT][10] = {
@@ -112,7 +114,8 @@
     "pce",      // huexpress
     "xex",      // atari800
     "tyr",      // opentyrian
-    "smc"       // snes9x
+    "smc",      // snes9x
+    "md"        // gwenesis
   };
 
   int LIMIT = 6;
@@ -359,6 +362,8 @@
     if (step == 11 && ext_eq(ext, "bin")) return true;
     // SNES supports both .smc and .sfc
     if (step == 16 && ext_eq(ext, "sfc")) return true;
+    // Genesis supports .md and .gen
+    if (step == 17 && ext_eq(ext, "gen")) return true;
     return false;
   }
 
@@ -378,6 +383,7 @@
    *  8    ota_8     atari800 (A800) .xex .atr .a52
    *  9    ota_9     opentyrian      .tyr
    * 10    ota_10    snes9x (SNES)   .smc .sfc
+   * 11    ota_11    gwenesis (GEN)  .md .gen
    */
   int get_ota_slot(char* ext) {
     if(ext_eq(ext, "nes")) return 0;   /* ota_0: nofrendo */
@@ -399,6 +405,8 @@
     if(ext_eq(ext, "tyr")) return 9;   /* ota_9: opentyrian */
     if(ext_eq(ext, "smc")) return 10;  /* ota_10: snes9x */
     if(ext_eq(ext, "sfc")) return 10;  /* ota_10: snes9x */
+    if(ext_eq(ext, "md"))  return 11;  /* ota_11: gwenesis */
+    if(ext_eq(ext, "gen")) return 11;  /* ota_11: gwenesis */
     return -1;
   }
 
@@ -419,6 +427,7 @@
     }
     if (ext_eq(ROM.ext, "atr")) return "a800";
     if (ext_eq(ROM.ext, "bin")) return "a26";
+    if (ext_eq(ROM.ext, "gen")) return "gen";
     return ROM.ext;
   }
 //}#pragma endregion Helpers
