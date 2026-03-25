@@ -94,11 +94,12 @@ Simply swap 3.3V and GND
 
 ## 🚀 Features
 
-- 🎮 14 emulators + OpenTyrian
+- 🎮 14 emulators + support to run apps from the SD card (folder named papp)
+- In the SD card currently are: **Open Tyrian, DOOM and Quake**
 - ⚡ Near full-speed emulation (60 FPS on all systems except for SNES - I will try to improve)
 - 💾 Save / Load states (**SNES and Mega Drive from within the game**)
 - 🖥️ Touchscreen-optimized UI
-- 🎯 USB controller support (currentltly the one showed in the picture)
+- 🎯 USB controller support (currently the one showed in the picture)
 - 🕹️ Paddle support for Atari (Via IO51)
 
 ## 🎮 Supported Systems
@@ -113,7 +114,7 @@ Simply swap 3.3V and GND
 - ColecoVision
 - SNES (Titles which uses the FX accelerator are not supported for now)
 - SEGA Genesis - Mega Drive (Titles which uses the DSP accelerator are not supported for now)
-- OpenTyrian full game with stunning looks and speed
+- Open Tyrian, DOOM and Quake via **Run Apps** entry in the launcher (more apps will be added in time)
 
 ## ⚡ Performance Breakdown
 
@@ -188,6 +189,7 @@ Contributions welcome:
 - Performance tuning
 - Emulator fixes
 - UI improvements
+- New apps running from SD card directly
 
 ## 📜 License
 
