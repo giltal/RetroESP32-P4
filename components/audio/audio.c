@@ -280,6 +280,16 @@ esp_err_t audio_set_sample_rate(int sample_rate)
     if (!s_initialized || !s_tx_handle) return ESP_ERR_INVALID_STATE;
     if (sample_rate == s_config.sample_rate) return ESP_OK;  /* no change */
 
+    /* If the cached rate was reset to 0 (by audio_reset_sample_rate after
+     * a PSRAM app exit), just update the cached value without touching I2S.
+     * The I2S channel is still running at its configured hardware rate;
+     * the next app's audio_submit calls will work regardless. */
+    if (s_config.sample_rate == 0) {
+        s_config.sample_rate = sample_rate;
+        ESP_LOGI(TAG, "I2S sample rate cached as %d Hz (no reconfig)", sample_rate);
+        return ESP_OK;
+    }
+
     ESP_LOGI(TAG, "Reconfiguring I2S sample rate: %d -> %d", s_config.sample_rate, sample_rate);
 
     /* Disable TX channel, reconfigure clocks, re-enable */
@@ -298,6 +308,15 @@ esp_err_t audio_set_sample_rate(int sample_rate)
     s_config.sample_rate = sample_rate;
     ESP_LOGI(TAG, "I2S sample rate set to %d Hz", sample_rate);
     return ESP_OK;
+}
+
+void audio_reset_sample_rate(void)
+{
+    /* Reset cached sample rate to 0 so next audio_set_sample_rate()
+     * forces a full reconfiguration via disable/reconfig/enable.
+     * Call this AFTER draining DMA (e.g. audio_submit_zero) so the
+     * next i2s_channel_disable won't hang on pending transfers. */
+    s_config.sample_rate = 0;
 }
 
 esp_err_t audio_play_pcm(const void *data, size_t len, int sample_rate)

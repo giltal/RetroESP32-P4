@@ -71,9 +71,9 @@
     "ATARI LYNX",
     "PC ENGINE",
     "ATARI 800",
-    "OPENTYRIAN",
     "SUPER NINTENDO",
-    "SEGA GENESIS"
+    "SEGA GENESIS",
+    "PSRAM APPS"
   };
 
   char DIRECTORIES[COUNT][10] = {
@@ -92,9 +92,9 @@
     "lynx",     // handy
     "pce",      // huexpress
     "a800",     // atari800
-    "tyrian",   // opentyrian
     "snes",     // snes9x
-    "gen"       // gwenesis
+    "gen",      // gwenesis
+    "papp"      // psram apps
   };
 
   char EXTENSIONS[COUNT][10] = {
@@ -113,9 +113,9 @@
     "lnx",      // handy
     "pce",      // huexpress
     "xex",      // atari800
-    "tyr",      // opentyrian
     "smc",      // snes9x
-    "md"        // gwenesis
+    "md",       // gwenesis
+    "papp"      // psram apps
   };
 
   int LIMIT = 6;
@@ -174,6 +174,12 @@
     // SD
     odroid_sdcard_open("/sd");
     create_settings();
+
+    // PSRAM XIP Self-Test (verify PSRAM code execution works)
+    psram_app_selftest();
+
+    // Serial file upload (background task on USB Serial JTAG)
+    serial_upload_init();
 
     // Count ROMs per system for carousel display
     count_all_roms();
@@ -236,12 +242,6 @@
         int visible = ROMS.total - ROMS.offset;
         if (visible > BROWSER_LIMIT) visible = BROWSER_LIMIT;
         if (BROWSER_SEL >= visible) BROWSER_SEL = visible > 0 ? visible - 1 : 0;
-      } else if (STEP == 15) {
-        /* OpenTyrian: standalone game, return to carousel */
-        BROWSER = false;
-        draw_background();
-        restore_layout();
-        display_flush();
       } else if (STEP >= 3) {
         count_files();
         if (ROMS.total > 0) {
@@ -361,9 +361,9 @@
     // Atari 2600 supports both .a26 and .bin
     if (step == 11 && ext_eq(ext, "bin")) return true;
     // SNES supports both .smc and .sfc
-    if (step == 16 && ext_eq(ext, "sfc")) return true;
+    if (step == 15 && ext_eq(ext, "sfc")) return true;
     // Genesis supports .md and .gen
-    if (step == 17 && ext_eq(ext, "gen")) return true;
+    if (step == 16 && ext_eq(ext, "gen")) return true;
     return false;
   }
 
@@ -381,7 +381,6 @@
    *  6    ota_6     handy (LNX)     .lnx
    *  7    ota_7     huexpress (PCE) .pce
    *  8    ota_8     atari800 (A800) .xex .atr .a52
-   *  9    ota_9     opentyrian      .tyr
    * 10    ota_10    snes9x (SNES)   .smc .sfc
    * 11    ota_11    gwenesis (GEN)  .md .gen
    */
@@ -402,7 +401,6 @@
     if(ext_eq(ext, "xex")) return 8;   /* ota_8: atari800 */
     if(ext_eq(ext, "atr")) return 8;   /* ota_8: atari800 */
     if(ext_eq(ext, "a52")) return 8;   /* ota_8: atari800 (5200 cart) */
-    if(ext_eq(ext, "tyr")) return 9;   /* ota_9: opentyrian */
     if(ext_eq(ext, "smc")) return 10;  /* ota_10: snes9x */
     if(ext_eq(ext, "sfc")) return 10;  /* ota_10: snes9x */
     if(ext_eq(ext, "md"))  return 11;  /* ota_11: gwenesis */
@@ -465,6 +463,7 @@
         STEP = 0;
     }
     nvs_close(handle);
+    if (STEP < 0 || STEP >= COUNT) STEP = 0;
     //printf("\nGet nvs_get_i8:%d\n", STEP);
   }
 
@@ -3012,7 +3011,7 @@
         /* Show system artwork (PNG) or fallback to logo + hint */
         if (!show_system_artwork()) {
           draw_system_logo();
-          const char *hint = STEP == 15 ? "press a to play" : "press a to browse";
+          const char *hint = "press a to browse";
           int cx = (800 - strlen(hint) * 28) / 2;
           draw_text_scaled(cx, 440, hint, GUI.fg);
         }
@@ -3371,6 +3370,47 @@
     /* Build the full ROM path */
     char rom_path[256] = "";
     sprintf(rom_path, "%s/%s", ROM.path, ROM.name);
+
+    /* ── PSRAM App: handle .papp files via PSRAM XIP loader ───────── */
+    if (ext_eq(ROM.ext, "papp")) {
+
+      /* Save ROM path to NVS so the PSRAM app can retrieve it */
+      odroid_settings_RomFilePath_set(rom_path);
+
+      /* serial_upload_deinit();  // disabled for debug */
+
+      psram_app_handle_t papp = NULL;
+      esp_err_t err = psram_app_load(rom_path, &papp);
+
+      if (err != ESP_OK) {
+        serial_upload_init();
+        get_restore_states();
+        LAUNCHER = false;
+        draw_carousel_screen();
+        return;
+      }
+
+      /* Run the PSRAM app — blocks until it returns */
+      int result = psram_app_run(papp);
+      (void)result;
+
+      /* Reset the cached I2S sample rate so the next app can safely
+       * reconfigure without calling i2s_channel_disable() (which can
+       * hang if DMA never fully drained). */
+      audio_reset_sample_rate();
+
+      /* Cleanup */
+      psram_app_unload(papp);
+
+      /* serial_upload_init();  // disabled for debug */
+
+      /* Restore launcher UI */
+      get_restore_states();
+      LAUNCHER = false;
+      BROWSER = false;
+      draw_carousel_screen();
+      return;
+    }
 
     /* Save ROM path and resume state to NVS for the emulator app */
     odroid_settings_RomFilePath_set(rom_path);
@@ -3885,9 +3925,6 @@
                 case 5: delete_recents(); break;
               }
             }
-          } else if (STEP == 15) {
-            /* OpenTyrian: launch standalone game */
-            launch_standalone_app(9);
           } else if (STEP >= 3) {
             /* Enter ROM browser for emulator systems */
             enter_browser();
@@ -4150,12 +4187,12 @@
         }
       }
 
-      /* --- MENU: restart --- */
-      if (gamepad.values[ODROID_INPUT_MENU]) {
+      /* --- MENU: restart (disabled) --- */
+      /* if (gamepad.values[ODROID_INPUT_MENU]) {
         usleep(10000);
         esp_restart();
         debounce(ODROID_INPUT_MENU);
-      }
+      } */
 
       /* Yield to RTOS so watchdog & other tasks can run */
       vTaskDelay(pdMS_TO_TICKS(10));

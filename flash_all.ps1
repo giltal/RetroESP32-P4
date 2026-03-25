@@ -5,7 +5,7 @@
 $ErrorActionPreference = "Stop"
 
 # Ensure ESP-IDF environment is loaded
-$env:IDF_PYTHON_ENV_PATH = "C:\Users\97254\.espressif\python_env\idf5.5_py3.11_env"
+$env:IDF_PYTHON_ENV_PATH = "C:\Users\97254\.espressif\python_env\idf5.5_py3.12_env"
 & "C:\Users\97254\esp\v5.5.2\esp-idf\export.ps1" 2>$null
 
 $ROOT = "C:\ESPIDFprojects\RetroESP32_P4"
@@ -32,7 +32,6 @@ $flash_map = @(
     @{ Offset = "0x5F0000"; File = "handy_app.bin";        Desc = "Handy (ota_6)" },
     @{ Offset = "0x690000"; File = "pce_app.bin";          Desc = "PC Engine (ota_7)" },
     @{ Offset = "0x730000"; File = "atari800_app.bin";     Desc = "Atari 800 (ota_8)" },
-    @{ Offset = "0x800000"; File = "opentyrian_app.bin";   Desc = "OpenTyrian (ota_9)" },
     @{ Offset = "0x8C0000"; File = "snes_app.bin";         Desc = "SNES (ota_10)" },
     @{ Offset = "0x9B0000"; File = "genesis_app.bin";      Desc = "Genesis (ota_11)" }
 )

@@ -75,11 +75,11 @@ void odroid_audio_submit(short *stereoAudioBuffer, int frameCount)
 
     int total_samples = frameCount * 2; /* stereo: L, R, L, R, ... */
 
-    /* Apply software volume attenuation */
-    float vol = (float)volume_table[s_volume_level] * 0.001f;
-    if (vol < 1.0f) {
+    /* Apply software volume attenuation (integer math: vol_num/1000) */
+    int vol_num = volume_table[s_volume_level];
+    if (vol_num < 1000) {
         for (int i = 0; i < total_samples; ++i) {
-            stereoAudioBuffer[i] = (short)((float)stereoAudioBuffer[i] * vol);
+            stereoAudioBuffer[i] = (short)(((int)stereoAudioBuffer[i] * vol_num) / 1000);
         }
     }
 

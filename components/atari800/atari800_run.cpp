@@ -88,6 +88,22 @@ static int console_keys = 7;
 /* Frame rendering control — no frame skip on P4 */
 int atari800_draw_frame = 1;
 
+/* ─── Virtual Keyboard state ──────────────────────────────────── */
+static volatile bool a800_vkb_active = false;
+static int  a800_vkb_row = 0;
+static int  a800_vkb_col = 0;
+static int  a800_vkb_nav_delay = 0;
+static int  a800_vkb_inject = AKEY_NONE;   /* AKEY to inject this frame */
+static bool a800_vkb_shift = false;        /* sticky Shift modifier     */
+static bool a800_vkb_ctrl  = false;        /* sticky Ctrl modifier      */
+
+#define A800_VKB_COLS  13
+#define A800_VKB_ROWS   5
+#define A800_VKB_KEY_W  24
+#define A800_VKB_KEY_H  14
+#define A800_VKB_X_START ((DISPLAY_WIDTH - A800_VKB_COLS * A800_VKB_KEY_W) / 2)
+#define A800_VKB_Y_START (DISPLAY_HEIGHT - A800_VKB_ROWS * A800_VKB_KEY_H - 4)
+
 /* Sound_desired must be provided (sound.cpp extern) */
 Sound_setup_t Sound_desired = {
     AUDIO_SAMPLE_RATE,
@@ -272,6 +288,103 @@ static void a800_fill_rect(uint16_t *fb, int x, int y, int w, int h, uint16_t co
     }
 }
 
+/* ─── Virtual Keyboard layout & drawing ───────────────────────── */
+
+/* Labels shown on each key */
+static const char *a800_vkb_labels[A800_VKB_ROWS][A800_VKB_COLS] = {
+    /* row 0 */ { "1","2","3","4","5","6","7","8","9","0","<",">"," " },
+    /* row 1 */ { "Q","W","E","R","T","Y","U","I","O","P","-","+","=" },
+    /* row 2 */ { "A","S","D","F","G","H","J","K","L",";","*","RT","DL"},
+    /* row 3 */ { "Z","X","C","V","B","N","M",",",".","/","ES","SH","CT"},
+    /* row 4 */ { " "," "," ","SPACE"," "," "," ","BS","TB","HL","OP","ST","SE"},
+};
+
+/* AKEY code for each grid position (unshifted) */
+static const int a800_vkb_akeys[A800_VKB_ROWS][A800_VKB_COLS] = {
+    /* row 0: 1-0 < > blank */
+    { AKEY_1, AKEY_2, AKEY_3, AKEY_4, AKEY_5,
+      AKEY_6, AKEY_7, AKEY_8, AKEY_9, AKEY_0,
+      AKEY_LESS, AKEY_GREATER, AKEY_NONE },
+    /* row 1: Q-P - + = */
+    { AKEY_q, AKEY_w, AKEY_e, AKEY_r, AKEY_t,
+      AKEY_y, AKEY_u, AKEY_i, AKEY_o, AKEY_p,
+      AKEY_MINUS, AKEY_PLUS, AKEY_EQUAL },
+    /* row 2: A-L ; * RETURN DELETE_CHAR */
+    { AKEY_a, AKEY_s, AKEY_d, AKEY_f, AKEY_g,
+      AKEY_h, AKEY_j, AKEY_k, AKEY_l, AKEY_SEMICOLON,
+      AKEY_ASTERISK, AKEY_RETURN, AKEY_DELETE_CHAR },
+    /* row 3: Z-M , . / ESC SHIFT CTRL */
+    { AKEY_z, AKEY_x, AKEY_c, AKEY_v, AKEY_b,
+      AKEY_n, AKEY_m, AKEY_COMMA, AKEY_FULLSTOP, AKEY_SLASH,
+      AKEY_ESCAPE, -100, -101 },   /* -100 = SHIFT toggle, -101 = CTRL toggle */
+    /* row 4: SPACE gaps, BS TAB HELP OPTION START SELECT */
+    { AKEY_SPACE, AKEY_SPACE, AKEY_SPACE, AKEY_SPACE, AKEY_SPACE,
+      AKEY_SPACE, AKEY_SPACE, AKEY_BACKSPACE, AKEY_TAB, AKEY_HELP,
+      AKEY_OPTION, AKEY_START, AKEY_SELECT },
+};
+
+/* Draw the virtual keyboard overlay onto the RGB565 framebuffer */
+static void a800_draw_vkb(uint16_t *fb)
+{
+    if (!a800_vkb_active || !fb) return;
+
+    /* Black background strip */
+    a800_fill_rect(fb, 0, A800_VKB_Y_START - 2,
+                   DISPLAY_WIDTH, A800_VKB_ROWS * A800_VKB_KEY_H + 6, 0x0000);
+
+    for (int r = 0; r < A800_VKB_ROWS; r++) {
+        for (int c = 0; c < A800_VKB_COLS; c++) {
+            int akey = a800_vkb_akeys[r][c];
+            if (akey == AKEY_NONE && r == 0 && c == 12) continue; /* blank slot */
+
+            int kx = A800_VKB_X_START + c * A800_VKB_KEY_W;
+            int ky = A800_VKB_Y_START + r * A800_VKB_KEY_H;
+
+            bool selected = (r == a800_vkb_row && c == a800_vkb_col);
+            bool is_shift = (akey == -100);
+            bool is_ctrl  = (akey == -101);
+
+            uint16_t bg_color, fg_color;
+            if (selected) {
+                bg_color = A800_COLOR_YELLOW; fg_color = 0x0000;
+            } else if ((is_shift && a800_vkb_shift) || (is_ctrl && a800_vkb_ctrl)) {
+                bg_color = A800_COLOR_GREEN; fg_color = 0x0000;
+            } else {
+                bg_color = 0x0010; fg_color = A800_COLOR_WHITE;
+            }
+
+            /* Key rectangle */
+            a800_fill_rect(fb, kx, ky, A800_VKB_KEY_W, A800_VKB_KEY_H, bg_color);
+            /* Border */
+            a800_fill_rect(fb, kx, ky, A800_VKB_KEY_W, 1, 0x4208);
+            a800_fill_rect(fb, kx, ky + A800_VKB_KEY_H - 1, A800_VKB_KEY_W, 1, 0x4208);
+            a800_fill_rect(fb, kx, ky, 1, A800_VKB_KEY_H, 0x4208);
+            a800_fill_rect(fb, kx + A800_VKB_KEY_W - 1, ky, 1, A800_VKB_KEY_H, 0x4208);
+
+            /* Label (centered) */
+            const char *label = a800_vkb_labels[r][c];
+            int label_len = strlen(label);
+            int text_w = label_len * 6;
+            int tx = kx + (A800_VKB_KEY_W - text_w) / 2;
+            int ty = ky + (A800_VKB_KEY_H - 7) / 2;
+            a800_draw_string(fb, tx, ty, label, fg_color);
+        }
+    }
+
+    /* Status bar above keyboard */
+    char status[32] = "";
+    if (a800_vkb_shift && a800_vkb_ctrl)
+        snprintf(status, sizeof(status), "SHIFT+CTRL");
+    else if (a800_vkb_shift)
+        snprintf(status, sizeof(status), "SHIFT");
+    else if (a800_vkb_ctrl)
+        snprintf(status, sizeof(status), "CTRL");
+    if (status[0]) {
+        int sw = strlen(status) * 6;
+        a800_draw_string(fb, (DISPLAY_WIDTH - sw) / 2, A800_VKB_Y_START - 10, status, A800_COLOR_CYAN);
+    }
+}
+
 /* ─── RGB565 palette ──────────────────────────────────────────── */
 static const uint32_t atari_palette_rgb[256] = {
     0x000000,0x111111,0x222222,0x333333,0x444444,0x555555,0x666666,0x777777,
@@ -356,6 +469,9 @@ static void videoTask(void *arg)
         }
 
         /* Direct PPA path: 320×240 → 2× scale + 270° rotate → 480×640 */
+        /* Overlay virtual keyboard if active */
+        a800_draw_vkb(s_vid_rgb565);
+
         ili9341_write_frame_rgb565_ex(s_vid_rgb565, false);
 
         xQueueReceive(vidQueue, &param, portMAX_DELAY);
@@ -594,12 +710,15 @@ static void emu_step(odroid_gamepad_state *gamepad)
     /* Map gamepad to Atari joystick */
     _joy[0] = 0;
     _trig[0] = 0;
-    if (gamepad->values[ODROID_INPUT_UP])    _joy[0] |= JOY_STICK_FORWARD;
-    if (gamepad->values[ODROID_INPUT_DOWN])  _joy[0] |= JOY_STICK_BACK;
-    if (gamepad->values[ODROID_INPUT_LEFT])  _joy[0] |= JOY_STICK_LEFT;
-    if (gamepad->values[ODROID_INPUT_RIGHT]) _joy[0] |= JOY_STICK_RIGHT;
-    if (gamepad->values[ODROID_INPUT_A])     _trig[0] = 1;
-    if (gamepad->values[ODROID_INPUT_B])     _trig[0] = 1;
+    if (!a800_vkb_active) {
+        /* Normal joystick mapping — suppressed when VKB is active */
+        if (gamepad->values[ODROID_INPUT_UP])    _joy[0] |= JOY_STICK_FORWARD;
+        if (gamepad->values[ODROID_INPUT_DOWN])  _joy[0] |= JOY_STICK_BACK;
+        if (gamepad->values[ODROID_INPUT_LEFT])  _joy[0] |= JOY_STICK_LEFT;
+        if (gamepad->values[ODROID_INPUT_RIGHT]) _joy[0] |= JOY_STICK_RIGHT;
+        if (gamepad->values[ODROID_INPUT_A])     _trig[0] = 1;
+        if (gamepad->values[ODROID_INPUT_B])     _trig[0] = 1;
+    }
 
     /* Console keys */
     console_keys = 0x07;
@@ -607,7 +726,16 @@ static void emu_step(odroid_gamepad_state *gamepad)
     if (gamepad->values[ODROID_INPUT_SELECT]) console_keys &= ~0x02;
     INPUT_key_consol = console_keys;
 
-    if (Atari800_machine_type == Atari800_MACHINE_5200) {
+    if (a800_vkb_active && a800_vkb_inject != AKEY_NONE) {
+        /* Virtual keyboard key injection */
+        int key = a800_vkb_inject;
+        if (key == AKEY_START || key == AKEY_SELECT || key == AKEY_OPTION) {
+            /* Console keys via INPUT_key_code (negative values) */
+            INPUT_key_code = key;
+        } else {
+            INPUT_key_code = key;
+        }
+    } else if (Atari800_machine_type == Atari800_MACHINE_5200) {
         INPUT_key_code = AKEY_NONE;
         if (gamepad->values[ODROID_INPUT_START])
             INPUT_key_code = AKEY_5200_START;
@@ -1068,6 +1196,60 @@ extern "C" void atari800_run(const char *rom_path)
                 !joystick.values[ODROID_INPUT_VOLUME]) {
                 a800_show_volume_overlay();
                 odroid_input_gamepad_read(&joystick);
+            }
+
+            /* L1 button → toggle virtual keyboard */
+            if (joystick.values[ODROID_INPUT_L] && !previousState.values[ODROID_INPUT_L]) {
+                a800_vkb_active = !a800_vkb_active;
+                if (!a800_vkb_active) {
+                    a800_vkb_inject = AKEY_NONE;
+                    a800_vkb_shift = false;
+                    a800_vkb_ctrl  = false;
+                }
+            }
+
+            /* Virtual keyboard navigation when active */
+            if (a800_vkb_active) {
+                if (a800_vkb_nav_delay > 0) a800_vkb_nav_delay--;
+
+                if (a800_vkb_nav_delay == 0) {
+                    if (joystick.values[ODROID_INPUT_UP])    { a800_vkb_row = (a800_vkb_row - 1 + A800_VKB_ROWS) % A800_VKB_ROWS; a800_vkb_nav_delay = 8; }
+                    if (joystick.values[ODROID_INPUT_DOWN])  { a800_vkb_row = (a800_vkb_row + 1) % A800_VKB_ROWS; a800_vkb_nav_delay = 8; }
+                    if (joystick.values[ODROID_INPUT_LEFT])  { a800_vkb_col = (a800_vkb_col - 1 + A800_VKB_COLS) % A800_VKB_COLS; a800_vkb_nav_delay = 8; }
+                    if (joystick.values[ODROID_INPUT_RIGHT]) { a800_vkb_col = (a800_vkb_col + 1) % A800_VKB_COLS; a800_vkb_nav_delay = 8; }
+                }
+
+                int akey = a800_vkb_akeys[a800_vkb_row][a800_vkb_col];
+
+                if (joystick.values[ODROID_INPUT_A]) {
+                    if (akey == -100) {
+                        /* Shift toggle (only on press edge) */
+                        if (!previousState.values[ODROID_INPUT_A])
+                            a800_vkb_shift = !a800_vkb_shift;
+                        a800_vkb_inject = AKEY_NONE;
+                    } else if (akey == -101) {
+                        /* Ctrl toggle (only on press edge) */
+                        if (!previousState.values[ODROID_INPUT_A])
+                            a800_vkb_ctrl = !a800_vkb_ctrl;
+                        a800_vkb_inject = AKEY_NONE;
+                    } else if (akey != AKEY_NONE) {
+                        /* Apply modifiers */
+                        int modified = akey;
+                        if (a800_vkb_shift) modified |= AKEY_SHFT;
+                        if (a800_vkb_ctrl)  modified |= AKEY_CTRL;
+                        a800_vkb_inject = modified;
+                    }
+                } else {
+                    a800_vkb_inject = AKEY_NONE;
+                }
+
+                /* B button closes keyboard */
+                if (joystick.values[ODROID_INPUT_B] && !previousState.values[ODROID_INPUT_B]) {
+                    a800_vkb_active = false;
+                    a800_vkb_inject = AKEY_NONE;
+                    a800_vkb_shift = false;
+                    a800_vkb_ctrl  = false;
+                }
             }
 
             int64_t startTime = esp_timer_get_time();

@@ -40,6 +40,7 @@
 #include "esp_event.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_vfs_fat.h"
 #include "esp_partition.h"
 #include "esp_ota_ops.h"
@@ -51,6 +52,11 @@
 #include "driver/ledc.h"
 
 /*
+  Serial file upload (USB Serial JTAG)
+*/
+#include "serial_upload.h"
+
+/*
   Odroid-compatible APIs (ESP32-P4 implementation)
 */
 #include "odroid_settings.h"
@@ -59,6 +65,7 @@
 #include "odroid_display.h"
 #include "odroid_input.h"
 #include "odroid_audio.h"
+#include "audio.h"
 
 /*
   Sprites
@@ -87,5 +94,10 @@
 */
 #include "ppa_engine.h"
 #include "st7701_lcd.h"
+
+/*
+  PSRAM App Loader (load & execute apps from SD card via PSRAM XIP)
+*/
+#include "psram_app.h"
 
 /* No emulator headers — emulators run as separate OTA apps */

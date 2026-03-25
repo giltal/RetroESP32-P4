@@ -146,6 +146,8 @@ bool dir_file_exists( const char *dir, const char *file )
 // returns end-of-file position
 long ftell_eof( FILE *f )
 {
+	if (f == NULL)
+		return -1;
 	SDL_LockDisplay();
 	long pos = ftell(f);
 	

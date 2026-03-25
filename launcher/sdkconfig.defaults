@@ -28,6 +28,10 @@ CONFIG_FREERTOS_HZ=1000
 # Main task stack size (hardware init needs deep stack)
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=32768
 
+# Console: UART0 only. Disable USB Serial JTAG secondary console
+# to prevent 50ms-per-char stalls when the USB host isn't reading.
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
 # Log level
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 

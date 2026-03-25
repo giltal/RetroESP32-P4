@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** March 2026 — **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480×640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
+> **Last Updated:** March 2026 — **Phase 31: Quake audio & brightness fix** (audio task moved core 0→1, sample rate 11025→22050 Hz, mixer volume shift >>20→>>16 for proper levels, volume default 0.7→1.0, direct gamma 0.5 brightness boost in palette LUT via sqrtf curve), **Phase 30: Full rebuild & OpenTyrian cleanup** (removed OpenTyrian from `SYSTEMS[]` array, `get_ota_slot()`, `build_all.ps1`, `flash_all.ps1`, `generate_merged_bin.ps1`; fixed OTA slot mapping — SNES→ota_10, Genesis→ota_11; fixed Python env py3.11→py3.12; fixed `$ROOT` paths to `RetroESP32_P4_PSRAM`; full rebuild of launcher + 11 emulators; merged firmware binary 10.87 MB; single-shot flash at 0x0), **Phase 29: Quake PSRAM app** (WinQuake engine ported as third .papp, 320×240 software renderer, 8bpp→RGB565 native LE, 11025 Hz stereo audio, 256KB PSRAM-backed task stack via `xTaskCreateStaticPinnedToCore`, heap_caps_malloc redirect ≥1KB→PSRAM, stack overflow fix with static precache arrays, scale 2.0× for 480px LCD, gamma 0.7 for brightness, demo playback confirmed working), **Phase 28: PSRAM app stability, launcher cleanup, Atari 800 virtual keyboard** (I2S mutex deadlock fix for multi-app launches, FreeRTOS task exit crash fix, `_fstat` bug fix improving OpenTyrian load time, OpenTyrian removed from launcher carousel as standalone PSRAM app, NVS STEP bounds check prevents launcher reboot loop, Atari 800 virtual keyboard overlay with L1 toggle + Shift/Ctrl modifiers, prboom CMakeLists.txt fixed to not break other emulator builds), **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480→640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -48,10 +48,11 @@
 | 6 | Atari 7800 | prosystem | ota_5 | .a78 | ✅ Working, exit fix applied |
 | 7 | Atari Lynx | handy | ota_6 | .lnx | ✅ Built |
 | 8 | PC Engine | huexpress | ota_7 | .pce | ✅ Confirmed **60FPS** (async display) + save/load state |
-| 9 | Atari 800 / 5200 | atari800 | ota_8 | .xex, .atr, .a52 | ✅ Confirmed **60FPS** (async audio, 5200 cart support) |
-| 10 | OpenTyrian | opentyrian | ota_9 | .tyr | ✅ Working (standalone game) |
+| 9 | Atari 800 / 5200 | atari800 | ota_8 | .xex, .atr, .a52 | ✅ Confirmed **60FPS** (async audio, 5200 cart, **virtual keyboard via L1**) |
+| 10 | OpenTyrian | opentyrian | ~~ota_9~~ PSRAM app | .tyr | ✅ Working (now a PSRAM app, removed from launcher carousel) |
 | 11 | **SNES** | snes9x | ota_10 | .smc, .sfc | ✅ Working, **45-67 FPS** (dual-core, 2× PPA, DKC crash fixed, save/load state) |
 | 12 | **Sega Genesis** | gwenesis | ota_11 | .md, .gen | ✅ Working, ~30 FPS (frameskip=2, internal RAM optimized, ROM bounds checking) |
+| 13 | **Quake** | WinQuake | PSRAM app | .papp | ✅ Working (320×240, 8MB hunk, 256KB PSRAM stack, demo playback confirmed) |
 
 ---
 
@@ -540,6 +541,7 @@ Max:       3 (CRASH_GUARD_MAX)
 - [x] Volume bar rendered with colored gradient (green → cyan → yellow)
 - [x] 5×7 bitmap font for OSD text rendering (shared pattern across all emulators)
 - [x] ZX Spectrum virtual keyboard overlay (4×10 grid with CS/SS shift toggle)
+- [x] Atari 800 virtual keyboard overlay (5×13 grid, L1 toggle, Shift/Ctrl sticky modifiers)
 - [x] Flash confirmation messages ("Saved!", "Loaded!", "Deleted!", "Error!")
 - [x] All menus auto-dismiss on button release to prevent input bleed
 
@@ -1242,6 +1244,12 @@ Start-Sleep -Seconds 2
 - [x] SNES emulator (snes9x) — ota_10 ✅ Ported, 45-67 FPS, dual-core optimized, save/load state
 - [x] Sega Genesis emulator (gwenesis) — ota_11 ✅ Ported, ~30 FPS, internal RAM optimized, ROM bounds checking
 - [ ] AY-3-8912 PSG sound emulation for ZX Spectrum
+- [x] Atari 800 virtual keyboard (L1 toggle, 5×13 grid, Shift+Ctrl modifiers) ✅
+- [x] OpenTyrian moved to PSRAM app, removed from launcher carousel ✅
+- [x] Launcher NVS STEP bounds check (prevents reboot loop after emulator removal) ✅
+- [x] prboom CMakeLists.txt fixed (empty component stub, doesn't break other emulator builds) ✅
+- [x] Quake (WinQuake) ported as PSRAM app — 320×240 software renderer, demo playback working ✅
+- [x] PSRAM-backed large-stack tasks in psram_app_loader (>32KB via `xTaskCreateStaticPinnedToCore`) ✅
 
 ### Source Control
 - [x] GitHub repository: `https://github.com/giltal/RetroESP32-P4` — 1148 source files, merged firmware binary, .gitignore excludes build artifacts/logs/temp files
@@ -1412,3 +1420,247 @@ static void gen_convert_frame(const uint8_t *src, uint16_t *dst,
 **Change:** Updated `show_png_logo_native()` in the launcher to scale the boot logo PNG to fill the full 480×800 LCD instead of displaying at 1:1 native size. Uses independent X/Y scale factors computed from LCD dimensions divided by rotated image dimensions, allowing non-uniform stretch to fill the screen entirely.
 
 **File changed:** `launcher/main/main.c` — `show_png_logo_native()`
+
+---
+
+### Phase 28: PSRAM App Stability, Launcher Cleanup & Atari 800 Virtual Keyboard
+
+**Fix 1 — I2S mutex deadlock on multi-app launch (PSRAM apps):**
+
+**Problem:** Launching a second PSRAM app after the first caused the system to hang indefinitely — stuck at "Loading..." screen.
+
+**Root cause:** `vTaskDelete()` on the audio task while it was blocked inside `i2s_channel_write()` permanently locked the I2S mutex. The next app's `i2s_channel_enable()` would deadlock trying to acquire the same mutex.
+
+**Fix:** Graceful audio task exit pattern — tasks check `papp_exit_requested` flag, set a `done` flag, then spin in `while(1) delay_ms(100)` (never return, preventing FreeRTOS `prvTaskExitError`). Added `audio_reset_sample_rate()` API (sets cached rate to 0) so the next app's `i2s_channel_disable` is skipped when no valid rate is cached.
+
+**Files changed:** `components/audio/audio.c`, `apps/psram_doom/papp_i_sound.c`, `apps/psram_opentyrian/papp_sdl_audio.c`
+
+---
+
+**Fix 2 — `_fstat` missing file size (both PSRAM apps):**
+
+**Problem:** OpenTyrian took ~45 seconds to load (should be ~3s). Doom save game load crashed with `Z_Malloc: 1341265604 bytes`.
+
+**Root cause:** The `_fstat()` syscall shim only set `st_mode` but left `st_size` uninitialized (stack garbage). Newlib's `fseek(SEEK_END)` + `ftell()` returned garbage values.
+
+**Fix:** `memset(st, 0, sizeof(*st))` + compute real file size via seek-to-end-and-back in both `_fstat()` and `_stat()`.
+
+**Files changed:** `apps/psram_doom/papp_syscalls.c`, `apps/psram_opentyrian/papp_syscalls.c`
+
+---
+
+**Fix 3 — OpenTyrian removed from launcher carousel:**
+
+**Change:** OpenTyrian is now exclusively a PSRAM app (loaded from SD card). Removed from the launcher's `EMULATORS[]`, `DIRECTORIES[]`, `EXTENSIONS[]` arrays, `COUNT` decreased from 19→18, all `STEP == 15` special cases removed, SNES/Genesis/PSRAM Apps step indices shifted down.
+
+**Files changed:** `launcher/main/main.c`, `launcher/main/includes/definitions.h`
+
+---
+
+**Fix 4 — Launcher reboot loop after emulator removal:**
+
+**Problem:** After removing OpenTyrian (COUNT 19→18), the launcher kept resetting in an infinite loop.
+
+**Root cause:** NVS stored `STEP=18` (old PSRAM Apps index). With COUNT=18, valid range is 0-17, so `STEP=18` caused out-of-bounds array access on every carousel reference (`EMULATORS[STEP]`, `EXTENSIONS[STEP]`, etc.), crashing and rebooting.
+
+**Fix:** Added bounds clamp after NVS read: `if (STEP < 0 || STEP >= COUNT) STEP = 0;`
+
+**File changed:** `launcher/main/main.c` — `get_step_state()`
+
+---
+
+**Feature — Atari 800 virtual keyboard overlay:**
+
+**Trigger:** L1 button toggles keyboard on/off.
+
+**Layout:** 5×13 grid covering the full Atari 800 keyboard:
+- Row 0: Numbers 1-0, `<`, `>`
+- Row 1: Q-P, `-`, `+`, `=`
+- Row 2: A-L, `;`, `*`, Return (RT), Delete (DL)
+- Row 3: Z-M, `,`, `.`, `/`, Escape (ES), Shift (SH), Ctrl (CT)
+- Row 4: Space bar, Backspace (BS), Tab (TB), Help (HL), Option (OP), Start (ST), Select (SE)
+
+**Controls:** D-pad navigates, A presses selected key, B closes keyboard. Shift and Ctrl are sticky toggles (green highlight when active, status bar shows modifier state).
+
+**Rendering:** Drawn as RGB565 overlay on the `s_vid_rgb565` framebuffer in `videoTask` after palette conversion, before LCD write. Uses the existing `a800_draw_string()`/`a800_fill_rect()` helpers. Joystick input suppressed while keyboard is visible.
+
+**Key injection:** Sets `INPUT_key_code` to the appropriate `AKEY_*` value with `AKEY_SHFT`/`AKEY_CTRL` modifiers applied.
+
+**File changed:** `components/atari800/atari800_run.cpp`
+
+---
+
+**Fix 5 — prboom CMakeLists.txt breaking other emulator builds:**
+
+**Problem:** After copying the Doom engine source into `components/prboom/`, building any emulator app failed with "Failed to resolve component 'retro-go'" because `prboom/CMakeLists.txt` had `COMPONENT_REQUIRES "retro-go"`.
+
+**Fix:** Replaced with `idf_component_register()` (empty stub). The prboom source is only compiled by `tools/build_doom_papp.ps1`, not as a regular ESP-IDF component.
+
+**File changed:** `components/prboom/CMakeLists.txt`
+
+---
+
+### Phase 29: Quake (WinQuake) PSRAM App
+
+**Goal:** Port the WinQuake engine (from quake-go / ESP32 Quake project) as the third PSRAM XIP app (.papp).
+
+**Engine:** WinQuake — original Quake software renderer, 320×240, 8-bit indexed color with palette, 11025 Hz stereo audio.
+
+**Source:** 207 files copied to `components/quake/`, with `CMakeLists.txt` set to empty stub (same pattern as prboom — source compiled only by the build script, not as an ESP-IDF component).
+
+**Shim files created** in `apps/psram_quake/`:
+
+| File | Purpose |
+|------|---------|
+| `papp_main.c` | Entry point, 256KB game task on PSRAM stack, watchdog, cleanup |
+| `papp_syscalls.c` | Newlib stubs (8192-entry alloc tracker, 48-slot FD table), redirects ≥1KB to PSRAM |
+| `papp_vid.c` | Video: 320×240 8bpp→RGB565 (native LE, no byte-swap), scale 2.0×, double-buffered surfaces, 640KB surfcache |
+| `papp_snd.c` | Audio: 256 SFX slots, 512-sample buffer, 11025 Hz stereo, `audio_submit` |
+| `papp_input.c` | Gamepad→Quake `Key_Event` mapping (A=fire, B=jump, L/R=strafe, etc.) |
+| `papp_sys.c` | Sys_Printf via `log_printf`, file I/O via service table, gamma 0.7, 8MB hunk |
+| `papp_rg_stubs.c` | ~40 retro-go API stubs (Quake-go used retro-go framework) |
+
+**Compat headers** in `apps/psram_quake/compat/`: 15 ESP-IDF/FreeRTOS stub headers (same pattern as Doom).
+
+---
+
+**Fix 1 — Pack info allocation failure:**
+
+**Problem:** `heap_caps_malloc` in Quake's `common.c` requested `MALLOC_CAP_INTERNAL` for 21696 bytes (pack file info). Internal SRAM too small.
+
+**Fix:** `papp_syscalls.c` redirects all `heap_caps_malloc` calls ≥1KB to PSRAM regardless of requested caps.
+
+---
+
+**Fix 2 — Stack overflow during demo playback:**
+
+**Problem:** `CL_ParseServerInfo()` allocates `model_precache[256][64]` + `sound_precache[256][64]` = 32KB on the stack. The default 32KB task stack was immediately exhausted during `demo1.dem` playback.
+
+**Fix (two parts):**
+1. Made `model_precache` and `sound_precache` arrays `static` in `cl_parse.c`
+2. Created game task with 256KB stack — but `xTaskCreatePinnedToCore` can't allocate 256KB from internal SRAM
+
+**File changed:** `components/quake/winquake/cl_parse.c`
+
+---
+
+**Fix 3 — PSRAM-backed large-stack task creation (launcher infrastructure):**
+
+**Problem:** `xTaskCreatePinnedToCore` fails when requesting 256KB — FreeRTOS allocates task stacks from internal SRAM by default, which doesn't have 256KB free.
+
+**Fix:** Modified `svc_task_create()` in `psram_app_loader.c`: for stack requests >32KB, allocates stack buffer from PSRAM via `heap_caps_malloc(MALLOC_CAP_SPIRAM)`, TCB from internal RAM via `heap_caps_malloc(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)`, then uses `xTaskCreateStaticPinnedToCore`. For requests ≤32KB, uses the standard `xTaskCreatePinnedToCore`.
+
+**File changed:** `components/psram_app_loader/psram_app_loader.c`
+
+---
+
+**Fix 4 — Black screen (scale overflow):**
+
+**Problem:** Initial scale factor 2.5× produced 600px wide output on 480px LCD width. PPA hardware silently failed.
+
+**Fix:** Changed scale to 2.0× → 480×640 output fits within 480×800 panel.
+
+**File changed:** `apps/psram_quake/papp_vid.c`
+
+---
+
+**Fix 5 — Wrong colors (palette byte-swap):**
+
+**Problem:** Original quake-go swaps RGB565 bytes for retro-go's `rg_display_submit` (big-endian format). The PSRAM app uses `display_write_frame_custom` which expects native little-endian RGB565.
+
+**Fix:** Removed byte-swap from palette LUT construction in `VID_SetPalette`.
+
+**File changed:** `apps/psram_quake/papp_vid.c`
+
+---
+
+**Fix 6 — Dark display:**
+
+**Problem:** Quake default gamma=1.0 too dark on small LCD panel.
+
+**Fix:** Forced `Cvar_SetValue("gamma", 0.7)` after init (lower value = brighter in Quake).
+
+**File changed:** `apps/psram_quake/papp_sys.c`
+
+---
+
+**Build:** `tools/build_quake_papp.ps1` — compiles 71 objects (64 WinQuake engine + 7 shim files), ~350KB .papp binary, ~544KB BSS.
+
+**Upload:** `python tools/upload_papp.py firmware/quake.papp --port COM30`
+
+**Requires:** `id1/pak0.pak` (Quake shareware/full) at `/sd/roms/quake/id1/pak0.pak` on SD card.
+
+**Result:** Quake running smoothly — demo playback confirmed with full game messages ("You got the rockets", "You receive 25 health"), correct colors, good brightness.
+
+### Phase 30: Full Rebuild & OpenTyrian Cleanup
+
+**Goal:** After removing OpenTyrian from the launcher carousel (Phase 28), residual references in multiple files caused SNES and Genesis to break. Full cleanup, rebuild, and reflash of all firmware.
+
+**Bug 1 — SNES pops back to launcher immediately:**
+
+**Root cause:** `get_ota_slot()` mapped `.smc`/`.sfc` → slot 9 (ota_9 at 0x800000, the old OpenTyrian partition). But the SNES binary was flashed at ota_10 (0x8C0000). Booting from an empty/stale ota_9 slot triggered the crash guard → automatic return to launcher.
+
+**Fix:** Changed `get_ota_slot()` to return 10 for SNES and 11 for Genesis, matching the actual partition table.
+
+**Bug 2 — Genesis shows OpenTyrian icon, screen is black:**
+
+**Root cause (icon):** `SYSTEMS[]` array in `structures.h` still had the OpenTyrian entry at index 15, pushing SNES to index 16 and Genesis to index 17. With `COUNT=18`, Genesis at [17] displayed correctly but used the wrong icon sprite (`&tyrian` at [15] instead of `&genesis`).
+
+**Root cause (black screen):** `get_ota_slot()` mapped `.md`/`.gen` → slot 10 (ota_10 at 0x8C0000), which contained the SNES binary. Genesis booked into the SNES emulator which couldn't parse a Genesis ROM → black screen.
+
+**Fix:** Removed OpenTyrian entry from `SYSTEMS[]` array.
+
+**Bug 3 — Build scripts had stale references:**
+
+- `build_all.ps1`, `flash_all.ps1`, `generate_merged_bin.ps1` all still included `opentyrian_app.bin`
+- `$ROOT` pointed to old `RetroESP32_P4` instead of `RetroESP32_P4_PSRAM`
+- Python env path referenced broken `py3.11` env (esptool dependency mismatch); working env is `py3.12`
+
+**Fix:** Removed OpenTyrian from all three scripts, updated `$ROOT` and Python env paths.
+
+**Full rebuild:** Built launcher + 11 emulators (NES, GB, SMS, Spectrum, Stella, ProSystem, Handy, PCE, Atari800, SNES, Genesis). Generated merged binary `RetroESP32_P4_v1.bin` (10.87 MB). Flashed in one shot at address 0x0.
+
+**Files changed:**
+
+| File | Change |
+|------|--------|
+| `launcher/main/includes/structures.h` | Removed OpenTyrian entry from `SYSTEMS[]` array |
+| `launcher/main/main.c` | Fixed `get_ota_slot()`: SNES→10, Genesis→11 (was 9, 10) |
+| `build_all.ps1` | Removed OpenTyrian, fixed `$ROOT`, updated Python env to py3.12 |
+| `flash_all.ps1` | Removed OpenTyrian, fixed `$ROOT`, updated Python env to py3.12 |
+| `generate_merged_bin.ps1` | Removed OpenTyrian, fixed `$ROOT`, updated Python env to py3.12 |
+
+**Result:** All 11 emulators confirmed working — SNES runs games, Genesis has correct icon and displays properly.
+
+### Phase 31: Quake Audio & Brightness Fix
+
+**Goal:** Fix Quake PSRAM app having no sound and dark display.
+
+**Bug 1 — No audio output:**
+
+**Root cause (3 issues):**
+1. **Audio task on wrong core** — `task_create(..., 0)` pinned to core 0 (game core). Both game and audio fighting for CPU on the same core, with audio starved. Doom and OpenTyrian both use core 1.
+2. **Sample rate too low** — `audio_init(11025)` was half the standard rate. Doom uses 22050 Hz. The I2S driver timing mismatch caused buffer issues.
+3. **Mixer volume attenuated 16× too much** — output scaling used `>> 20` (divide by 1M) instead of `>> 16` (divide by 65536). With `master_vol` (0-255) × `sample` (±32767) × `volumeInt` (256), the correct shift to get back to 16-bit range is 16, not 20.
+
+**Fix:**
+- Moved audio task to core 1: `task_create(..., 1)`
+- Increased sample rate: `audio_init(22050)` + updated WAV resampling step to match
+- Fixed mixer shift: `>> 20` → `>> 16`
+- Raised volume default from 0.7 to 1.0
+
+**Bug 2 — Display too dark:**
+
+**Root cause:** WinQuake's `v_gamma` cvar (range 0.5-1.0, lower=brighter) controls brightness via `BuildGammaTable()` → `V_UpdatePalette()` → `VID_ShiftPalette()`. Setting the cvar via `Cvar_SetValue("gamma", 0.5)` after `Host_Init` wasn't taking effect — the engine's `V_UpdatePalette` early-returns when no color shifts change and gamma hasn't changed since last check.
+
+**Fix:** Applied gamma 0.5 brightness boost directly in the palette→RGB565 LUT construction in `VID_Update()`. Each palette entry goes through `sqrtf(c/255) * 255` (gamma 0.5 = square root curve), which significantly brightens dark areas while preserving whites. This bypasses the engine's cvar chain entirely and always works.
+
+**Files changed:**
+
+| File | Change |
+|------|--------|
+| `apps/psram_quake/papp_snd.c` | Audio task core 0→1, sample rate 11025→22050 Hz, mixer `>>20`→`>>16`, volume 0.7→1.0 |
+| `apps/psram_quake/papp_vid.c` | Direct gamma 0.5 sqrtf brightness boost in palette LUT, added `<math.h>` |
+| `apps/psram_quake/papp_sys.c` | Gamma cvar set to 0.5 (belt-and-suspenders with direct LUT boost) |
+
+**Result:** Quake has clear, loud audio and bright, visible display on the small LCD.

@@ -59,9 +59,9 @@ SYSTEM SYSTEMS[COUNT] = {
   /* ATARI LYNX */{0, &lnx ,&lnx_color},
   /* PC ENGINE */{0, &pce ,&pce_color},
   /* ATARI 800 */{0, &a800 ,&a800_color},
-  /* OPENTYRIAN */{0, &tyrian ,&tyrian_color},
   /* SUPER NINTENDO */{0, &snes ,&snes_color},
   /* SEGA GENESIS */{0, &genesis ,&genesis_color},
+  /* PSRAM APPS */{0, &papp ,&papp_color},
 };
 
 // THEME

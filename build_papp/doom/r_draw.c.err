@@ -1,0 +1,234 @@
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:15,
+                 from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_draw.c:323:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawColumn8_PointUV_LinearZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:20:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawColumn8_LinearUV':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:25:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawColumn8_LinearUV_PointZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:30:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawColumn8_LinearUV_LinearZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:35:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawColumn8_RoundedUV':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:40:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawColumn8_RoundedUV_PointZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:45:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawColumn8_RoundedUV_LinearZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:15,
+                 from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_draw.c:371:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTLColumn8_PointUV_LinearZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:20:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTLColumn8_LinearUV':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:25:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTLColumn8_LinearUV_PointZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:30:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTLColumn8_LinearUV_LinearZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:35:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTLColumn8_RoundedUV':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:40:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTLColumn8_RoundedUV_PointZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:45:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTLColumn8_RoundedUV_LinearZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:15,
+                 from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_draw.c:417:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTranslatedColumn8_PointUV_LinearZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:20:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTranslatedColumn8_LinearUV':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:25:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTranslatedColumn8_LinearUV_PointZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:30:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTranslatedColumn8_LinearUV_LinearZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:35:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTranslatedColumn8_RoundedUV':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:40:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTranslatedColumn8_RoundedUV_PointZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~
+In file included from C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolpipeline.inl:45:
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl: In function 'R_DrawTranslatedColumn8_RoundedUV_LinearZ':
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:316:9: warning: this 'if' clause does not guard... [-Wmisleading-indentation]
+  316 |         if (count & 1)
+      |         ^~
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:85:19: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the 'if'
+   85 |   #define INCY(y) (y++)
+      |                   ^
+C:\ESPIDFprojects\RetroESP32_P4_PSRAM\components\prboom\r_drawcolumn.inl:318:11: note: in expansion of macro 'INCY'
+  318 |           INCY(y);
+      |           ^~~~

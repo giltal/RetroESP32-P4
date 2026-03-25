@@ -85,6 +85,12 @@ esp_err_t audio_set_volume(int volume);
 esp_err_t audio_set_sample_rate(int sample_rate);
 
 /**
+ * @brief Reset cached sample rate so next set_sample_rate forces reconfiguration.
+ * Call after draining DMA (e.g. via audio_play_pcm with silence).
+ */
+void audio_reset_sample_rate(void);
+
+/**
  * @brief Play a PCM buffer through the speaker
  *
  * @param data      Pointer to 16-bit signed PCM data (stereo interleaved)
