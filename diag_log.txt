@@ -1,0 +1,8 @@
+I (98) boot:  6 ota_3            OTA app          00 13 00350000PAPP: pre-load free_heap=31483860 free_psram=31190440 largest=30408704
+PAPP: calling psram_app_load(/sd/roms/papp/opentyrian.papp)...
+PAPP: load returned UNKNOWN ERROR
+PAPP: calling psram_app_run...
+=== OpenTyrian PSRAM App Starting ===
+PAPP audio task started (rate=44100)
+=== OpenTyrian PSRAM App Exiting ===
+OpenTyrian cleanup: freeing 507 tracked allocations

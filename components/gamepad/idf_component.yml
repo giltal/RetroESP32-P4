@@ -1,0 +1,6 @@
+## IDF Component Manager Manifest File
+dependencies:
+  idf: ">=5.0"
+  usb_host_hid:
+    version: "^1.0.1"
+    override_path: "../usb_host_hid"
