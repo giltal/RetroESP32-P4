@@ -68,9 +68,6 @@ serial_boot_capture.py
 serial_capture.py
 serial_pce_capture.py
 
-# === SD card content (user data, not source) ===
-SDcard/
-
 # === IDE / editor ===
 .vscode/
 *.code-workspace
