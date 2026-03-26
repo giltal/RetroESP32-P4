@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** March 2026 — **Phase 31: Quake audio & brightness fix** (audio task moved core 0→1, sample rate 11025→22050 Hz, mixer volume shift >>20→>>16 for proper levels, volume default 0.7→1.0, direct gamma 0.5 brightness boost in palette LUT via sqrtf curve), **Phase 30: Full rebuild & OpenTyrian cleanup** (removed OpenTyrian from `SYSTEMS[]` array, `get_ota_slot()`, `build_all.ps1`, `flash_all.ps1`, `generate_merged_bin.ps1`; fixed OTA slot mapping — SNES→ota_10, Genesis→ota_11; fixed Python env py3.11→py3.12; fixed `$ROOT` paths to `RetroESP32_P4_PSRAM`; full rebuild of launcher + 11 emulators; merged firmware binary 10.87 MB; single-shot flash at 0x0), **Phase 29: Quake PSRAM app** (WinQuake engine ported as third .papp, 320×240 software renderer, 8bpp→RGB565 native LE, 11025 Hz stereo audio, 256KB PSRAM-backed task stack via `xTaskCreateStaticPinnedToCore`, heap_caps_malloc redirect ≥1KB→PSRAM, stack overflow fix with static precache arrays, scale 2.0× for 480px LCD, gamma 0.7 for brightness, demo playback confirmed working), **Phase 28: PSRAM app stability, launcher cleanup, Atari 800 virtual keyboard** (I2S mutex deadlock fix for multi-app launches, FreeRTOS task exit crash fix, `_fstat` bug fix improving OpenTyrian load time, OpenTyrian removed from launcher carousel as standalone PSRAM app, NVS STEP bounds check prevents launcher reboot loop, Atari 800 virtual keyboard overlay with L1 toggle + Shift/Ctrl modifiers, prboom CMakeLists.txt fixed to not break other emulator builds), **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480→640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
+> **Last Updated:** March 2026 — **Phase 33: Duke3D gamepad, save/load, exit fixes** (full gamepad remapping: A=fire, B=open, X=jump, Y=crouch, L/R=weapon cycle via number key injection with held-key duration, AutoRun enabled; save/load fully working — buffer overflow fix, `access()` now probes SD for absolute paths, `numplayers` forced to 1, save name auto-fill + B button confirms; exit fix — `gameexit()` calls `_exit(0)` directly skipping heavy cleanup), **Phase 32: Duke Nukem 3D PSRAM app** (Chocolate Duke3D BUILD engine ported as fourth .papp, 320×200 8bpp→RGB565 via lcdpal[] LUT, 2.4× display scale, GRP archive from SD, multiple hang fixes: blocking getchar→return, sound precache skip, demo playback skip, menu MODE_MENU clear after skill selection, newgame() spin-wait timeout, cinematics skip; menu system working with New Game/Episode/Skill selection and in-game restart), **Phase 31: Quake audio & brightness fix** (audio task moved core 0→1, sample rate 11025→22050 Hz, mixer volume shift >>20→>>16 for proper levels, volume default 0.7→1.0, direct gamma 0.5 brightness boost in palette LUT via sqrtf curve), **Phase 30: Full rebuild & OpenTyrian cleanup** (removed OpenTyrian from `SYSTEMS[]` array, `get_ota_slot()`, `build_all.ps1`, `flash_all.ps1`, `generate_merged_bin.ps1`; fixed OTA slot mapping — SNES→ota_10, Genesis→ota_11; fixed Python env py3.11→py3.12; fixed `$ROOT` paths to `RetroESP32_P4_PSRAM`; full rebuild of launcher + 11 emulators; merged firmware binary 10.87 MB; single-shot flash at 0x0), **Phase 29: Quake PSRAM app** (WinQuake engine ported as third .papp, 320×240 software renderer, 8bpp→RGB565 native LE, 11025 Hz stereo audio, 256KB PSRAM-backed task stack via `xTaskCreateStaticPinnedToCore`, heap_caps_malloc redirect ≥1KB→PSRAM, stack overflow fix with static precache arrays, scale 2.0× for 480px LCD, gamma 0.7 for brightness, demo playback confirmed working), **Phase 28: PSRAM app stability, launcher cleanup, Atari 800 virtual keyboard** (I2S mutex deadlock fix for multi-app launches, FreeRTOS task exit crash fix, `_fstat` bug fix improving OpenTyrian load time, OpenTyrian removed from launcher carousel as standalone PSRAM app, NVS STEP bounds check prevents launcher reboot loop, Atari 800 virtual keyboard overlay with L1 toggle + Shift/Ctrl modifiers, prboom CMakeLists.txt fixed to not break other emulator builds), **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480→640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -53,6 +53,7 @@
 | 11 | **SNES** | snes9x | ota_10 | .smc, .sfc | ✅ Working, **45-67 FPS** (dual-core, 2× PPA, DKC crash fixed, save/load state) |
 | 12 | **Sega Genesis** | gwenesis | ota_11 | .md, .gen | ✅ Working, ~30 FPS (frameskip=2, internal RAM optimized, ROM bounds checking) |
 | 13 | **Quake** | WinQuake | PSRAM app | .papp | ✅ Working (320×240, 8MB hunk, 256KB PSRAM stack, demo playback confirmed) |
+| 14 | **Duke Nukem 3D** | Chocolate Duke3D | PSRAM app | .papp | ✅ Working (320×200, BUILD engine, GRP archive, menu + in-game restart working) |
 
 ---
 
@@ -1062,6 +1063,32 @@ All hot emulation data moved from PSRAM to internal SRAM via `heap_caps_calloc(�
 | `launcher/main/includes/structures.h` | Single Genesis entry in SYSTEMS[] |
 | `partitions_ota.csv` | Added ota_11 at 0x9B0000/0x150000 for Genesis |
 
+### Phase 32: Duke Nukem 3D (Chocolate Duke3D) PSRAM App
+- [x] Ported Chocolate Duke Nukem 3D (BUILD engine) as fourth .papp
+- [x] 320×200 8bpp indexed → RGB565 conversion via lcdpal[] LUT, 2.4× display scale
+- [x] GRP archive loading from `/sd/roms/duke3d/duke3d.grp`
+- [x] Fixed blocking `getchar()` → `return` in error handlers (filesystem.c, tiles.c)
+- [x] Fixed sound precache hang — skipped `precachenecessarysounds()` (450+ SD seeks)
+- [x] Fixed demo playback hang — `foundemo = 0` to skip demos
+- [x] Fixed menu restart hang — MODE_MENU cleared after skill selection in menues.c case 110
+- [x] Fixed `newgame()` infinite spin-wait — added 3000-iteration timeout on `Sound[].lock`
+- [x] Skipped cinematics (`ud.showcinematics = 0`)
+- [x] `access()` syscall stub returns -1 (avoids slow SD card probing)
+- [x] Menu system working: New Game → Episode → Skill selection, in-game restart via Start
+
+### Phase 33: Duke3D Gamepad Mapping, Save/Load Fix, Exit Fix
+- [x] Full gamepad remapping: A→fire(LCTRL), B→open(Space), X→jump(A key), Y→crouch(Z key)
+- [x] L/R weapon cycling via number key injection (KEYDOWN on press, KEYUP on release)
+- [x] AutoRun enabled by default (`ud.auto_run = 1`)
+- [x] Fixed save/load "version mismatch" — `fullpathsavefilename[16]` buffer overflow (path needs 26 bytes), increased to 512
+- [x] Fixed save path separator — backslash `\` → forward slash `/` for POSIX/SD card
+- [x] Fixed exit resetting console — `gameexit()` now calls `_exit(0)` directly, skipping heavy engine/audio cleanup
+- [x] Fixed `access()` stub — now probes SD card for absolute paths (save files), returns -1 only for relative paths (GRP sounds)
+- [x] Fixed `numplayers` — forced to 1 before load comparison (`.data` initializer unreliable in PSRAM XIP)
+- [x] Save name auto-fill — empty slots get default "SAVE N" name
+- [x] B button (Space) confirms save name entry — `strget()` accepts Space alongside Enter
+- [x] Save/load game fully working — saves to `/sd/roms/duke3d/game0.sav` etc.
+
 ---
 
 ## 11. Bugs Fixed This Session
@@ -1250,6 +1277,7 @@ Start-Sleep -Seconds 2
 - [x] prboom CMakeLists.txt fixed (empty component stub, doesn't break other emulator builds) ✅
 - [x] Quake (WinQuake) ported as PSRAM app — 320×240 software renderer, demo playback working ✅
 - [x] PSRAM-backed large-stack tasks in psram_app_loader (>32KB via `xTaskCreateStaticPinnedToCore`) ✅
+- [x] Duke Nukem 3D (Chocolate Duke3D) ported as PSRAM app — BUILD engine, 320×200, menu system working ✅
 
 ### Source Control
 - [x] GitHub repository: `https://github.com/giltal/RetroESP32-P4` — 1148 source files, merged firmware binary, .gitignore excludes build artifacts/logs/temp files
@@ -1664,3 +1692,123 @@ static void gen_convert_frame(const uint8_t *src, uint16_t *dst,
 | `apps/psram_quake/papp_sys.c` | Gamma cvar set to 0.5 (belt-and-suspenders with direct LUT boost) |
 
 **Result:** Quake has clear, loud audio and bright, visible display on the small LCD.
+
+### Phase 32: Duke Nukem 3D (Chocolate Duke3D) PSRAM App
+
+**Goal:** Port Chocolate Duke Nukem 3D (BUILD engine) to ESP32-P4 as the fourth PSRAM XIP app (.papp).
+
+**Engine:** Chocolate Duke3D — a source port of Duke Nukem 3D based on the BUILD engine. Renders 320×200 in 8-bit indexed color. Uses GRP archive format for game data (tiles, sounds, maps, CON scripts).
+
+**Display Pipeline:**
+- BUILD engine renders 320×200 @ 8bpp indexed into SDL framebuffer
+- `SDL_Flip()` shim converts 8bpp → RGB565 via `lcdpal[]` lookup table (256 entries, built from `SDL_SetColors()`)
+- Output via `display_write_frame_custom(buf, 320, 200, 2.4f, false)` — 2.4× scale fills 768×480 on the 480×800 LCD
+- Implemented in `apps/psram_duke3d/papp_sdl_video.c`
+
+**Input Pipeline:**
+- `papp_sdl_event.c` maps USB HID gamepad → SDL events → BUILD engine scancodes
+- D-pad → arrow keys, A → LCTRL (fire), B → SPACE (open), Start → ESCAPE (menu)
+- Scancodes feed into `KB_KeyDown[]` array used by the BUILD engine
+
+**Hang Fixes (6 issues resolved):**
+
+| # | Symptom | Root Cause | Fix |
+|---|---------|-----------|-----|
+| 1 | Hang on tile/GRP error | `getchar(); exit(0)` blocks forever on embedded | Replaced with `return` in filesystem.c, tiles.c |
+| 2 | Hang during level load | `precachenecessarysounds()` does 450+ SD card `access()` calls | Skipped in `cacheit()` |
+| 3 | Hang after tile caching | Demo playback starts complex map, `displayrooms()` extremely slow on PSRAM | Set `foundemo = 0` to skip demos |
+| 4 | Hang on menu restart | `menues.c` case 110 (skill select) calls `newgame()`+`enterlevel()` but never clears MODE_MENU — next frame re-enters menu, re-triggers `newgame()` | Added `gm &= ~MODE_MENU; KB_FlushKeyboardQueue(); return;` after enterlevel |
+| 5 | Infinite spin-wait | `newgame()` has `while(Sound[globalskillsound].lock>=200)` that never exits | Added 3000-iteration timeout |
+| 6 | Slow startup | Cinematics spin-wait on `totalclock` timers | `ud.showcinematics = 0` |
+
+**Syscall Stubs (papp_syscalls.c):**
+- `access()` → returns -1 always (avoids SD card probing for GRP sounds)
+- `_open()` → returns -1 for relative paths
+- `Z_AvailHeap()` → returns 8 MB
+- `getch()` → returns 'y'
+
+**Build:**
+- Component at `components/duke3d/` with Engine/ (BUILD renderer, filesystem, tiles) and Game/ (game logic, menus, premap) and Audiolib/ sub-modules
+- App at `apps/psram_duke3d/` — SDL shim layer (video, events, audio, syscalls)
+- Build script: `tools/build_duke3d_papp.ps1` — compiles 43 objects, links ~660 KB .papp
+- Game data: ATOMIC 1.5 `duke3d.grp` at `/sd/roms/duke3d/duke3d.grp`
+
+**Files changed:**
+
+| File | Change |
+|------|--------|
+| `components/duke3d/Game/game.c` | Cinematics skip, demo skip, auto-start bypass removed (menu restored), diagnostic prints |
+| `components/duke3d/Game/menues.c` | Case 110: clear MODE_MENU + flush keyboard after enterlevel |
+| `components/duke3d/Game/premap.c` | `newgame()` spin-wait timeout, sound precache skip in `cacheit()` |
+| `components/duke3d/Engine/filesystem.c` | Removed blocking `getchar()` in error handlers |
+| `components/duke3d/Engine/tiles.c` | Fixed escaped `'\\n'` → `'\n'`, removed blocking `getchar()` |
+| `apps/psram_duke3d/papp_syscalls.c` | `access()` returns -1, `getch()` returns 'y' |
+| `apps/psram_duke3d/papp_sdl_video.c` | 8bpp→RGB565 via lcdpal[] LUT, 2.4× scale |
+| `apps/psram_duke3d/papp_sdl_event.c` | Gamepad→SDL→BUILD scancode mapping |
+| `apps/psram_duke3d/papp_main.c` | PSRAM app entry, 256KB stack task on core 0 |
+
+**Result:** Duke Nukem 3D boots, shows main menu, allows New Game → Episode → Skill selection, loads E1L1 with music, game loop runs at ~3.3 FPS. In-game menu restart (Start → New Game) works correctly.
+
+### Phase 33: Duke3D Gamepad Mapping, Save/Load Fix, Exit Fix
+
+**Goal:** Make Duke3D fully playable with proper gamepad controls, fix broken save/load, and fix exit crashing the console.
+
+**Gamepad Remapping:**
+
+Original mapping had X→E key and R→D key, neither bound to any Duke3D action. Remapped for full playability:
+
+| Button | Key | Action |
+|--------|-----|--------|
+| D-pad | Arrow keys | Movement |
+| A | LCTRL | Fire |
+| B | Space | Open/Use |
+| X | A key | Jump |
+| Y | Z key | Crouch |
+| L | Number keys (cycle down) | Previous weapon |
+| R | Number keys (cycle up) | Next weapon |
+| Start | Escape | Menu |
+| Select | Tab | Automap |
+
+**Weapon Cycling Deep Dive:**
+`gamefunc_Next_Weapon` / `gamefunc_Previous_Weapon` are dead code in Chocolate Duke3D — bits 8-11 in `sync.bits` are packed but never extracted by `processinput()`. Solved by injecting actual number key events (1-9, 0 for slot 10). Key must be *held* for at least one game frame — initial implementation queued KEYDOWN+KEYUP in same poll cycle, engine never saw the press. Final fix: KEYDOWN on shoulder button press, KEYUP on shoulder button release, with `s_l_held_key`/`s_r_held_key` tracking.
+
+AutoRun enabled by default: `ud.auto_run = 1` in `config.c`.
+
+**Save/Load "Version Mismatch" Fix:**
+
+`saveplayer()` in `menues.c` declared `fullpathsavefilename[16]` — only 16 bytes. With `game_dir = "/sd/roms/duke3d"`, the full path `"/sd/roms/duke3d/game0.sav"` needs 26 bytes. This **stack buffer overflow** corrupted the adjacent `bv` (BYTEVERSION=119) variable, causing `loadplayer()` to read a wrong version number and reject the save with "OLD VERSION" (FTA quote 114).
+
+Also fixed path separator from `\\` (Windows backslash, from original PC port) to `/` for POSIX/SD card filesystem.
+
+**Exit Crash Fix:**
+
+`Error()` in `global.c` called `exit()` which goes through newlib's C library shutdown — stdio buffer flushing, `atexit()` handlers, lock acquisition. In the PSRAM app context, these internal operations touch invalid state or acquire locks that don't exist, causing a crash that resets the console. Changed to `_exit()` which directly calls `app_return_to_launcher()` → `longjmp` back to the entry point. All resource cleanup (tasks, sound, file handles, heap) is handled by `papp_main.c`'s `app_entry()` cleanup sequence anyway.
+
+**Save File Not Found on Load:**
+
+`access()` was stubbed to always return -1 (to avoid 450+ slow SD probes for GRP sounds). But `SafeFileExists()` uses `access()`, and `TCkopen4load()` uses `SafeFileExists()` to decide whether to prepend `game_dir`. With `access()` always failing, the full path `/sd/roms/duke3d/game0.sav` was never tried — it fell back to bare `game0.sav` which `_open()` rejects (relative path). Fixed `access()` to probe SD card for absolute paths while still returning -1 for relative paths (GRP items).
+
+**numplayers=0 on Load:**
+
+`numplayers` is initialized to 1 in `dummy_multi.c` (.data section), but the `.data` initializer may not survive PSRAM XIP loading reliably. Forced `numplayers = 1` before the comparison in `loadplayer()`.
+
+**No Enter Key for Save Confirmation:**
+
+Duke3D's `strget()` only accepted Enter (ASCII 13) to confirm save name entry. No gamepad button mapped to Enter. Fixed by also accepting Space (B button) as confirmation. Auto-fill empty slots with "SAVE N" default names so no keyboard is needed.
+
+**gameexit() Crash:**
+
+`gameexit()` ran heavy cleanup: `SoundShutdown()` → `MV_Shutdown()` → `SDL_DestroyMutex()`, `uninitengine()`, `CONFIG_WriteSetup()`, `uninitgroupfile()`. On embedded, this crashes due to shared audio state being accessed during teardown. Replaced entire body with `_exit(0)` — PSRAM app cleanup in `papp_main.c` handles everything.
+
+**Files changed:**
+
+| File | Change |
+|------|--------|
+| `apps/psram_duke3d/papp_sdl_event.c` | Full gamepad remapping, weapon cycling via number key injection (KEYDOWN/KEYUP on press/release) |
+| `apps/psram_duke3d/papp_syscalls.c` | `access()` probes SD for absolute paths; `_open()` I/O tracing for writes |
+| `components/duke3d/Game/config.c` | `ud.auto_run = 1` for AutoRun by default |
+| `components/duke3d/Game/game.c` | `gameexit()` → direct `_exit(0)`, `strget()` accepts Space as Enter |
+| `components/duke3d/Game/menues.c` | Save buffer `[16]`→`[512]`, `\\`→`/`, auto-fill save names, loadpheader diagnostics |
+| `components/duke3d/Game/global.c` | `Error()`: `exit()`→`_exit()`, added `<unistd.h>` |
+
+**Result:** Duke3D fully playable with all essential actions mapped. Save/load game fully working (saves to `/sd/roms/duke3d/gameN.sav`). Exiting game returns cleanly to launcher without console reset.

@@ -56,7 +56,7 @@
 
 //{#pragma region Emulator and Directories
   char EMULATORS[COUNT][30] = {
-    "SETTINGS",
+    "SETTINGS (v3.0)",
     "FAVORITES",
     "RECENTLY PLAYED",
     "NINTENDO ENTERTAINMENT SYSTEM",
@@ -777,14 +777,6 @@
 
     draw_cover_toggle();    
 
-    /*
-      BUILD
-    */
-    char message[100] = BUILD;
-    int width = strlen(message)*20;
-    int center = (800 - width) / 2;
-    y = 440;
-    draw_text(center,y,message,false,false, false);
     display_flush();
   }
 //}#pragma endregion Settings
@@ -3279,6 +3271,10 @@
         vTaskDelay(pdMS_TO_TICKS(50));
         heap_caps_free(blk);
       }
+      /* Skip built-in logo + credits when custom cover was shown */
+      draw_background();
+      display_flush();
+      return;
     }
 
     /* ── Phase 2: built-in logo + credit, 2 seconds ── */

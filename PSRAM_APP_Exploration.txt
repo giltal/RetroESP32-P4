@@ -1,6 +1,0 @@
-I would like to explore the option to complie a project like say OpenTyrain
-we have in this project to be able ro run from PSARM.
-Meaning, in the louncher there will be a new app louncher that
-will copy the generatefd app bin file from the SD card to PSRAM and lounch it.
-Let me know what you understood, and what will be be the 
-arcitucture suggested for such a project.

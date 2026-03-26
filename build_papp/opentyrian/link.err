@@ -1,1 +1,0 @@
-C:/Users/97254/.espressif/tools/riscv32-esp-elf/esp-14.2.0_20251107/riscv32-esp-elf/bin/../lib/gcc/riscv32-esp-elf/14.2.0/../../../../riscv32-esp-elf/bin/ld.exe: warning: C:\ESPIDFprojects\RetroESP32_P4_PSRAM\build_papp\opentyrian\opentyrian.elf has a LOAD segment with RWX permissions

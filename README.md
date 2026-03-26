@@ -92,11 +92,13 @@ Simply swap 3.3V and GND
 <img width="461" height="464" alt="image" src="https://github.com/user-attachments/assets/3823e33e-b138-437e-b063-3f2558e1ef88" />
 <img width="376" height="385" alt="image" src="https://github.com/user-attachments/assets/78103cdd-7762-476b-90b0-7cfaa3a09947" />
 
+<img src="C:\ESPIDFprojects\RetroESP32_P4\SDcard\system_art\papp.png" alt="papp" style="zoom: 80%;" />
+
 ## 🚀 Features
 
-- 🎮 14 emulators + support to run apps from the SD card (folder named papp)
-- In the SD card currently are: **Open Tyrian, DOOM and Quake**
-- ⚡ Near full-speed emulation (60 FPS on all systems except for SNES - I will try to improve)
+- 🎮 **14 emulators** (biggest number ever on an ESP!) + support to run apps from the SD card (folder named papp)
+- Apps currently In the SD card: **Open Tyrian, DOOM and Quake**
+- ⚡ Near full-speed emulation (60 FPS on all systems except for SNES and Mega Drive- I will try to improve)
 - 💾 Save / Load states (**SNES and Mega Drive from within the game**)
 - 🖥️ Touchscreen-optimized UI
 - 🎯 USB controller support (currently the one showed in the picture)
@@ -105,7 +107,7 @@ Simply swap 3.3V and GND
 ## 🎮 Supported Systems
 
 - NES
-- Game Boy / GBC / GBA
+- Game Boy / GBC
 - Sega Master System / Game Gear
 - Atari 2600 / 7800 / 800XL / 5200
 - Atari Lynx
