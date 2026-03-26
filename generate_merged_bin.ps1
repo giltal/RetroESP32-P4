@@ -1,4 +1,4 @@
-# generate_merged_bin.ps1 — Combine all firmware binaries into a single flashable image
+# generate_merged_bin.ps1 - Combine all firmware binaries into a single flashable image
 #
 # Output: RetroESP32_P4_v1.bin  (flash at address 0x0000)
 #
@@ -16,72 +16,56 @@ $ErrorActionPreference = "Stop"
 $ROOT = "C:\ESPIDFprojects\RetroESP32_P4"
 $BINS = "$ROOT\firmware"
 $OUT  = "$ROOT\RetroESP32_P4_v1.bin"
-$idfPython = "C:\Users\97254\.espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe"
 
-# ── Flash map (must match partitions_ota.csv) ──────────────────
-$flash_map = @(
-    @{ Offset = "0x2000";   File = "bootloader.bin";      Desc = "Bootloader" },
-    @{ Offset = "0x8000";   File = "partition-table.bin";  Desc = "Partition Table" },
-    @{ Offset = "0xD000";   File = "ota_data_initial.bin"; Desc = "OTA Data (boot factory)" },
-    @{ Offset = "0x10000";  File = "launcher.bin";         Desc = "Launcher (factory)" },
-    @{ Offset = "0x0C0000"; File = "nes_app.bin";          Desc = "NES (ota_0)" },
-    @{ Offset = "0x160000"; File = "gb_app.bin";           Desc = "GB/GBC (ota_1)" },
-    @{ Offset = "0x200000"; File = "sms_app.bin";          Desc = "SMS/GG/COL (ota_2)" },
-    @{ Offset = "0x350000"; File = "spectrum_app.bin";     Desc = "ZX Spectrum (ota_3)" },
-    @{ Offset = "0x410000"; File = "stella_app.bin";       Desc = "Stella / Atari 2600 (ota_4)" },
-    @{ Offset = "0x550000"; File = "prosystem_app.bin";    Desc = "ProSystem / Atari 7800 (ota_5)" },
-    @{ Offset = "0x5F0000"; File = "handy_app.bin";        Desc = "Handy / Atari Lynx (ota_6)" },
-    @{ Offset = "0x690000"; File = "pce_app.bin";          Desc = "PC Engine (ota_7)" },
-    @{ Offset = "0x730000"; File = "atari800_app.bin";     Desc = "Atari 800 (ota_8)" },
-    @{ Offset = "0x8C0000"; File = "snes_app.bin";         Desc = "SNES (ota_10)" },
-    @{ Offset = "0x9B0000"; File = "genesis_app.bin";      Desc = "Genesis (ota_11)" }
-)
+# Flash map (must match partitions_ota.csv)
+# Format: offset, filename, description
+$offsets = @("0x2000","0x8000","0xD000","0x10000","0x0C0000","0x160000","0x200000","0x350000","0x410000","0x550000","0x5F0000","0x690000","0x730000","0x8C0000","0x9B0000")
+$files   = @("bootloader.bin","partition-table.bin","ota_data_initial.bin","launcher.bin","nes_app.bin","gb_app.bin","sms_app.bin","spectrum_app.bin","stella_app.bin","prosystem_app.bin","handy_app.bin","pce_app.bin","atari800_app.bin","snes_app.bin","genesis_app.bin")
+$descs   = @("Bootloader","Partition Table","OTA Data","Launcher (factory)","NES (ota_0)","GB/GBC (ota_1)","SMS/GG/COL (ota_2)","ZX Spectrum (ota_3)","Stella (ota_4)","ProSystem (ota_5)","Handy (ota_6)","PC Engine (ota_7)","Atari 800 (ota_8)","SNES (ota_10)","Genesis (ota_11)")
 
-Write-Host "`n=== RetroESP32-P4 Merged Binary Generator ===" -ForegroundColor Cyan
-Write-Host "Output: $OUT`n"
+Write-Host ""
+Write-Host "=== RetroESP32-P4 Merged Binary Generator ===" -ForegroundColor Cyan
+Write-Host "Output: $OUT"
+Write-Host ""
 
 # Build merge_bin argument list
-$merge_args = @(
-    "--chip", "esp32p4",
-    "merge_bin",
-    "--output", $OUT,
-    "--flash_mode", "dio",
-    "--flash_size", "16MB",
-    "--flash_freq", "80m"
-)
+[System.Collections.ArrayList]$merge_args = @("--chip","esp32p4","merge_bin","--output",$OUT,"--flash_mode","dio","--flash_size","16MB","--flash_freq","80m")
 
 $missing = @()
-foreach ($entry in $flash_map) {
-    $path = "$BINS\$($entry.File)"
-    if (Test-Path $path) {
-        $size_kb = [math]::Round((Get-Item $path).Length / 1024)
-        Write-Host "  $($entry.Offset)  $($entry.File)  (${size_kb}KB)  — $($entry.Desc)" -ForegroundColor Gray
-        $merge_args += $entry.Offset
-        $merge_args += $path
+for ($i = 0; $i -lt $offsets.Count; $i++) {
+    $binPath = Join-Path $BINS $files[$i]
+    if (Test-Path $binPath) {
+        $size_kb = [math]::Round((Get-Item $binPath).Length / 1024)
+        Write-Host ("  {0}  {1}  ({2}KB)  {3}" -f $offsets[$i], $files[$i], $size_kb, $descs[$i]) -ForegroundColor Gray
+        $null = $merge_args.Add($offsets[$i])
+        $null = $merge_args.Add($binPath)
     } else {
-        Write-Host "  MISSING: $($entry.File) — $($entry.Desc)" -ForegroundColor Yellow
-        $missing += $entry.Desc
+        Write-Host "  MISSING: $($files[$i]) - $($descs[$i])" -ForegroundColor Yellow
+        $missing += $descs[$i]
     }
 }
 
 if ($missing.Count -gt 0) {
-    Write-Host "`nWARNING: $($missing.Count) missing binaries skipped: $($missing -join ', ')" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "WARNING: $($missing.Count) missing binaries skipped: $($missing -join ', ')" -ForegroundColor Yellow
 }
 
-Write-Host "`nRunning merge_bin..." -ForegroundColor Cyan
-& $idfPython -m esptool @merge_args
+Write-Host ""
+Write-Host "Running merge_bin..." -ForegroundColor Cyan
+& python -m esptool $merge_args
 
 if ($LASTEXITCODE -eq 0) {
     $size_mb = [math]::Round((Get-Item $OUT).Length / 1024 / 1024, 2)
-    Write-Host "`n=== SUCCESS ===" -ForegroundColor Green
+    Write-Host "" 
+    Write-Host "=== SUCCESS ===" -ForegroundColor Green
     Write-Host "Output : $OUT"
     Write-Host "Size   : ${size_mb} MB"
     Write-Host "Flash  : address 0x00000000" -ForegroundColor Yellow
-    Write-Host "`nTo flash via esptool:"
+    Write-Host ""
+    Write-Host "To flash via esptool:" 
     Write-Host "  python -m esptool --chip esp32p4 -p COM30 -b 460800 write_flash 0x0 RetroESP32_P4_v1.bin" -ForegroundColor White
-    Write-Host "`nTo flash via Espressif Flash Download Tool:"
-    Write-Host "  Chip: ESP32-P4, Address: 0x00000000, File: RetroESP32_P4_v1.bin" -ForegroundColor White
 } else {
-    Write-Host "`n=== FAILED ===" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "=== FAILED ===" -ForegroundColor Red
     exit 1
 }
