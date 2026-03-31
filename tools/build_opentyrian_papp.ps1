@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ROOT = "C:\ESPIDFprojects\RetroESP32_P4_PSRAM"
+$ROOT = "C:\ESPIDFprojects\RetroESP32_P4"
 $BUILD = "$ROOT\build_papp\opentyrian"
 $OUT   = "$ROOT\firmware\opentyrian.papp"
 

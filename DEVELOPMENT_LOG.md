@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** March 2026 — **Phase 36: PAPP Template project & launcher PAPP preview** (created `ESP32_P4_PAPP_Template/` — complete template project for building PAPP applications with 400×240 RGB565 framebuffer, PPA rotate 270° + scale 2× to fill 480×800 LCD, ball demo app with gamepad input, CONTEXT.md with full API reference, self-contained `build_template.ps1` build script; launcher PAPP preview — when browsing the PAPP folder, loads and displays a 300×300 PNG preview image alongside highlighted `.papp` files, cached to avoid reload, right-aligned vertically centered in browser area, full list redraw in PAPP mode to prevent filename overlap; launcher version bumped to v3.1), **Phase 35: Stella paddle fixes, launcher favorites, touch search keyboard, carousel short names & settings cleanup** (Atari 2600 paddle full-range fix — `<=` TRIGMAX with else snap, ADC clamp calibrated 5–3340 from measured GPIO 52 range, EMA alpha 0.6/dead zone 50 for snappy response; NES-style interactive volume overlay for Stella — bordered box, colored bar with segments, L/R adjust, Y cycle, auto-dismiss; launcher favorite star icons — yellow 16×16 bitmap at right edge of browser rows with fav_cache system; launcher touch search keyboard — full QWERTY overlay with GT911 touch input, incremental prefix search, DEL/SPACE/CLOSE keys, `odroid_input_touch_buttons_disable` flag to prevent touch-zone phantom button presses during keyboard use; carousel short names — `SHORT_NAMES[]` array with `NES`, `GB`, `GBC`, etc. shown under icons at 1× font scale as `NES (43)` and in header bar as `NES (43 files)` in yellow across all carousel views; settings page simplified to 3 options — Clear Recents/Volume/Brightness, themes/colored icons/cover art removed, volume and brightness bars repositioned inline with text), **Phase 34: Release prep & script fixes** (removed `SDcard/` from `.gitignore` so SD card content is tracked in git; fixed `generate_merged_bin.ps1` — hashtable `+=` and em-dash encoding broke argument list in PowerShell 5.1, rewrote with parallel string arrays and `ArrayList.Add()`; regenerated merged firmware `RetroESP32_P4_v1.bin` 10.87 MB), **Phase 33: Duke3D gamepad, save/load, exit fixes** (full gamepad remapping: A=fire, B=open, X=jump, Y=crouch, L/R=weapon cycle via number key injection with held-key duration, AutoRun enabled; save/load fully working — buffer overflow fix, `access()` now probes SD for absolute paths, `numplayers` forced to 1, save name auto-fill + B button confirms; exit fix — `gameexit()` calls `_exit(0)` directly skipping heavy cleanup), **Phase 32: Duke Nukem 3D PSRAM app** (Chocolate Duke3D BUILD engine ported as fourth .papp, 320×200 8bpp→RGB565 via lcdpal[] LUT, 2.4× display scale, GRP archive from SD, multiple hang fixes: blocking getchar→return, sound precache skip, demo playback skip, menu MODE_MENU clear after skill selection, newgame() spin-wait timeout, cinematics skip; menu system working with New Game/Episode/Skill selection and in-game restart), **Phase 31: Quake audio & brightness fix** (audio task moved core 0→1, sample rate 11025→22050 Hz, mixer volume shift >>20→>>16 for proper levels, volume default 0.7→1.0, direct gamma 0.5 brightness boost in palette LUT via sqrtf curve), **Phase 30: Full rebuild & OpenTyrian cleanup** (removed OpenTyrian from `SYSTEMS[]` array, `get_ota_slot()`, `build_all.ps1`, `flash_all.ps1`, `generate_merged_bin.ps1`; fixed OTA slot mapping — SNES→ota_10, Genesis→ota_11; fixed Python env py3.11→py3.12; fixed `$ROOT` paths to `RetroESP32_P4_PSRAM`; full rebuild of launcher + 11 emulators; merged firmware binary 10.87 MB; single-shot flash at 0x0), **Phase 29: Quake PSRAM app** (WinQuake engine ported as third .papp, 320×240 software renderer, 8bpp→RGB565 native LE, 11025 Hz stereo audio, 256KB PSRAM-backed task stack via `xTaskCreateStaticPinnedToCore`, heap_caps_malloc redirect ≥1KB→PSRAM, stack overflow fix with static precache arrays, scale 2.0× for 480px LCD, gamma 0.7 for brightness, demo playback confirmed working), **Phase 28: PSRAM app stability, launcher cleanup, Atari 800 virtual keyboard** (I2S mutex deadlock fix for multi-app launches, FreeRTOS task exit crash fix, `_fstat` bug fix improving OpenTyrian load time, OpenTyrian removed from launcher carousel as standalone PSRAM app, NVS STEP bounds check prevents launcher reboot loop, Atari 800 virtual keyboard overlay with L1 toggle + Shift/Ctrl modifiers, prboom CMakeLists.txt fixed to not break other emulator builds), **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480→640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
+> **Last Updated:** March 2026 — **Phase 38: PAPP performance optimization — AXI-GDMA & dual-core benchmarking** (two new PPA hardware blend functions with foreground color-key transparency — `ppa_blend_colorkey_rgb565()` and `ppa_blend_colorkey_rgb565_to()` with RGB565→RGB888 threshold expansion; two new PAPP services — `png_load_rgb565` loads PNG from SD with byte-swap+R↔B for MIPI, `sprite_blit` does PPA hardware color-keyed blend with lazy-allocated DMA-aligned output buffer to avoid in-place DMA conflict, software fallback on failure; `svc_mem_caps_alloc` now uses 64-byte cache-line-aligned allocation when DMA requested; template demo upgraded to sprite demo — loads background.png+spaceship.png from SD, PPA composites spaceship with black colorkey, D-pad movement; `build_template.ps1` fixed for PS 5.1 Join-Path 2-arg limit), **Phase 36: PAPP Template project & launcher PAPP preview** (created `ESP32_P4_PAPP_Template/` — complete template project for building PAPP applications with 400×240 RGB565 framebuffer, PPA rotate 270° + scale 2× to fill 480×800 LCD, ball demo app with gamepad input, CONTEXT.md with full API reference, self-contained `build_template.ps1` build script; launcher PAPP preview — when browsing the PAPP folder, loads and displays a 300×300 PNG preview image alongside highlighted `.papp` files, cached to avoid reload, right-aligned vertically centered in browser area, full list redraw in PAPP mode to prevent filename overlap; launcher version bumped to v3.1), **Phase 35: Stella paddle fixes, launcher favorites, touch search keyboard, carousel short names & settings cleanup** (Atari 2600 paddle full-range fix — `<=` TRIGMAX with else snap, ADC clamp calibrated 5–3340 from measured GPIO 52 range, EMA alpha 0.6/dead zone 50 for snappy response; NES-style interactive volume overlay for Stella — bordered box, colored bar with segments, L/R adjust, Y cycle, auto-dismiss; launcher favorite star icons — yellow 16×16 bitmap at right edge of browser rows with fav_cache system; launcher touch search keyboard — full QWERTY overlay with GT911 touch input, incremental prefix search, DEL/SPACE/CLOSE keys, `odroid_input_touch_buttons_disable` flag to prevent touch-zone phantom button presses during keyboard use; carousel short names — `SHORT_NAMES[]` array with `NES`, `GB`, `GBC`, etc. shown under icons at 1× font scale as `NES (43)` and in header bar as `NES (43 files)` in yellow across all carousel views; settings page simplified to 3 options — Clear Recents/Volume/Brightness, themes/colored icons/cover art removed, volume and brightness bars repositioned inline with text), **Phase 34: Release prep & script fixes** (removed `SDcard/` from `.gitignore` so SD card content is tracked in git; fixed `generate_merged_bin.ps1` — hashtable `+=` and em-dash encoding broke argument list in PowerShell 5.1, rewrote with parallel string arrays and `ArrayList.Add()`; regenerated merged firmware `RetroESP32_P4_v1.bin` 10.87 MB), **Phase 33: Duke3D gamepad, save/load, exit fixes** (full gamepad remapping: A=fire, B=open, X=jump, Y=crouch, L/R=weapon cycle via number key injection with held-key duration, AutoRun enabled; save/load fully working — buffer overflow fix, `access()` now probes SD for absolute paths, `numplayers` forced to 1, save name auto-fill + B button confirms; exit fix — `gameexit()` calls `_exit(0)` directly skipping heavy cleanup), **Phase 32: Duke Nukem 3D PSRAM app** (Chocolate Duke3D BUILD engine ported as fourth .papp, 320×200 8bpp→RGB565 via lcdpal[] LUT, 2.4× display scale, GRP archive from SD, multiple hang fixes: blocking getchar→return, sound precache skip, demo playback skip, menu MODE_MENU clear after skill selection, newgame() spin-wait timeout, cinematics skip; menu system working with New Game/Episode/Skill selection and in-game restart), **Phase 31: Quake audio & brightness fix** (audio task moved core 0→1, sample rate 11025→22050 Hz, mixer volume shift >>20→>>16 for proper levels, volume default 0.7→1.0, direct gamma 0.5 brightness boost in palette LUT via sqrtf curve), **Phase 30: Full rebuild & OpenTyrian cleanup** (removed OpenTyrian from `SYSTEMS[]` array, `get_ota_slot()`, `build_all.ps1`, `flash_all.ps1`, `generate_merged_bin.ps1`; fixed OTA slot mapping — SNES→ota_10, Genesis→ota_11; fixed Python env py3.11→py3.12; fixed `$ROOT` paths to `RetroESP32_P4_PSRAM`; full rebuild of launcher + 11 emulators; merged firmware binary 10.87 MB; single-shot flash at 0x0), **Phase 29: Quake PSRAM app** (WinQuake engine ported as third .papp, 320×240 software renderer, 8bpp→RGB565 native LE, 11025 Hz stereo audio, 256KB PSRAM-backed task stack via `xTaskCreateStaticPinnedToCore`, heap_caps_malloc redirect ≥1KB→PSRAM, stack overflow fix with static precache arrays, scale 2.0× for 480px LCD, gamma 0.7 for brightness, demo playback confirmed working), **Phase 28: PSRAM app stability, launcher cleanup, Atari 800 virtual keyboard** (I2S mutex deadlock fix for multi-app launches, FreeRTOS task exit crash fix, `_fstat` bug fix improving OpenTyrian load time, OpenTyrian removed from launcher carousel as standalone PSRAM app, NVS STEP bounds check prevents launcher reboot loop, Atari 800 virtual keyboard overlay with L1 toggle + Shift/Ctrl modifiers, prboom CMakeLists.txt fixed to not break other emulator builds), **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480→640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -1975,3 +1975,118 @@ When browsing the PAPP folder, the launcher now displays a PNG preview image for
 | File | Change |
 |------|--------|
 | `launcher/main/main.c` | Added `papp_preview_buf/w/h/name` cache globals, `papp_preview_free()`, `draw_papp_preview()` (PNG load + scale + blit with zone clearing), called from `draw_browser_list()` and `browser_partial_update()`; PAPP mode uses full list redraw; cache freed in `leave_browser()`; version string `v3.0` → `v3.1` |
+
+### Phase 37: PPA Color-Keyed Sprite Blending & PAPP PNG Services
+
+**Goal:** Add hardware-accelerated PPA color-keyed sprite blending and PNG loading services to the PAPP app framework. Upgrade the template demo from a ball animation to a full sprite demo with background + movable spaceship using transparent color keying.
+
+**PPA Color-Keyed Blend Functions (`components/ppa_engine/`):**
+
+Two new hardware PPA blend functions with foreground color-key transparency:
+- `ppa_blend_colorkey_rgb565()` — Allocating version: blends full fg onto bg, outputs new buffer. Color-key pixels in fg become transparent.
+- `ppa_blend_colorkey_rgb565_to()` — Positioned blit: blends fg sprite at `(bg_x, bg_y)` offset within bg, writes to separate output buffer.
+- Color-key expansion: RGB565 colorkey → RGB888 low/high thresholds covering quantization range (R|0x07, G|0x03, B|0x07 for high)
+- Uses PPA blend client with `fg_ck_en = true`, `fg_alpha_fix_val = 255`
+
+**PAPP App Services — PNG & Sprite Blit:**
+
+Two new services added to `app_services_t` for PAPP applications:
+- `png_load_rgb565(path, &w, &h)` — Loads PNG from SD card, returns RGB565 buffer with byte-swap + R↔B swap for MIPI DSI panel. Caller frees via `svc->mem_free()`.
+- `sprite_blit(fb, fb_w, fb_h, x, y, sprite, sp_w, sp_h, colorkey)` — Hardware PPA color-keyed blend with software fallback. Returns: 0=PPA hardware, 1=SW fallback (alloc fail), 2=SW fallback (PPA error).
+
+**PPA In-Place Blend Solution:**
+
+The PPA hardware DMA cannot blend in-place (bg buffer == output buffer causes read/write conflict). Solution:
+- Lazy-allocated DMA-aligned output buffer (`heap_caps_aligned_calloc` with 64-byte cache-line alignment, `MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA`)
+- DMA-aligned copy of sprite (PNG buffers from `loadPngFromFileRaw` aren't cache-line-aligned)
+- PPA blends bg + fg → separate output buffer
+- Only the sprite region is copied back from output to framebuffer
+- Software fallback (`sw_sprite_blit`) used automatically if DMA allocation or PPA call fails
+
+**DMA Alignment Fix for `mem_caps_alloc`:**
+
+`svc_mem_caps_alloc()` now uses `heap_caps_aligned_calloc(64, ...)` when `MALLOC_CAP_DMA` is requested, ensuring PPA-compatible 64-byte cache-line alignment. Previously used plain `heap_caps_malloc` which didn't guarantee alignment.
+
+**Template Demo — Sprite Demo:**
+
+Upgraded from ball animation to full sprite demo:
+- Loads `background.png` (400×240) and `spaceship.png` (50×39) from `/sd/roms/papp/`
+- DMA-capable framebuffer via `svc->mem_caps_alloc(size, PAPP_MEM_CAP_DMA | PAPP_MEM_CAP_SPIRAM)`
+- Each frame: copy background → PPA sprite_blit spaceship with colorkey `0x0000` (black = transparent) → flush
+- D-pad moves spaceship, MENU exits. All buffers freed on exit.
+- Minimal `memset()` provided for `-nostdlib` builds
+- Logs blend mode on first frame: `sprite_blit mode: PPA hardware (ret=0)`
+
+**Build Script Fix:**
+
+Fixed all `Join-Path` calls in `build_template.ps1` for PowerShell 5.1 compatibility — `Join-Path` only accepts 2 arguments in PS 5.1, wrapped multi-segment paths with nested calls.
+
+**Files created/changed:**
+
+| File | Change |
+|------|--------|
+| `components/ppa_engine/ppa_engine.c` | Added `ppa_blend_colorkey_rgb565()` and `ppa_blend_colorkey_rgb565_to()` |
+| `components/ppa_engine/include/ppa_engine.h` | Declarations for both new color-keyed blend functions |
+| `components/psram_app_loader/include/psram_app.h` | Added `png_load_rgb565` and `sprite_blit` to `app_services_t` |
+| `components/psram_app_loader/psram_app_loader.c` | `svc_png_load_rgb565()` wrapper (PNG load + byte-swap + R↔B), `svc_sprite_blit()` (PPA blend with DMA-aligned bufs + SW fallback), `sw_sprite_blit()` fallback, `svc_mem_caps_alloc()` aligned when DMA requested |
+| `components/psram_app_loader/CMakeLists.txt` | Added `pngaux ppa_engine` to REQUIRES |
+| `ESP32_P4_PAPP_Template/main.c` | Rewritten: sprite demo with PNG loading, PPA color-keyed blend, DMA framebuffer, mode logging |
+| `ESP32_P4_PAPP_Template/build_template.ps1` | Fixed all `Join-Path` calls for PS 5.1 (nested 2-arg calls) |
+
+### Phase 38: PAPP Performance Optimization — AXI-GDMA & Dual-Core Benchmarking
+
+**Goal:** Maximize sprite demo FPS by finding the fastest framebuffer copy method, then evaluate whether dual-core double-buffering can overlap draw and flush.
+
+**AXI-GDMA Discovery:**
+
+Tested three methods for 192KB PSRAM-to-PSRAM background copy (400×240 RGB565):
+
+| Method | Copy Time | Total FPS | Notes |
+|--------|-----------|-----------|-------|
+| PPA SRM (identity transform) | 7.2 ms | 77 FPS | Pixel pipeline overhead even for 1:1 copy |
+| CPU memcpy (word-aligned) | 6.9 ms | 71 FPS | Thrashes 128KB L2 cache → degrades subsequent PPA ops |
+| **AXI-GDMA async memcpy** | **2.5 ms** | **91 FPS** | Raw DMA engine, no pixel pipeline, bypasses L2 cache |
+
+AXI-GDMA uses `esp_async_memcpy_install_gdma_axi` + `esp_async_memcpy` from ESP-IDF. Persistent handle with ISR callback (`mcp_done_cb`), lazy-initialized on first call. Falls back to CPU memcpy on failure.
+
+**L2 Cache Thrashing:**
+
+CPU memcpy of 192KB through the 128KB L2 cache evicts all cached data, causing:
+- PPA Blend time: 0.3ms → 1.0ms (3.3× worse)
+- PPA SRM flush time: 5.5ms → 6.1ms (11% worse)
+
+PPA DMA and AXI-GDMA both bypass L2 cache, leaving it clean for subsequent operations.
+
+**Dual-Core Double-Buffer v1 (CPU memcpy + PPA SRM):**
+
+Core 0 draws (CPU memcpy + PPA Blend), Core 1 flushes (PPA SRM). Result: **82 FPS** — worse than single-buffer 91 FPS. Both cores doing 192KB PSRAM copies simultaneously halved effective bandwidth (200MHz PSRAM bus contention).
+
+**Dual-Core Double-Buffer v2 (AXI-GDMA + PPA SRM):**
+
+Core 0 draws (AXI-GDMA copy + PPA Blend), Core 1 flushes (PPA SRM). Different DMA engines, should run concurrently:
+
+| Metric | Single-buffer | Dual-core v2 | Inflation |
+|--------|--------------|--------------|----------|
+| Draw (GDMA+blend) | 3.0 ms | 10.0 ms | 3.3× |
+| Flush (SRM rot+2×) | 7.9 ms | 9.7 ms | 1.2× |
+| Wait (overlap) | — | 0.65 ms | perfect |
+| **Total** | **11 ms (91 FPS)** | **10.75 ms (93 FPS)** | — |
+
+Overlap mechanism worked perfectly (wait only 653μs), but PSRAM bus contention inflated both DMA operations. Net gain: +2 FPS for significant added complexity. **Not worth it.**
+
+**Key Insight — PSRAM Bus is the Ceiling:**
+
+The 200MHz PSRAM bus is shared by: DPI panel continuous refresh (~46 MB/s), AXI-GDMA, PPA SRM, PPA Blend, and CPU cache fills. No amount of parallelism helps when all masters compete for the same bus.
+
+**UART Stall Fix:**
+
+`log_printf` stats (5 lines, ~300 chars every 60 frames) caused visible stutters when UART disconnected — TX FIFO (128 bytes) blocks until bytes drain at 115200 baud (~26ms per burst). Removed all per-frame logging from the template. Only startup/exit messages remain.
+
+**Final Architecture:** Single-buffer, AXI-GDMA bg copy (2.5ms) + PPA Blend sprite (0.5ms) + PPA SRM flush (7.9ms) = **91 FPS @ 11ms/frame**.
+
+**Files changed:**
+
+| File | Change |
+|------|--------|
+| `components/psram_app_loader/psram_app_loader.c` | `svc_fb_copy()` now uses AXI-GDMA async memcpy (persistent handle, ISR callback, lazy init, fallback to CPU memcpy) |
+| `ESP32_P4_PAPP_Template/main.c` | Clean sprite demo — no stats logging, no dual-core. AXI-GDMA copy + PPA Blend + PPA SRM flush (910 bytes) |

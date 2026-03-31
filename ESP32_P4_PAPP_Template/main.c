@@ -1,82 +1,38 @@
 /*
- * ESP32-P4 PAPP Template — Ball Demo
+ * ESP32-P4 PAPP Template — Sprite Demo (Single-Buffer + AXI-GDMA)
  *
- * Demonstrates:
- *   - 400×240 RGB565 framebuffer
- *   - PPA rotate 270° + scale 2× → fills 480×800 LCD perfectly
- *   - Gamepad input (D-pad moves ball)
- *   - MENU button to exit back to launcher
- *
- * Build:
- *   .\tools\build_psram_app.ps1 -AppName ESP32_P4_PAPP_Template -Sources ESP32_P4_PAPP_Template\main.c
- *
- * Upload (launcher must be running):
- *   python tools\upload_papp.py firmware\ESP32_P4_PAPP_Template.papp --port COM30
+ * Pipeline per frame:
+ *   1. AXI-GDMA copy bg → fb  (2.5 ms)
+ *   2. PPA Blend sprite → fb  (0.5 ms)
+ *   3. PPA SRM rot+2× → LCD   (7.9 ms)
+ *   Total ≈ 11 ms → ~91 FPS
  */
 
 #define PAPP_APP_SIDE 1
 #include "psram_app.h"
 
+/* ── Minimal C runtime for -nostdlib build ─────────────────────────── */
+void *memset(void *s, int c, unsigned int n)
+{
+    unsigned char *p = (unsigned char *)s;
+    while (n--) *p++ = (unsigned char)c;
+    return s;
+}
+
 /* ── Screen dimensions ─────────────────────────────────────────────── */
 #define FB_W  400
 #define FB_H  240
+#define FB_BYTES (FB_W * FB_H * sizeof(uint16_t))
 
-/* ── RGB565 helpers ────────────────────────────────────────────────── */
-#define RGB565(r, g, b) ((((r) & 0x1F) << 11) | (((g) & 0x3F) << 5) | ((b) & 0x1F))
-
-#define COLOR_LIGHT_BLUE  RGB565(17, 51, 29)   /* ~#87CEEB sky blue */
-#define COLOR_YELLOW      RGB565(31, 63, 0)    /* #FFFF00 */
-#define COLOR_BLACK       0x0000
-
-/* ── Ball parameters ───────────────────────────────────────────────── */
-#define BALL_RADIUS  8
-#define BALL_SPEED   3
-
-/* ── Globals ───────────────────────────────────────────────────────── */
-static uint16_t s_fb[FB_W * FB_H];
-
-/* ── Drawing helpers ───────────────────────────────────────────────── */
-
-static void fb_clear(uint16_t color)
-{
-    for (int i = 0; i < FB_W * FB_H; i++)
-        s_fb[i] = color;
-}
-
-static inline void fb_pixel(int x, int y, uint16_t color)
-{
-    if (x >= 0 && x < FB_W && y >= 0 && y < FB_H)
-        s_fb[y * FB_W + x] = color;
-}
-
-static void fb_fill_circle(int cx, int cy, int r, uint16_t color)
-{
-    int r2 = r * r;
-    for (int dy = -r; dy <= r; dy++) {
-        for (int dx = -r; dx <= r; dx++) {
-            if (dx * dx + dy * dy <= r2)
-                fb_pixel(cx + dx, cy + dy, color);
-        }
-    }
-}
-
-/* ── Flush framebuffer to LCD via PPA rotate 270° + scale 2× ──────── */
-
-static void fb_flush(const app_services_t *svc)
-{
-    /*
-     * 400×240 → rotate 270° CCW → 240×400, then scale 2× → 480×800.
-     * This fills the 480×800 portrait LCD perfectly with no borders.
-     */
-    svc->display_write_frame_custom(s_fb, FB_W, FB_H, 2.0f, false);
-}
+#define COLOR_BLACK  0x0000
+#define SHIP_SPEED   3
 
 /* ── Entry point ───────────────────────────────────────────────────── */
 
 __attribute__((section(".text.entry")))
 int app_entry(const app_services_t *svc)
 {
-    svc->log_printf("=== PAPP Template — Ball Demo ===\n");
+    svc->log_printf("=== PAPP Sprite — Single-Buffer (AXI-GDMA) ===\n");
 
     if (svc->abi_version != PAPP_ABI_VERSION) {
         svc->log_printf("ABI mismatch: got %lu, expected %d\n",
@@ -84,47 +40,67 @@ int app_entry(const app_services_t *svc)
         return -1;
     }
 
-    /* Ball state — start at center */
-    int bx = FB_W / 2;
-    int by = FB_H / 2;
+    /* Allocate single DMA-capable framebuffer */
+    const unsigned long fb_alloc = PAPP_MEM_CAP_SPIRAM | PAPP_MEM_CAP_DMA;
+    uint16_t *fb = (uint16_t *)svc->mem_caps_alloc(FB_BYTES, fb_alloc);
+    if (!fb) {
+        svc->log_printf("ERROR: Failed to allocate framebuffer\n");
+        return -1;
+    }
+
+    /* Load PNGs */
+    uint16_t bg_w = 0, bg_h = 0;
+    uint16_t *bg = svc->png_load_rgb565("/sd/roms/papp/background.png", &bg_w, &bg_h);
+    if (bg) svc->log_printf("Loaded background: %ux%u\n", bg_w, bg_h);
+    else    svc->log_printf("WARN: background.png not found\n");
+
+    uint16_t sp_w = 0, sp_h = 0;
+    uint16_t *ship = svc->png_load_rgb565("/sd/roms/papp/spaceship.png", &sp_w, &sp_h);
+    if (!ship) {
+        svc->log_printf("ERROR: spaceship.png not found\n");
+        if (bg) svc->mem_free(bg);
+        svc->mem_free(fb);
+        return -1;
+    }
+    svc->log_printf("Loaded spaceship: %ux%u\n", sp_w, sp_h);
+
+    int sx = (FB_W - sp_w) / 2;
+    int sy = (FB_H - sp_h) / 2;
 
     papp_gamepad_state_t pad;
 
-    /* Main loop */
     for (;;) {
         /* ── Input ─────────────────────────────────────────────────── */
         svc->input_gamepad_read(&pad);
+        if (pad.values[PAPP_INPUT_MENU]) break;
 
-        /* MENU button → exit to launcher */
-        if (pad.values[PAPP_INPUT_MENU])
-            break;
+        if (pad.values[PAPP_INPUT_UP])    sy -= SHIP_SPEED;
+        if (pad.values[PAPP_INPUT_DOWN])  sy += SHIP_SPEED;
+        if (pad.values[PAPP_INPUT_LEFT])  sx -= SHIP_SPEED;
+        if (pad.values[PAPP_INPUT_RIGHT]) sx += SHIP_SPEED;
+        if (sx < 0)           sx = 0;
+        if (sy < 0)           sy = 0;
+        if (sx + sp_w > FB_W) sx = FB_W - sp_w;
+        if (sy + sp_h > FB_H) sy = FB_H - sp_h;
 
-        /* D-pad moves ball */
-        if (pad.values[PAPP_INPUT_UP])    by -= BALL_SPEED;
-        if (pad.values[PAPP_INPUT_DOWN])  by += BALL_SPEED;
-        if (pad.values[PAPP_INPUT_LEFT])  bx -= BALL_SPEED;
-        if (pad.values[PAPP_INPUT_RIGHT]) bx += BALL_SPEED;
+        /* ── 1. AXI-GDMA copy background ──────────────────────────── */
+        if (bg) svc->fb_copy(bg, fb, FB_W, FB_H);
+        else    memset(fb, 0, FB_BYTES);
 
-        /* Clamp to screen bounds */
-        if (bx < BALL_RADIUS)            bx = BALL_RADIUS;
-        if (bx > FB_W - 1 - BALL_RADIUS) bx = FB_W - 1 - BALL_RADIUS;
-        if (by < BALL_RADIUS)            by = BALL_RADIUS;
-        if (by > FB_H - 1 - BALL_RADIUS) by = FB_H - 1 - BALL_RADIUS;
+        /* ── 2. PPA Blend sprite ───────────────────────────────────── */
+        svc->sprite_blit(fb, FB_W, FB_H, sx, sy,
+                          ship, sp_w, sp_h, COLOR_BLACK);
 
-        /* ── Draw ──────────────────────────────────────────────────── */
-        fb_clear(COLOR_LIGHT_BLUE);
-        fb_fill_circle(bx, by, BALL_RADIUS, COLOR_YELLOW);
-
-        /* ── Present ───────────────────────────────────────────────── */
-        fb_flush(svc);
-
-        /* ~60 fps target */
-        svc->delay_ms(16);
+        /* ── 3. PPA SRM flush (rot+2×) ─────────────────────────────── */
+        svc->display_write_frame_custom(fb, FB_W, FB_H, 2.0f, false);
     }
 
-    /* Clean exit */
+    if (bg) svc->mem_free(bg);
+    svc->mem_free(ship);
+    svc->mem_free(fb);
+
     svc->display_clear(COLOR_BLACK);
     svc->display_flush();
-    svc->log_printf("=== PAPP Template — Exit ===\n");
+    svc->log_printf("=== PAPP Sprite Demo — Exit ===\n");
     return 0;
 }

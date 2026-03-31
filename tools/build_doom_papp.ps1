@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ROOT = "C:\ESPIDFprojects\RetroESP32_P4_PSRAM"
+$ROOT = "C:\ESPIDFprojects\RetroESP32_P4"
 $BUILD = "$ROOT\build_papp\doom"
 $OUT   = "$ROOT\firmware\doom.papp"
 

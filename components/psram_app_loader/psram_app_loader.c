@@ -39,6 +39,11 @@
 #include "odroid_input.h"
 #include "odroid_sdcard.h"
 #include "odroid_settings.h"
+#include "pngAux.h"
+#include "ppa_engine.h"
+#include "driver/ppa.h"
+#include "hal/ppa_types.h"
+#include "esp_async_memcpy.h"
 
 static const char *TAG = "psram_app";
 
@@ -97,7 +102,18 @@ static int64_t svc_get_time_us(void) {
 
 /* Wrapper: heap_caps_malloc */
 static void *svc_mem_caps_alloc(size_t size, uint32_t caps) {
-    return heap_caps_malloc(size, caps);
+    /* Translate PAPP capability flags to ESP-IDF heap capability flags */
+    uint32_t real_caps = 0;
+    if (caps & PAPP_MEM_CAP_SPIRAM) real_caps |= MALLOC_CAP_SPIRAM;
+    if (caps & PAPP_MEM_CAP_DMA)    real_caps |= MALLOC_CAP_DMA;
+
+    /* When DMA capability is requested, PPA hardware requires 64-byte
+       cache-line alignment for both address and size. */
+    if (real_caps & MALLOC_CAP_DMA) {
+        size_t aligned_size = (size + 63) & ~63;
+        return heap_caps_aligned_calloc(64, 1, aligned_size, real_caps);
+    }
+    return heap_caps_malloc(size, real_caps ? real_caps : caps);
 }
 
 /* Wrapper: xTaskCreatePinnedToCore → int return.
@@ -165,6 +181,170 @@ static int svc_jtag_vprintf(const char *fmt, va_list ap) {
     return n;
 }
 
+/* ── PNG load service: decode PNG to RGB565 with byte-swap + R↔B for MIPI ── */
+static uint16_t *svc_png_load_rgb565(const char *path,
+                                      uint16_t *out_w, uint16_t *out_h)
+{
+    pngObject png = {0};
+    if (!loadPngFromFileRaw(path, &png, true, true))
+        return NULL;
+    if (png.w == 0 || png.h == 0 || !png.data)
+        return NULL;
+
+    uint16_t *src = (uint16_t *)png.data;
+    int w = png.w, h = png.h;
+
+    /* Byte-swap + R↔B swap for MIPI DSI panel (same as show_system_artwork) */
+    for (int i = 0; i < w * h; i++) {
+        uint16_t p = src[i];
+        uint16_t bs = (p >> 8) | (p << 8);
+        src[i] = ((bs & 0x1F) << 11) | (bs & 0x07E0) | ((bs >> 11) & 0x1F);
+    }
+
+    /* Re-allocate into a DMA-aligned buffer so PPA operations work directly.
+       The pngAux buffer uses plain heap_caps_malloc which isn't cache-line-aligned. */
+    size_t buf_bytes = w * h * sizeof(uint16_t);
+    size_t aligned = (buf_bytes + 63) & ~63;
+    uint16_t *dma_buf = (uint16_t *)heap_caps_aligned_calloc(
+        64, 1, aligned, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+    if (dma_buf) {
+        memcpy(dma_buf, src, buf_bytes);
+        free(src);  /* free original pngAux buffer */
+        src = dma_buf;
+    }
+    /* If DMA alloc fails, keep original buffer — software fallbacks still work */
+
+    *out_w = (uint16_t)w;
+    *out_h = (uint16_t)h;
+    return src;  /* caller frees via svc->mem_free() */
+}
+
+/* ── Software color-keyed blit (fallback) ─────────────────────────── */
+static void sw_sprite_blit(uint16_t *framebuf, uint32_t fb_w,
+                            uint32_t x, uint32_t y,
+                            const uint16_t *sprite, uint32_t sp_w, uint32_t sp_h,
+                            uint16_t colorkey)
+{
+    for (uint32_t row = 0; row < sp_h; row++) {
+        const uint16_t *src = &sprite[row * sp_w];
+        uint16_t *dst = &framebuf[(y + row) * fb_w + x];
+        for (uint32_t col = 0; col < sp_w; col++) {
+            if (src[col] != colorkey)
+                dst[col] = src[col];
+        }
+    }
+}
+
+/* ── PPA hardware color-keyed sprite blit ─────────────────────────
+ * Uses a separate DMA-aligned output buffer (PPA cannot blend in-place).
+ * Falls back to software if DMA allocation fails. */
+static int svc_sprite_blit(uint16_t *framebuf, uint32_t fb_w, uint32_t fb_h,
+                            uint32_t x, uint32_t y,
+                            const uint16_t *sprite, uint32_t sp_w, uint32_t sp_h,
+                            uint16_t colorkey)
+{
+    if (!framebuf || !sprite) return -1;
+    if (x + sp_w > fb_w || y + sp_h > fb_h) return -2;
+
+    /* Lazy-allocate a DMA-aligned output buffer (persists across calls) */
+    static uint16_t *s_out = NULL;
+    static size_t s_out_cap = 0;
+
+    size_t fb_bytes = fb_w * fb_h * sizeof(uint16_t);
+    size_t fb_aligned = (fb_bytes + 63) & ~63;
+
+    if (s_out_cap < fb_aligned) {
+        if (s_out) heap_caps_free(s_out);
+        s_out = (uint16_t *)heap_caps_aligned_calloc(
+            64, 1, fb_aligned, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+        s_out_cap = s_out ? fb_aligned : 0;
+    }
+
+    /* DMA-aligned copy of sprite (png_load buffers aren't aligned) */
+    size_t sp_bytes = sp_w * sp_h * sizeof(uint16_t);
+    size_t sp_aligned = (sp_bytes + 63) & ~63;
+    uint16_t *sp_dma = (uint16_t *)heap_caps_aligned_calloc(
+        64, 1, sp_aligned, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+
+    if (!s_out || !sp_dma) {
+        /* Fall back to software blit */
+        if (sp_dma) heap_caps_free(sp_dma);
+        sw_sprite_blit(framebuf, fb_w, x, y, sprite, sp_w, sp_h, colorkey);
+        return 1;  /* 1 = software fallback (DMA alloc failed) */
+    }
+    memcpy(sp_dma, sprite, sp_bytes);
+
+    /* PPA blend: bg=framebuf, fg=sprite → out=separate buffer */
+    esp_err_t ret = ppa_blend_colorkey_rgb565_to(
+        framebuf, fb_w, fb_h, x, y,
+        sp_dma, sp_w, sp_h,
+        colorkey,
+        s_out, fb_aligned);
+
+    if (ret == ESP_OK) {
+        /* Copy only the blended sprite region from output back to framebuf */
+        for (uint32_t row = 0; row < sp_h; row++) {
+            memcpy(&framebuf[(y + row) * fb_w + x],
+                   &s_out[(y + row) * fb_w + x],
+                   sp_w * sizeof(uint16_t));
+        }
+    } else {
+        /* PPA failed — software fallback */
+        sw_sprite_blit(framebuf, fb_w, x, y, sprite, sp_w, sp_h, colorkey);
+    }
+
+    heap_caps_free(sp_dma);
+    return (ret == ESP_OK) ? 0 : 2;  /* 0 = PPA ok, 2 = SW fallback (PPA error) */
+}
+
+/* ── AXI-GDMA async memcpy for fast PSRAM-to-PSRAM DMA copies ─── */
+static async_memcpy_handle_t s_axi_mcp = NULL;
+static volatile bool s_mcp_done = false;
+
+static IRAM_ATTR bool mcp_done_cb(async_memcpy_handle_t mcp,
+                                   async_memcpy_event_t *event, void *arg)
+{
+    s_mcp_done = true;
+    return false;
+}
+
+static int svc_fb_copy(const uint16_t *src, uint16_t *dst,
+                        uint32_t w, uint32_t h)
+{
+    if (!src || !dst || w == 0 || h == 0) return -1;
+
+    size_t buf_bytes = w * h * sizeof(uint16_t);
+
+    /* Lazy-init AXI-GDMA async memcpy driver (persists across calls) */
+    if (!s_axi_mcp) {
+        async_memcpy_config_t cfg = {
+            .backlog = 4,
+            .sram_trans_align = 64,
+            .psram_trans_align = 64,
+            .flags = 0,
+        };
+        esp_err_t err = esp_async_memcpy_install_gdma_axi(&cfg, &s_axi_mcp);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "AXI async_memcpy init failed (0x%x), using memcpy", err);
+            s_axi_mcp = NULL;
+            memcpy(dst, src, buf_bytes);
+            return 1;
+        }
+        ESP_LOGI(TAG, "AXI-GDMA async memcpy initialized for fb_copy");
+    }
+
+    s_mcp_done = false;
+    esp_err_t ret = esp_async_memcpy(s_axi_mcp, dst, (void *)src, buf_bytes,
+                                      mcp_done_cb, NULL);
+    if (ret != ESP_OK) {
+        memcpy(dst, src, buf_bytes);
+        return 2;
+    }
+
+    while (!s_mcp_done) { }
+    return 0;
+}
+
 static void populate_services(app_services_t *svc) {
     memset(svc, 0, sizeof(*svc));
     svc->abi_version = PAPP_ABI_VERSION;
@@ -221,6 +401,11 @@ static void populate_services(app_services_t *svc) {
     /* FreeRTOS tasks */
     svc->task_create = svc_task_create;
     svc->task_delete = svc_task_delete;
+
+    /* PNG + PPA sprite + fb copy */
+    svc->png_load_rgb565 = svc_png_load_rgb565;
+    svc->sprite_blit     = svc_sprite_blit;
+    svc->fb_copy         = svc_fb_copy;
 }
 
 /* ── Loader ──────────────────────────────────────────────────────────── */

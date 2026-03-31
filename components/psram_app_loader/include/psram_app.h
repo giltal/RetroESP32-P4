@@ -137,6 +137,20 @@ typedef struct {
                         int priority, void *out_handle, int core);
     void (*task_delete)(void *handle);
 
+    /* ── PNG Loading ─────────────────────────────────────────────────── */
+    uint16_t *(*png_load_rgb565)(const char *path,
+                                  uint16_t *out_w, uint16_t *out_h);
+
+    /* ── PPA Sprite Blit (hardware color-keyed blend) ────────────────── */
+    int (*sprite_blit)(uint16_t *framebuf, uint32_t fb_w, uint32_t fb_h,
+                       uint32_t x, uint32_t y,
+                       const uint16_t *sprite, uint32_t sp_w, uint32_t sp_h,
+                       uint16_t colorkey);
+
+    /* ── PPA Framebuffer Copy (hardware DMA copy via PPA SRM) ────────── */
+    int (*fb_copy)(const uint16_t *src, uint16_t *dst,
+                   uint32_t w, uint32_t h);
+
 } app_services_t;
 
 /* ── Entry Point Signature ───────────────────────────────────────────── */

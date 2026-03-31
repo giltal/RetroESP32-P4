@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_err.h"
+#include "driver/ppa.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,6 +23,11 @@ esp_err_t ppa_engine_init(void);
  * @brief Deinitialize PPA engine (unregisters all clients)
  */
 void ppa_engine_deinit(void);
+
+/**
+ * @brief Get the PPA SRM client handle for direct operations
+ */
+ppa_client_handle_t ppa_get_srm_client(void);
 
 /* ========================= FILL Operations ========================= */
 
@@ -148,6 +154,64 @@ esp_err_t ppa_blend_rgb565(const void *bg_buf, uint32_t bg_w, uint32_t bg_h,
                             const void *fg_buf, uint32_t fg_w, uint32_t fg_h,
                             uint8_t fg_alpha,
                             void **out_buf, size_t *out_size);
+
+/* =================== Color-Keyed Blend (Sprite Blit) =================== */
+
+/**
+ * @brief Blend foreground onto background with color-keying (hardware accelerated)
+ *
+ * Pixels in the foreground matching the colorkey are treated as transparent —
+ * the background shows through. All other foreground pixels are drawn opaque.
+ * Classic sprite rendering: paint a sprite with a "transparent color" onto a scene.
+ *
+ * Both images must be the same size (or the smaller dimensions are used).
+ * Output buffer is allocated internally; caller must free().
+ *
+ * @param bg_buf             Background pixel buffer (RGB565, DMA-capable)
+ * @param bg_w               Background width
+ * @param bg_h               Background height
+ * @param fg_buf             Foreground (sprite) pixel buffer (RGB565, DMA-capable)
+ * @param fg_w               Foreground width
+ * @param fg_h               Foreground height
+ * @param colorkey_rgb565    Transparent color in RGB565 (e.g. 0xF81F for magenta)
+ * @param[out] out_buf       Pointer to receive allocated output buffer (caller must free)
+ * @param[out] out_size      Pointer to receive the output buffer size
+ * @return ESP_OK on success
+ */
+esp_err_t ppa_blend_colorkey_rgb565(const void *bg_buf, uint32_t bg_w, uint32_t bg_h,
+                                     const void *fg_buf, uint32_t fg_w, uint32_t fg_h,
+                                     uint16_t colorkey_rgb565,
+                                     void **out_buf, size_t *out_size);
+
+/**
+ * @brief Blit a sprite onto a background with color-keying, zero-allocation
+ *
+ * Same as ppa_blend_colorkey_rgb565 but writes directly into a caller-provided
+ * output buffer at position (bg_x, bg_y). Ideal for compositing multiple sprites
+ * onto a framebuffer without per-call heap allocation.
+ *
+ * The foreground sprite is placed at (bg_x, bg_y) within the background.
+ * The output buffer receives the blended result at the same position.
+ * Typically out_buf == bg_buf (in-place composite onto the framebuffer).
+ *
+ * @param bg_buf             Background framebuffer (RGB565, DMA-capable)
+ * @param bg_w               Background width (full framebuffer)
+ * @param bg_h               Background height
+ * @param bg_x               X offset within background to place sprite
+ * @param bg_y               Y offset within background to place sprite
+ * @param fg_buf             Foreground sprite buffer (RGB565, DMA-capable)
+ * @param fg_w               Sprite width
+ * @param fg_h               Sprite height
+ * @param colorkey_rgb565    Transparent color in RGB565
+ * @param out_buf            Output buffer (can be same as bg_buf for in-place blit)
+ * @param out_buf_size       Output buffer size in bytes
+ * @return ESP_OK on success
+ */
+esp_err_t ppa_blend_colorkey_rgb565_to(const void *bg_buf, uint32_t bg_w, uint32_t bg_h,
+                                        uint32_t bg_x, uint32_t bg_y,
+                                        const void *fg_buf, uint32_t fg_w, uint32_t fg_h,
+                                        uint16_t colorkey_rgb565,
+                                        void *out_buf, size_t out_buf_size);
 
 /* =================== Combined Rotate+Scale (in-place) =================== */
 

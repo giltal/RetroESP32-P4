@@ -16,6 +16,9 @@ static ppa_client_handle_t s_ppa_srm_client   = NULL;
 static ppa_client_handle_t s_ppa_blend_client  = NULL;
 static ppa_client_handle_t s_ppa_fill_client   = NULL;
 
+/* Expose SRM client for external callers (e.g. fb_copy) */
+ppa_client_handle_t ppa_get_srm_client(void) { return s_ppa_srm_client; }
+
 /* Cache-line alignment for DMA buffers (64 bytes typical on ESP32-P4) */
 static size_t s_buf_align = 64;
 
@@ -489,6 +492,160 @@ esp_err_t ppa_blend_rgb565(const void *bg_buf, uint32_t bg_w, uint32_t bg_h,
 
     *out_buf = buf;
     *out_size = aligned_size;
+    return ESP_OK;
+}
+
+/* =================== Color-Keyed Blend (Sprite Blit) =================== */
+
+esp_err_t ppa_blend_colorkey_rgb565(const void *bg_buf, uint32_t bg_w, uint32_t bg_h,
+                                     const void *fg_buf, uint32_t fg_w, uint32_t fg_h,
+                                     uint16_t colorkey_rgb565,
+                                     void **out_buf, size_t *out_size)
+{
+    if (!s_ppa_blend_client || !bg_buf || !fg_buf || !out_buf || !out_size)
+        return ESP_ERR_INVALID_ARG;
+
+    uint32_t w = (bg_w < fg_w) ? bg_w : fg_w;
+    uint32_t h = (bg_h < fg_h) ? bg_h : fg_h;
+
+    size_t size = w * h * sizeof(uint16_t);
+    size_t aligned_size = (size + s_buf_align - 1) & ~(s_buf_align - 1);
+    void *buf = ppa_alloc_buf(aligned_size);
+    if (!buf) return ESP_ERR_NO_MEM;
+
+    /* Convert RGB565 colorkey to RGB888 for PPA threshold registers */
+    uint8_t r8 = ((colorkey_rgb565 >> 11) & 0x1F) << 3;
+    uint8_t g8 = ((colorkey_rgb565 >> 5) & 0x3F) << 2;
+    uint8_t b8 = (colorkey_rgb565 & 0x1F) << 3;
+
+    color_pixel_rgb888_data_t ck_lo = { .r = r8, .g = g8, .b = b8 };
+    color_pixel_rgb888_data_t ck_hi = { .r = r8 | 0x07, .g = g8 | 0x03, .b = b8 | 0x07 };
+
+    ppa_blend_oper_config_t blend_cfg = {
+        .in_bg = {
+            .buffer = bg_buf,
+            .pic_w = bg_w,
+            .pic_h = bg_h,
+            .block_w = w,
+            .block_h = h,
+            .block_offset_x = 0,
+            .block_offset_y = 0,
+            .blend_cm = PPA_BLEND_COLOR_MODE_RGB565,
+        },
+        .in_fg = {
+            .buffer = fg_buf,
+            .pic_w = fg_w,
+            .pic_h = fg_h,
+            .block_w = w,
+            .block_h = h,
+            .block_offset_x = 0,
+            .block_offset_y = 0,
+            .blend_cm = PPA_BLEND_COLOR_MODE_RGB565,
+        },
+        .out = {
+            .buffer = buf,
+            .buffer_size = aligned_size,
+            .pic_w = w,
+            .pic_h = h,
+            .block_offset_x = 0,
+            .block_offset_y = 0,
+            .blend_cm = PPA_BLEND_COLOR_MODE_RGB565,
+        },
+        .bg_alpha_update_mode = PPA_ALPHA_NO_CHANGE,
+        .fg_alpha_update_mode = PPA_ALPHA_FIX_VALUE,
+        .fg_alpha_fix_val = 255,
+        /* Foreground color-keying: pixels matching colorkey → output background */
+        .fg_ck_en = true,
+        .fg_ck_rgb_low_thres = ck_lo,
+        .fg_ck_rgb_high_thres = ck_hi,
+        .bg_ck_en = false,
+        .ck_rgb_default_val = { .r = 0, .g = 0, .b = 0 },
+        .ck_reverse_bg2fg = false,
+        .mode = PPA_TRANS_MODE_BLOCKING,
+    };
+
+    esp_err_t ret = ppa_do_blend(s_ppa_blend_client, &blend_cfg);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "PPA Color-keyed blend failed: %s", esp_err_to_name(ret));
+        heap_caps_free(buf);
+        return ret;
+    }
+
+    *out_buf = buf;
+    *out_size = aligned_size;
+    return ESP_OK;
+}
+
+esp_err_t ppa_blend_colorkey_rgb565_to(const void *bg_buf, uint32_t bg_w, uint32_t bg_h,
+                                        uint32_t bg_x, uint32_t bg_y,
+                                        const void *fg_buf, uint32_t fg_w, uint32_t fg_h,
+                                        uint16_t colorkey_rgb565,
+                                        void *out_buf, size_t out_buf_size)
+{
+    if (!s_ppa_blend_client || !bg_buf || !fg_buf || !out_buf)
+        return ESP_ERR_INVALID_ARG;
+
+    /* Foreground must fit within background at the given offset */
+    if (bg_x + fg_w > bg_w || bg_y + fg_h > bg_h)
+        return ESP_ERR_INVALID_ARG;
+
+    /* Convert RGB565 colorkey to RGB888 for PPA threshold registers.
+       The low/high thresholds cover the truncated bits lost in 565→888 expansion. */
+    uint8_t r8 = ((colorkey_rgb565 >> 11) & 0x1F) << 3;
+    uint8_t g8 = ((colorkey_rgb565 >> 5) & 0x3F) << 2;
+    uint8_t b8 = (colorkey_rgb565 & 0x1F) << 3;
+
+    color_pixel_rgb888_data_t ck_lo = { .r = r8, .g = g8, .b = b8 };
+    color_pixel_rgb888_data_t ck_hi = { .r = r8 | 0x07, .g = g8 | 0x03, .b = b8 | 0x07 };
+
+    ppa_blend_oper_config_t blend_cfg = {
+        .in_bg = {
+            .buffer = bg_buf,
+            .pic_w = bg_w,
+            .pic_h = bg_h,
+            .block_w = fg_w,
+            .block_h = fg_h,
+            .block_offset_x = bg_x,
+            .block_offset_y = bg_y,
+            .blend_cm = PPA_BLEND_COLOR_MODE_RGB565,
+        },
+        .in_fg = {
+            .buffer = fg_buf,
+            .pic_w = fg_w,
+            .pic_h = fg_h,
+            .block_w = fg_w,
+            .block_h = fg_h,
+            .block_offset_x = 0,
+            .block_offset_y = 0,
+            .blend_cm = PPA_BLEND_COLOR_MODE_RGB565,
+        },
+        .out = {
+            .buffer = out_buf,
+            .buffer_size = out_buf_size,
+            .pic_w = bg_w,
+            .pic_h = bg_h,
+            .block_offset_x = bg_x,
+            .block_offset_y = bg_y,
+            .blend_cm = PPA_BLEND_COLOR_MODE_RGB565,
+        },
+        .bg_alpha_update_mode = PPA_ALPHA_NO_CHANGE,
+        .fg_alpha_update_mode = PPA_ALPHA_FIX_VALUE,
+        .fg_alpha_fix_val = 255,
+        .fg_ck_en = true,
+        .fg_ck_rgb_low_thres = ck_lo,
+        .fg_ck_rgb_high_thres = ck_hi,
+        .bg_ck_en = false,
+        .ck_rgb_default_val = { .r = 0, .g = 0, .b = 0 },
+        .ck_reverse_bg2fg = false,
+        .mode = PPA_TRANS_MODE_BLOCKING,
+    };
+
+    esp_err_t ret = ppa_do_blend(s_ppa_blend_client, &blend_cfg);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "PPA Color-keyed sprite blit failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
     return ESP_OK;
 }
 

@@ -9,11 +9,11 @@ param([switch]$SkipUpload)
 $ErrorActionPreference = "Stop"
 $ROOT = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $AppName = "ESP32_P4_PAPP_Template"
-$BUILD = Join-Path $ROOT "build_papp" $AppName
+$BUILD = Join-Path (Join-Path $ROOT "build_papp") $AppName
 $FW = Join-Path $ROOT "firmware"
-$HEADER = Join-Path $ROOT "components" "psram_app_loader" "include"
-$LD = Join-Path $ROOT "tools" "psram_app.ld"
-$SRC = Join-Path $ROOT "ESP32_P4_PAPP_Template" "main.c"
+$HEADER = Join-Path (Join-Path (Join-Path $ROOT "components") "psram_app_loader") "include"
+$LD = Join-Path (Join-Path $ROOT "tools") "psram_app.ld"
+$SRC = Join-Path (Join-Path $ROOT "ESP32_P4_PAPP_Template") "main.c"
 
 # Source ESP-IDF if not already done
 if (-not (Get-Command "riscv32-esp-elf-gcc" -ErrorAction SilentlyContinue)) {
@@ -70,7 +70,7 @@ Write-Host "  BSS size: $bssSize bytes"
 # Pack
 $pappPath = Join-Path $FW "$AppName.papp"
 Write-Host "  PACK"
-python (Join-Path $ROOT "tools" "pack_papp.py") "$BUILD\$AppName.bin" $pappPath --entry-offset 0 --bss-size $bssSize
+python (Join-Path (Join-Path $ROOT "tools") "pack_papp.py") "$BUILD\$AppName.bin" $pappPath --entry-offset 0 --bss-size $bssSize
 if ($LASTEXITCODE -ne 0) { throw "pack_papp.py failed" }
 
 Write-Host ""
@@ -79,7 +79,7 @@ Write-Host "=== $AppName.papp ready ===" -ForegroundColor Green
 # Upload
 if (-not $SkipUpload) {
     Write-Host "Uploading to device..." -ForegroundColor Cyan
-    python (Join-Path $ROOT "tools" "upload_papp.py") $pappPath --port COM30
+    python (Join-Path (Join-Path $ROOT "tools") "upload_papp.py") $pappPath --port COM30
     if ($LASTEXITCODE -ne 0) { Write-Host "Upload failed (is device connected?)" -ForegroundColor Yellow }
 }
 

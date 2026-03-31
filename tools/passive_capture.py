@@ -3,7 +3,7 @@ import serial, time, sys
 
 PORT = "COM30"
 BAUD = 115200
-OUTFILE = r"C:\ESPIDFprojects\RetroESP32_P4_PSRAM\crash_log.txt"
+OUTFILE = r"C:\ESPIDFprojects\RetroESP32_P4\crash_log.txt"
 
 try:
     s = serial.Serial(PORT, BAUD, timeout=1)
