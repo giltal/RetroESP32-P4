@@ -51,6 +51,7 @@ static int64_t      s_touch_last_us = 0;
 
 volatile int odroid_paddle_adc_raw = -1;
 bool odroid_input_xy_menu_disable = false;
+bool odroid_input_touch_buttons_disable = false;
 static adc_oneshot_unit_handle_t s_paddle_adc_handle = NULL;
 
 void odroid_input_gamepad_init(void)
@@ -107,8 +108,9 @@ void odroid_input_gamepad_read(odroid_gamepad_state *state)
         }
     }
 
-    /* Touch-panel virtual shoulder buttons — sampled at 2 Hz to avoid CPU overhead */
-    {
+    /* Touch-panel virtual shoulder buttons — sampled at 2 Hz to avoid CPU overhead.
+     * Disabled when touch keyboard is active (odroid_input_touch_buttons_disable). */
+    if (!odroid_input_touch_buttons_disable) {
         int64_t now = esp_timer_get_time();
         if (now - s_touch_last_us >= TOUCH_POLL_INTERVAL_US) {
             s_touch_last_us = now;
@@ -125,6 +127,9 @@ void odroid_input_gamepad_read(odroid_gamepad_state *state)
         }
         state->values[ODROID_INPUT_MENU]   |= s_touch_menu;
         state->values[ODROID_INPUT_VOLUME] |= s_touch_volume;
+    } else {
+        s_touch_menu = 0;
+        s_touch_volume = 0;
     }
 
     /* X → Menu, Y → Volume for emulators that lack native X/Y (skip for SNES) */

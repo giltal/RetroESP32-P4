@@ -68,6 +68,11 @@
 #include "audio.h"
 
 /*
+  Touch Panel
+*/
+#include "gt911_touch.h"
+
+/*
   Sprites
 */
 #include "../sprites/battery.h"

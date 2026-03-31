@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** March 2026 — **Phase 34: Release prep & script fixes** (removed `SDcard/` from `.gitignore` so SD card content is tracked in git; fixed `generate_merged_bin.ps1` — hashtable `+=` and em-dash encoding broke argument list in PowerShell 5.1, rewrote with parallel string arrays and `ArrayList.Add()`; regenerated merged firmware `RetroESP32_P4_v1.bin` 10.87 MB), **Phase 33: Duke3D gamepad, save/load, exit fixes** (full gamepad remapping: A=fire, B=open, X=jump, Y=crouch, L/R=weapon cycle via number key injection with held-key duration, AutoRun enabled; save/load fully working — buffer overflow fix, `access()` now probes SD for absolute paths, `numplayers` forced to 1, save name auto-fill + B button confirms; exit fix — `gameexit()` calls `_exit(0)` directly skipping heavy cleanup), **Phase 32: Duke Nukem 3D PSRAM app** (Chocolate Duke3D BUILD engine ported as fourth .papp, 320×200 8bpp→RGB565 via lcdpal[] LUT, 2.4× display scale, GRP archive from SD, multiple hang fixes: blocking getchar→return, sound precache skip, demo playback skip, menu MODE_MENU clear after skill selection, newgame() spin-wait timeout, cinematics skip; menu system working with New Game/Episode/Skill selection and in-game restart), **Phase 31: Quake audio & brightness fix** (audio task moved core 0→1, sample rate 11025→22050 Hz, mixer volume shift >>20→>>16 for proper levels, volume default 0.7→1.0, direct gamma 0.5 brightness boost in palette LUT via sqrtf curve), **Phase 30: Full rebuild & OpenTyrian cleanup** (removed OpenTyrian from `SYSTEMS[]` array, `get_ota_slot()`, `build_all.ps1`, `flash_all.ps1`, `generate_merged_bin.ps1`; fixed OTA slot mapping — SNES→ota_10, Genesis→ota_11; fixed Python env py3.11→py3.12; fixed `$ROOT` paths to `RetroESP32_P4_PSRAM`; full rebuild of launcher + 11 emulators; merged firmware binary 10.87 MB; single-shot flash at 0x0), **Phase 29: Quake PSRAM app** (WinQuake engine ported as third .papp, 320×240 software renderer, 8bpp→RGB565 native LE, 11025 Hz stereo audio, 256KB PSRAM-backed task stack via `xTaskCreateStaticPinnedToCore`, heap_caps_malloc redirect ≥1KB→PSRAM, stack overflow fix with static precache arrays, scale 2.0× for 480px LCD, gamma 0.7 for brightness, demo playback confirmed working), **Phase 28: PSRAM app stability, launcher cleanup, Atari 800 virtual keyboard** (I2S mutex deadlock fix for multi-app launches, FreeRTOS task exit crash fix, `_fstat` bug fix improving OpenTyrian load time, OpenTyrian removed from launcher carousel as standalone PSRAM app, NVS STEP bounds check prevents launcher reboot loop, Atari 800 virtual keyboard overlay with L1 toggle + Shift/Ctrl modifiers, prboom CMakeLists.txt fixed to not break other emulator builds), **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480→640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
+> **Last Updated:** March 2026 — **Phase 36: PAPP Template project & launcher PAPP preview** (created `ESP32_P4_PAPP_Template/` — complete template project for building PAPP applications with 400×240 RGB565 framebuffer, PPA rotate 270° + scale 2× to fill 480×800 LCD, ball demo app with gamepad input, CONTEXT.md with full API reference, self-contained `build_template.ps1` build script; launcher PAPP preview — when browsing the PAPP folder, loads and displays a 300×300 PNG preview image alongside highlighted `.papp` files, cached to avoid reload, right-aligned vertically centered in browser area, full list redraw in PAPP mode to prevent filename overlap; launcher version bumped to v3.1), **Phase 35: Stella paddle fixes, launcher favorites, touch search keyboard, carousel short names & settings cleanup** (Atari 2600 paddle full-range fix — `<=` TRIGMAX with else snap, ADC clamp calibrated 5–3340 from measured GPIO 52 range, EMA alpha 0.6/dead zone 50 for snappy response; NES-style interactive volume overlay for Stella — bordered box, colored bar with segments, L/R adjust, Y cycle, auto-dismiss; launcher favorite star icons — yellow 16×16 bitmap at right edge of browser rows with fav_cache system; launcher touch search keyboard — full QWERTY overlay with GT911 touch input, incremental prefix search, DEL/SPACE/CLOSE keys, `odroid_input_touch_buttons_disable` flag to prevent touch-zone phantom button presses during keyboard use; carousel short names — `SHORT_NAMES[]` array with `NES`, `GB`, `GBC`, etc. shown under icons at 1× font scale as `NES (43)` and in header bar as `NES (43 files)` in yellow across all carousel views; settings page simplified to 3 options — Clear Recents/Volume/Brightness, themes/colored icons/cover art removed, volume and brightness bars repositioned inline with text), **Phase 34: Release prep & script fixes** (removed `SDcard/` from `.gitignore` so SD card content is tracked in git; fixed `generate_merged_bin.ps1` — hashtable `+=` and em-dash encoding broke argument list in PowerShell 5.1, rewrote with parallel string arrays and `ArrayList.Add()`; regenerated merged firmware `RetroESP32_P4_v1.bin` 10.87 MB), **Phase 33: Duke3D gamepad, save/load, exit fixes** (full gamepad remapping: A=fire, B=open, X=jump, Y=crouch, L/R=weapon cycle via number key injection with held-key duration, AutoRun enabled; save/load fully working — buffer overflow fix, `access()` now probes SD for absolute paths, `numplayers` forced to 1, save name auto-fill + B button confirms; exit fix — `gameexit()` calls `_exit(0)` directly skipping heavy cleanup), **Phase 32: Duke Nukem 3D PSRAM app** (Chocolate Duke3D BUILD engine ported as fourth .papp, 320×200 8bpp→RGB565 via lcdpal[] LUT, 2.4× display scale, GRP archive from SD, multiple hang fixes: blocking getchar→return, sound precache skip, demo playback skip, menu MODE_MENU clear after skill selection, newgame() spin-wait timeout, cinematics skip; menu system working with New Game/Episode/Skill selection and in-game restart), **Phase 31: Quake audio & brightness fix** (audio task moved core 0→1, sample rate 11025→22050 Hz, mixer volume shift >>20→>>16 for proper levels, volume default 0.7→1.0, direct gamma 0.5 brightness boost in palette LUT via sqrtf curve), **Phase 30: Full rebuild & OpenTyrian cleanup** (removed OpenTyrian from `SYSTEMS[]` array, `get_ota_slot()`, `build_all.ps1`, `flash_all.ps1`, `generate_merged_bin.ps1`; fixed OTA slot mapping — SNES→ota_10, Genesis→ota_11; fixed Python env py3.11→py3.12; fixed `$ROOT` paths to `RetroESP32_P4_PSRAM`; full rebuild of launcher + 11 emulators; merged firmware binary 10.87 MB; single-shot flash at 0x0), **Phase 29: Quake PSRAM app** (WinQuake engine ported as third .papp, 320×240 software renderer, 8bpp→RGB565 native LE, 11025 Hz stereo audio, 256KB PSRAM-backed task stack via `xTaskCreateStaticPinnedToCore`, heap_caps_malloc redirect ≥1KB→PSRAM, stack overflow fix with static precache arrays, scale 2.0× for 480px LCD, gamma 0.7 for brightness, demo playback confirmed working), **Phase 28: PSRAM app stability, launcher cleanup, Atari 800 virtual keyboard** (I2S mutex deadlock fix for multi-app launches, FreeRTOS task exit crash fix, `_fstat` bug fix improving OpenTyrian load time, OpenTyrian removed from launcher carousel as standalone PSRAM app, NVS STEP bounds check prevents launcher reboot loop, Atari 800 virtual keyboard overlay with L1 toggle + Shift/Ctrl modifiers, prboom CMakeLists.txt fixed to not break other emulator builds), **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480→640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -1095,6 +1095,19 @@ All hot emulation data moved from PSRAM to internal SRAM via `heap_caps_calloc(�
 - [x] Replaced hardcoded `$idfPython` path with `python` (available after IDF export)
 - [x] Regenerated merged firmware `RetroESP32_P4_v1.bin` (10.87 MB, all 15 binaries)
 
+### Phase 35: Stella Paddle Fixes, Launcher Favorites, Touch Search Keyboard, Carousel Short Names & Settings Cleanup
+- [x] Atari 2600 paddle full-range fix — `Paddles.cpp` digital increment changed `<` to `<=` TRIGMAX with else snap
+- [x] Paddle ADC calibration — GPIO 52 measured range 0–3332, clamps set to 5–3340 (was 100–4000)
+- [x] Paddle responsiveness — EMA alpha 0.6 (was 0.2), dead zone 50 (was 200)
+- [x] NES-style interactive volume overlay for Stella — bordered box, colored bar with segments, L/R adjust, Y cycle, A/B dismiss, auto-timeout
+- [x] Launcher favorite star icons — yellow 16×16 bitmap scaled 2× at right edge of browser rows, `fav_cache[]` (max 200) loaded from `favorites.txt`, refreshed on add/remove
+- [x] Launcher touch search keyboard — full QWERTY overlay (bottom half of screen), GT911 capacitive touch input, incremental case-insensitive prefix search on sorted ROM list, DEL/SPACE/CLOSE touch keys, B/A physical buttons to cancel/confirm
+- [x] Touch-to-button conflict fix — added `odroid_input_touch_buttons_disable` flag in `odroid_input.c` to suppress GT911 touch-zone → virtual MENU/VOLUME button mapping while keyboard is active; clears sticky `s_touch_menu`/`s_touch_volume` state
+- [x] Keyboard overlay preservation — browser list no longer redraws over keyboard; only search bar updates while typing; full browser redraws on keyboard exit at matched position
+- [x] Carousel short names — added `SHORT_NAMES[]` array (`NES`, `GB`, `GBC`, `SMS`, `GG`, `COL`, `A78`, `ZX`, `A26`, `LYNX`, `PCE`, `A800`, `SNES`, `GEN`, `PAPP`); shown under icons at 1× font scale as `NES (43)`, and in header bar as `NES (43 files)` in yellow; displayed in all carousel views: initial boot, artwork transition, non-artwork transition, and browser header
+- [x] Settings page simplified — removed Themes, Colored Icons, Cover Art options; kept Clear Recents (top), Volume, Brightness; SETTING indices renumbered 0/1/2; volume/brightness bar Y positions and highlight color indices updated to match new layout
+- [x] Settings navigation fix — LEFT/RIGHT on Clear Recents (SETTING 0) navigates carousel away from settings; themes sub-mode (`SETTINGS` bool) removed from UP/DOWN and B button handlers
+
 ---
 
 ## 11. Bugs Fixed This Session
@@ -1842,3 +1855,123 @@ The script was broken in PowerShell 5.1 due to two issues:
 | `generate_merged_bin.ps1` | Full rewrite: hashtable → parallel arrays, `+=` → `ArrayList.Add()`, em-dash → ASCII, `$idfPython` → `python` |
 
 **Result:** `generate_merged_bin.ps1` runs correctly in PowerShell 5.1, generates `RetroESP32_P4_v1.bin` (10.87 MB) with all 15 binaries.
+
+### Phase 35: Stella Paddle Fixes, Launcher Favorites, Touch Search Keyboard, Carousel Short Names & Settings Cleanup
+
+**Goal:** Fix Atari 2600 paddle control, improve Stella volume overlay, add favorite indicators and touch-based ROM search to the launcher.
+
+**Atari 2600 Paddle Fixes (Stella):**
+
+1. **Full-range digital fix** — `Paddles.cpp` used `< TRIGMAX` for increment, preventing charge from ever reaching maximum. Changed to `<= TRIGMAX` with `else` clause snapping directly to TRIGMAX for both P0 and P1 axes.
+2. **ADC calibration** — Paddle potentiometer on GPIO 52 (ADC2_CH3) measured 0–3332 via debug prints. Clamps updated from 100/4000 to 5/3340.
+3. **Responsiveness** — EMA filter alpha increased from 0.2 to 0.6, dead zone reduced from 200 to 50 for snappier paddle response.
+
+**Stella NES-Style Volume Overlay:**
+
+Replaced crude green bar with full interactive overlay: bordered box, "VOLUME: XX%" title in yellow, colored bar (green→cyan→yellow) with 10 segments, L/R to adjust, Y to cycle audio mode, A/B to dismiss, auto-timeout after 3 seconds of inactivity.
+
+**Launcher Favorite Star Icons:**
+
+Added yellow star indicators for favorited ROMs in the browser:
+- `fav_cache[]` array (max 200 entries) loaded from `favorites.txt` on browser entry
+- `check_favorite_cached()` for O(n) lookup per row
+- `draw_star()` renders 16×16 star bitmap scaled 2× at position (752, y+6)
+- Cache refreshed on favorite add/remove
+
+**Launcher Touch Search Keyboard:**
+
+Full QWERTY touch keyboard overlay for ROM search:
+- Keyboard occupies bottom half of screen (y=290+), 4 rows: QWERTYUIOP / ASDFGHJKL / ZXCVBNM / SPACE DEL CLOSE
+- GT911 capacitive touch input with portrait→landscape coordinate mapping (`ui_x = touch_y`, `ui_y = 479 - touch_x`)
+- Incremental case-insensitive prefix search on `SORTED_FILES[]`
+- Search bar shows current query with cursor; browser scrolls to match internally
+- Browser list does NOT redraw while keyboard is open (prevents visual overlay destruction)
+- Exit via physical B (cancel), A (confirm), or touch CLOSE button
+- On exit, browser redraws at matched position
+
+**Touch-to-Button Conflict Resolution:**
+
+The gamepad driver (`odroid_input.c`) maps GT911 touch zones to virtual MENU/VOLUME buttons (touch y < 170 → MENU, y > 630 → VOLUME). This caused keyboard touches near the left screen edge to falsely trigger MENU, immediately exiting the keyboard.
+
+**Fix:** Added `odroid_input_touch_buttons_disable` flag:
+- Set `true` on keyboard entry, `false` on exit
+- When active, skips touch-zone sampling and clears sticky `s_touch_menu`/`s_touch_volume` state
+- Physical gamepad buttons unaffected
+
+**Files changed:**
+
+| File | Change |
+|------|--------|
+| `components/stella/emucore/Paddles.cpp` | `< TRIGMAX` → `<= TRIGMAX` + else snap for both axes |
+| `components/stella/stella_run.cpp` | ADC clamps 5/3340, EMA 0.6, dead zone 50, NES-style volume overlay |
+| `components/odroid/odroid_input.c` | Added `odroid_input_touch_buttons_disable` flag + guard on touch sampling |
+| `components/odroid/include/odroid_input.h` | Declared `odroid_input_touch_buttons_disable` extern |
+| `launcher/main/main.c` | Favorite star cache + draw, touch search keyboard, GT911 init, X button wiring |
+| `launcher/main/includes/declarations.h` | Added `load_favorites_cache`, `check_favorite_cached`, `draw_star`, `show_search_keyboard` |
+| `launcher/main/includes/core.h` | Added `#include "gt911_touch.h"` |
+
+**Result:** Paddle goes full range with snappy response. Volume overlay matches NES quality. Favorited ROMs show yellow star in browser. Touch keyboard enables fast ROM search by name — type letters, search refines incrementally, browser jumps to match on exit. Carousel shows short emulator name + file count in all views. Settings page streamlined to 3 essential options.
+
+**Carousel Short Names:**
+
+Added `SHORT_NAMES[]` array with concise labels: `NES`, `GB`, `GBC`, `SMS`, `GG`, `COL`, `A78`, `ZX`, `A26`, `LYNX`, `PCE`, `A800`, `SNES`, `GEN`, `PAPP`.
+- Under each icon in the carousel ribbon: rendered at 1× font scale (8px wide) as `NES (43)`, centered under the 64px icon
+- In header bar: `NES (43 files)` in yellow, placed after the full system name
+- Displayed in all carousel views: initial boot (`restore_layout`), artwork wipe transition, non-artwork sliding transition, and browser header
+
+**Settings Page Simplification:**
+
+Removed Themes, Colored Icons, and Cover Art options. Settings now has 3 items:
+- **SETTING 0 — Clear Recents** (top): A button clears; LEFT/RIGHT navigates carousel away from settings
+- **SETTING 1 — Volume**: LEFT/RIGHT adjusts level
+- **SETTING 2 — Brightness**: LEFT/RIGHT adjusts level
+
+Volume and brightness bar Y positions updated to align inline with their text rows. Bar highlight color indices updated from old SETTING 2/3 to new 1/2. Themes sub-mode (`SETTINGS` bool) removed from UP/DOWN and B button handlers.
+
+**Additional files changed:**
+
+| File | Change |
+|------|--------|
+| `launcher/main/main.c` | Added `SHORT_NAMES[]` array, 1× scale count rendering under icons, short name + count in header bar (3 locations), settings reduced to 3 items, bar positions/highlights fixed |
+
+### Phase 36: PAPP Template Project & Launcher PAPP Preview
+
+**Goal:** Create a reusable PAPP template project for third-party developers and add PNG preview images to the PAPP browser in the launcher. Version bumped to v3.1.
+
+**PAPP Template Project (`ESP32_P4_PAPP_Template/`):**
+
+Complete template for building PAPP applications:
+- `main.c` — Ball demo app: 400×240 RGB565 framebuffer, light blue background with yellow ball (8px radius), D-pad movement, MENU button exits to launcher
+- Display pipeline: `display_write_frame_custom(fb, 400, 240, 2.0f, false)` — PPA rotates 270° CCW (240×400) then scales 2× (480×800), filling the LCD with zero borders
+- `CONTEXT.md` — Full API reference covering all `app_services_t` services (display, audio, input, file I/O, memory, system, settings, tasks), hardware specs, build instructions, PAPP rules
+- `build_template.ps1` — Self-contained build+upload script using splatted argument arrays (works around `build_psram_app.ps1` parameter binding issue in PowerShell 5.1); handles compile → link → objcopy → BSS extraction via `nm` → pack → upload
+
+**Build result:** 476-byte `.papp` (442 bytes code + 32-byte header, 192KB BSS for framebuffer allocated at runtime)
+
+**Launcher PAPP Preview:**
+
+When browsing the PAPP folder, the launcher now displays a PNG preview image for the highlighted file:
+- Looks for `<basename>.png` alongside each `.papp` file (e.g., `doom.png` for `doom.papp`)
+- Scales to fit 300×300 maintaining aspect ratio via nearest-neighbor sampling
+- Byte-swap + R↔B channel swap for MIPI DSI panel compatibility
+- Displayed right-aligned (16px margin) and vertically centered in the browser area
+- Preview buffer cached in PSRAM — only reloads when highlighted file changes
+- Preview zone cleared with `draw_mask()` before each new image to prevent residue
+- In PAPP mode, `browser_partial_update()` does full `draw_browser_list()` redraw instead of 2-row partial update, preventing filename/preview overlap artifacts
+- Cache freed on browser exit (`leave_browser`)
+
+**Launcher Version:** Bumped from v3.0 to v3.1
+
+**Files created:**
+
+| File | Purpose |
+|------|---------|
+| `ESP32_P4_PAPP_Template/main.c` | Ball demo PAPP app — 400×240 FB, gamepad input, PPA rotate+scale |
+| `ESP32_P4_PAPP_Template/CONTEXT.md` | Full PAPP development context and API reference |
+| `ESP32_P4_PAPP_Template/build_template.ps1` | Build + upload script |
+
+**Files changed:**
+
+| File | Change |
+|------|--------|
+| `launcher/main/main.c` | Added `papp_preview_buf/w/h/name` cache globals, `papp_preview_free()`, `draw_papp_preview()` (PNG load + scale + blit with zone clearing), called from `draw_browser_list()` and `browser_partial_update()`; PAPP mode uses full list redraw; cache freed in `leave_browser()`; version string `v3.0` → `v3.1` |

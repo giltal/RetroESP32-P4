@@ -354,8 +354,10 @@ void Paddles::update()
   if(myEvent.get(myP0IncEvent1) || myEvent.get(myP0IncEvent2))
   {
     myKeyRepeat0 = true;
-    if((myCharge[myAxisDigitalZero] + myPaddleRepeat0) < TRIGMAX)
+    if((myCharge[myAxisDigitalZero] + myPaddleRepeat0) <= TRIGMAX)
       myCharge[myAxisDigitalZero] += myPaddleRepeat0;
+    else
+      myCharge[myAxisDigitalZero] = TRIGMAX;
   }
   if(myEvent.get(myP1DecEvent1) || myEvent.get(myP1DecEvent2))
   {
@@ -366,8 +368,10 @@ void Paddles::update()
   if(myEvent.get(myP1IncEvent1) || myEvent.get(myP1IncEvent2))
   {
     myKeyRepeat1 = true;
-    if((myCharge[myAxisDigitalOne] + myPaddleRepeat1) < TRIGMAX)
+    if((myCharge[myAxisDigitalOne] + myPaddleRepeat1) <= TRIGMAX)
       myCharge[myAxisDigitalOne] += myPaddleRepeat1;
+    else
+      myCharge[myAxisDigitalOne] = TRIGMAX;
   }
 
   // Only change state if the charge has actually changed

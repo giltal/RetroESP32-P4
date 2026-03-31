@@ -43,6 +43,11 @@
   char** FAVORITES;
   char FAVORITE[256] = "";
 
+  /* Favorites cache for star icons in browser */
+  #define FAV_CACHE_MAX 200
+  static char *fav_cache[FAV_CACHE_MAX];
+  static int   fav_cache_count = 0;
+
   char** RECENTS;
   char RECENT[256] = "";
 
@@ -56,7 +61,7 @@
 
 //{#pragma region Emulator and Directories
   char EMULATORS[COUNT][30] = {
-    "SETTINGS (v3.0)",
+    "SETTINGS (v3.1)",
     "FAVORITES",
     "RECENTLY PLAYED",
     "NINTENDO ENTERTAINMENT SYSTEM",
@@ -97,6 +102,13 @@
     "papp"      // psram apps
   };
 
+  const char *SHORT_NAMES[COUNT] = {
+    "", "", "",
+    "NES", "GB", "GBC", "SMS", "GG", "COL",
+    "A78", "ZX", "A26", "LYNX", "PCE",
+    "A800", "SNES", "GEN", "PAPP"
+  };
+
   char EXTENSIONS[COUNT][10] = {
     "",
     "",
@@ -124,6 +136,13 @@
 //{#pragma region Buffer
   unsigned short buffer[64000];
 //}#pragma endregion Buffer
+
+//{#pragma region PAPP Preview
+  static uint16_t *papp_preview_buf = NULL;  /* scaled RGB565, PSRAM-allocated */
+  static int papp_preview_w = 0;
+  static int papp_preview_h = 0;
+  static char papp_preview_name[256] = ""; /* cached filename to avoid reload */
+//}#pragma endregion PAPP Preview
 
 /*
   APPLICATION
@@ -153,6 +172,9 @@
     // Joystick
     odroid_input_gamepad_init();
 
+    // Touch panel
+    gt911_touch_init(7, 8, -1, -1);
+
     // === SAFE MODE: Hold button A during boot ===
     // On ESP32-P4 there is no OTA partition table, so we just
     // reset the launcher state when A is held.
@@ -164,7 +186,7 @@
             STEP = 0;
             RESTART = false;
             SAFE_MODE = true;
-            printf("*** Safe mode active — state reset ***\n");
+            printf("*** Safe mode active â€” state reset ***\n");
         }
     }
 
@@ -243,6 +265,7 @@
         if (visible > BROWSER_LIMIT) visible = BROWSER_LIMIT;
         if (BROWSER_SEL >= visible) BROWSER_SEL = visible > 0 ? visible - 1 : 0;
       } else if (STEP >= 3) {
+        load_favorites_cache();
         count_files();
         if (ROMS.total > 0) {
           /* Clamp restored offset and BROWSER_SEL to valid range */
@@ -264,7 +287,7 @@
           display_flush();
         }
       } else {
-        /* STEP == 0 (settings) — shouldn't happen, but fall back to carousel */
+        /* STEP == 0 (settings) â€” shouldn't happen, but fall back to carousel */
         BROWSER = false;
         draw_background();
         restore_layout();
@@ -368,7 +391,7 @@
   }
 
   /*
-   * get_ota_slot() — Map file extension to OTA partition slot number.
+   * get_ota_slot() â€” Map file extension to OTA partition slot number.
    * Returns -1 for unsupported types.
    *
    * Slot  Partition  Emulator        Extensions
@@ -659,7 +682,7 @@
     for (int e = 0; e < COUNT; e++) {
       ROM_COUNTS[e] = 0;
 
-      if (e == 0) continue; /* settings – no count */
+      if (e == 0) continue; /* settings â€“ no count */
 
       if (e == 1) {
         /* Favorites: count lines in favorites.txt */
@@ -746,36 +769,19 @@
     int y = POS.y + 92;
 
     draw_mask(x,y-1,400,38);
-    draw_text(x,y,(char *)"THEMES",false, SETTING == 0 ? true : false, false);
+    draw_text(x,y,(char *)"CLEAR RECENTS",false, SETTING == 0 ? true : false, false);
 
     y+=42;
     draw_mask(x,y-1,400,38);
-    draw_text(x,y,(char *)"COLORED ICONS",false, SETTING == 1 ? true : false, false);
-    draw_toggle();
-
-    y+=42;
-    draw_mask(x,y-1,400,38);
-    draw_text(x,y,(char *)"VOLUME",false, SETTING == 2 ? true : false, false);
+    draw_text(x,y,(char *)"VOLUME",false, SETTING == 1 ? true : false, false);
 
     draw_volume();
 
     y+=42;
     draw_mask(x,y-1,400,38);
-    draw_text(x,y,(char *)"BRIGHTNESS",false, SETTING == 3 ? true : false, false);
+    draw_text(x,y,(char *)"BRIGHTNESS",false, SETTING == 2 ? true : false, false);
 
     draw_brightness();
-
-    y+=42;
-    draw_mask(x,y-1,400,38);
-    draw_text(x,y,(char *)"COVER ART",false, SETTING == 4 ? true : false, false);
-
-    draw_cover_toggle();
-
-    y+=42;
-    draw_mask(x,y-1,400,38);
-    draw_text(x,y,(char *)"CLEAR RECENTS",false, SETTING == 5 ? true : false, false);
-
-    draw_cover_toggle();    
 
     display_flush();
   }
@@ -895,7 +901,7 @@
   void draw_volume() {
     int32_t volume = get_volume();
     int x = SCREEN.w - 240;
-    int y = POS.y + 184;
+    int y = POS.y + 134 + 9;
     int w, h;
 
     int i = 0;
@@ -911,7 +917,7 @@
       i = 0;
       for(h = 0; h < 14; h++) {
         for(w = 0; w < (25 * volume); w++) {
-          if(SETTING == 2) {
+          if(SETTING == 1) {
             buffer[i] = GUI.hl;
           } else {
             buffer[i] = GUI.fg;
@@ -937,7 +943,7 @@
 //{#pragma region Brightness
   void draw_brightness() {
     int x = SCREEN.w - 240;
-    int y = POS.y + 226;
+    int y = POS.y + 176 + 9;
     int w, h;
 
     int i = 0;
@@ -954,7 +960,7 @@
       int bw = (BRIGHTNESS_COUNT * BRIGHTNESS * 2)+BRIGHTNESS*2+2;
       for(h = 0; h < 14; h++) {
         for(w = 0; w < bw; w++) {
-          if(SETTING == 3) {
+          if(SETTING == 2) {
             buffer[i] = GUI.hl;
           } else {
             buffer[i] = GUI.fg;
@@ -1100,15 +1106,34 @@
         }
         ili9341_write_frame_rectangleLE(x, y, w, h, buffer);
 
-        /* Draw ROM count below the icon (skip settings at index 0) */
+        /* Draw short name + ROM count below the icon at 1x scale (skip settings at index 0) */
         if (e > 0 && ROM_COUNTS[e] >= 0) {
-          char cnt[12];
-          sprintf(cnt, "(%d)", ROM_COUNTS[e]);
+          char cnt[24];
+          if (SHORT_NAMES[e][0])
+            sprintf(cnt, "%s (%d)", SHORT_NAMES[e], ROM_COUNTS[e]);
+          else
+            sprintf(cnt, "(%d)", ROM_COUNTS[e]);
           int len = strlen(cnt);
-          /* Center the count text under the 64px icon */
-          int tx = x + (64 - len * 20) / 2;
+          int char_w = 9;  /* 8px glyph + 1px gap at 1x scale */
+          int tx = x + (64 - len * char_w) / 2;
           if (tx < 0) tx = 0;
-          draw_text(tx, y + 70, cnt, false, false, false);
+          /* Draw each char at 1x scale (8x16 pixels) */
+          int cx = tx;
+          for (int ci = 0; ci < len; ci++) {
+            char ch = cnt[ci];
+            if (ch != ' ') {
+              int glyph = (ch >= 32 && ch <= 126) ? ch - 32 : '?' - 32;
+              int bi = 0;
+              for (int row = 0; row < 16; row++) {
+                uint8_t bits = FONT_8x16[glyph][row];
+                for (int col = 7; col >= 0; col--) {
+                  buffer[bi++] = (bits & (1 << col)) ? GUI.fg : GUI.bg;
+                }
+              }
+              ili9341_write_frame_rectangleLE(cx, y + 70, 8, 16, buffer);
+            }
+            cx += char_w;
+          }
         }
       }
     }
@@ -1179,7 +1204,7 @@
     uint16_t *art = (uint16_t *)heap_caps_malloc(dst_w * dst_h * 2, MALLOC_CAP_SPIRAM);
     if (!art) { free(src); return NULL; }
 
-    /* 2x upscale with byte-swap + R↔B swap */
+    /* 2x upscale with byte-swap + Râ†”B swap */
     for (int r = 0; r < ph && r * 2 < dst_h; r++) {
       uint16_t *srow = &src[r * pw];
       uint16_t *d0 = &art[(r * 2) * dst_w];
@@ -1231,7 +1256,7 @@
     int blit_y = 30;
 
     /* 2x software upscale in strips that fit buffer[64000]
-       Byte-swap + R↔B swap: PNGdec outputs big-endian RGB565 on RISC-V,
+       Byte-swap + Râ†”B swap: PNGdec outputs big-endian RGB565 on RISC-V,
        and the MIPI DSI panel expects BGR channel order. */
     int max_src_rows = 64000 / dst_w / 2;
     if (max_src_rows < 1) max_src_rows = 1;
@@ -1263,8 +1288,11 @@
       uint16_t saved_bg = GUI.bg, saved_fg = GUI.fg;
       GUI.bg = 0x0000;
       GUI.fg = 0xFFE0; /* yellow */
-      char cnt[24];
-      sprintf(cnt, "%d files", ROM_COUNTS[STEP]);
+      char cnt[32];
+      if (SHORT_NAMES[STEP][0])
+        sprintf(cnt, "%s (%d files)", SHORT_NAMES[STEP], ROM_COUNTS[STEP]);
+      else
+        sprintf(cnt, "%d files", ROM_COUNTS[STEP]);
       draw_text(8, 0, cnt, false, false, false);
       GUI.bg = saved_bg;
       GUI.fg = saved_fg;
@@ -2323,7 +2351,341 @@
     fclose(f);
     //  printf("\n----- %s END -----\n", __func__);
   }
+
+  /* Load all favorites into fav_cache[] for fast lookup by the browser */
+  void load_favorites_cache(void) {
+    /* Free old cache */
+    for (int i = 0; i < fav_cache_count; i++) {
+      free(fav_cache[i]);
+      fav_cache[i] = NULL;
+    }
+    fav_cache_count = 0;
+
+    char file[256];
+    sprintf(file, "/sd/odroid/data/%s/%s", RETROESP_FOLDER, FAVORITE_FILE);
+    FILE *f = fopen(file, "rb");
+    if (!f) return;
+
+    char line[256];
+    while (fgets(line, sizeof(line), f) && fav_cache_count < FAV_CACHE_MAX) {
+      /* Trim trailing newline/carriage return */
+      char *ep = &line[strlen(line) - 1];
+      while (ep >= line && (*ep == '\n' || *ep == '\r')) { *ep-- = '\0'; }
+      if (line[0] == '\0') continue;
+      fav_cache[fav_cache_count] = strdup(line);
+      fav_cache_count++;
+    }
+    fclose(f);
+  }
+
+  /* Check if a full path (e.g. "/sd/roms/nes/mario.nes") is in the cache */
+  bool check_favorite_cached(const char *full_path) {
+    for (int i = 0; i < fav_cache_count; i++) {
+      if (strcmp(fav_cache[i], full_path) == 0) return true;
+    }
+    return false;
+  }
+
+  /* Draw a yellow star icon at (x, y), size 16x16 scaled 2x to 32x32 */
+  static const uint8_t star_16x16[16][16] = {
+    {0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0},
+    {0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0},
+    {0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0},
+    {0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0},
+    {0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0},
+    {0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0},
+    {0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0},
+    {0,0,1,1,1,0,0,0,0,0,0,1,1,1,0,0},
+    {0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0},
+    {0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0},
+    {1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1},
+    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  };
+
+  void draw_star(int x, int y) {
+    uint16_t yellow = 0xFFE0;  /* RGB565 yellow */
+    int i = 0;
+    for (int h = 0; h < 16; h++) {
+      for (int sh = 0; sh < 2; sh++) {
+        for (int w = 0; w < 16; w++) {
+          uint16_t pixel = star_16x16[h][w] ? yellow : GUI.bg;
+          buffer[i++] = pixel;
+          buffer[i++] = pixel;
+        }
+      }
+    }
+    ili9341_write_frame_rectangleLE(x, y, 32, 32, buffer);
+  }
+
 //}#pragma endregion Favorites
+
+//{#pragma region Search
+  /*
+   * Touch-based visual keyboard search for the ROM browser.
+   * X button toggles open/closed. Touch keys to type.
+   * The file list scrolls to the first match as you type.
+   * A confirms (jumps to match and closes). B/X close.
+   *
+   * Keyboard layout (4 rows, bottom of screen):
+   *   Row 0: Q W E R T Y U I O P
+   *   Row 1: A S D F G H J K L
+   *   Row 2: Z X C V B N M
+   *   Row 3: [SPACE] [DEL] [CLOSE]
+   *
+   * Touch coordinates from GT911 are portrait 480x800.
+   * UI is 800x480 (270 deg CCW rotation).
+   * Mapping: ui_x = touch_y,  ui_y = 479 - touch_x
+   */
+
+  #define KB_ROWS      4
+  #define KB_KEY_W     68   /* key width in UI pixels  */
+  #define KB_KEY_H     42   /* key height in UI pixels */
+  #define KB_GAP       4    /* gap between keys        */
+  #define KB_Y_START   290  /* Y offset for top of keyboard area */
+  #define KB_X_PAD     16   /* left padding */
+  #define SEARCH_MAX   20   /* max search string length */
+
+  static const char *kb_rows[KB_ROWS] = {
+    "QWERTYUIOP",
+    "ASDFGHJKL",
+    "ZXCVBNM",
+    NULL  /* special row: SPACE, DEL, CLOSE */
+  };
+  static const int kb_row_len[KB_ROWS] = { 10, 9, 7, 3 };
+
+  /* Draw a single key */
+  static void kb_draw_key(int kx, int ky, int kw, int kh,
+                           const char *label, bool highlight) {
+    uint16_t bg = highlight ? 0x4208 : 0x2104;  /* lighter/darker gray */
+    uint16_t fg = 0xFFFF;  /* white text */
+    uint16_t border = 0x6B4D;  /* light gray border */
+
+    /* Fill background strip by strip (buffer is 64000 shorts max) */
+    int total = kw * kh;
+    if (total > 64000) total = 64000;
+    for (int i = 0; i < total; i++) buffer[i] = bg;
+    /* Top border */
+    for (int i = 0; i < kw; i++) buffer[i] = border;
+    /* Bottom border */
+    for (int i = (kh - 1) * kw; i < kh * kw; i++) buffer[i] = border;
+    /* Left/right border */
+    for (int r = 0; r < kh; r++) {
+      buffer[r * kw] = border;
+      buffer[r * kw + kw - 1] = border;
+    }
+    ili9341_write_frame_rectangleLE(kx, ky, kw, kh, buffer);
+
+    /* Draw label centered in key */
+    int len = strlen(label);
+    int tx = kx + (kw - len * 16) / 2;  /* 16px per char at 2x */
+    int ty = ky + (kh - 32) / 2;
+    /* Use normal (non-ext) draw: one char at a time */
+    for (int c = 0; c < len; c++) {
+      char ch = label[c];
+      if (ch == ' ') { tx += 16; continue; }
+      int glyph = (ch >= 32 && ch <= 126) ? ch - 32 : '?' - 32;
+      int idx = 0;
+      for (int row = 0; row < 16; row++) {
+        uint8_t bits = FONT_8x16[glyph][row];
+        for (int sr = 0; sr < 2; sr++) {
+          for (int col = 7; col >= 0; col--) {
+            buffer[idx++] = (bits & (1 << col)) ? fg : bg;
+            buffer[idx++] = (bits & (1 << col)) ? fg : bg;
+          }
+        }
+      }
+      ili9341_write_frame_rectangleLE(tx, ty, 16, 32, buffer);
+      tx += 16;
+    }
+  }
+
+  /* Draw the full keyboard overlay */
+  static void kb_draw(const char *search_str) {
+    /* Search bar at top of keyboard area */
+    int bar_y = KB_Y_START - 44;
+    draw_mask(0, bar_y, 800, 44);
+
+    /* Draw "SEARCH:" label + current text */
+    char display_str[SEARCH_MAX + 12];
+    snprintf(display_str, sizeof(display_str), "SEARCH: %s_", search_str);
+    draw_text(KB_X_PAD, bar_y + 6, display_str, false, true, false);
+
+    /* Clear keyboard area */
+    draw_mask(0, KB_Y_START, 800, KB_ROWS * (KB_KEY_H + KB_GAP) + KB_GAP);
+
+    /* Draw letter rows */
+    for (int r = 0; r < 3; r++) {
+      const char *row = kb_rows[r];
+      int row_len = kb_row_len[r];
+      int row_width = row_len * (KB_KEY_W + KB_GAP) - KB_GAP;
+      int x_start = (800 - row_width) / 2;
+      int ky = KB_Y_START + r * (KB_KEY_H + KB_GAP);
+
+      for (int k = 0; k < row_len; k++) {
+        int kx = x_start + k * (KB_KEY_W + KB_GAP);
+        char label[2] = { row[k], '\0' };
+        kb_draw_key(kx, ky, KB_KEY_W, KB_KEY_H, label, false);
+      }
+    }
+
+    /* Special row 3: SPACE, DEL, CLOSE */
+    int r3_y = KB_Y_START + 3 * (KB_KEY_H + KB_GAP);
+    int space_w = 200, del_w = 120, close_w = 120;
+    int total_w = space_w + KB_GAP + del_w + KB_GAP + close_w;
+    int r3_x = (800 - total_w) / 2;
+    kb_draw_key(r3_x, r3_y, space_w, KB_KEY_H, "SPACE", false);
+    kb_draw_key(r3_x + space_w + KB_GAP, r3_y, del_w, KB_KEY_H, "DEL", false);
+    kb_draw_key(r3_x + space_w + KB_GAP + del_w + KB_GAP, r3_y, close_w, KB_KEY_H, "SEARCH", false);
+  }
+
+  /* Given a touch point in UI coordinates, return the pressed key char.
+   * Returns '\b' for DEL, ' ' for SPACE, '\x1b' for CLOSE, '\0' for no hit. */
+  static char kb_hit_test(int ui_x, int ui_y) {
+    /* Letter rows */
+    for (int r = 0; r < 3; r++) {
+      int row_len = kb_row_len[r];
+      int row_width = row_len * (KB_KEY_W + KB_GAP) - KB_GAP;
+      int x_start = (800 - row_width) / 2;
+      int ky = KB_Y_START + r * (KB_KEY_H + KB_GAP);
+
+      if (ui_y >= ky && ui_y < ky + KB_KEY_H) {
+        for (int k = 0; k < row_len; k++) {
+          int kx = x_start + k * (KB_KEY_W + KB_GAP);
+          if (ui_x >= kx && ui_x < kx + KB_KEY_W) {
+            return kb_rows[r][k];
+          }
+        }
+      }
+    }
+
+    /* Special row */
+    int r3_y = KB_Y_START + 3 * (KB_KEY_H + KB_GAP);
+    if (ui_y >= r3_y && ui_y < r3_y + KB_KEY_H) {
+      int space_w = 200, del_w = 120, close_w = 120;
+      int total_w = space_w + KB_GAP + del_w + KB_GAP + close_w;
+      int r3_x = (800 - total_w) / 2;
+      if (ui_x >= r3_x && ui_x < r3_x + space_w) return ' ';
+      if (ui_x >= r3_x + space_w + KB_GAP && ui_x < r3_x + space_w + KB_GAP + del_w) return '\b';
+      if (ui_x >= r3_x + space_w + KB_GAP + del_w + KB_GAP &&
+          ui_x < r3_x + space_w + KB_GAP + del_w + KB_GAP + close_w) return '\x1b';
+    }
+
+    return '\0';
+  }
+
+  /* Search: find the first SORTED_FILES entry matching prefix (case-insensitive).
+   * First tries prefix match, then falls back to substring (contains) match.
+   * Returns the index in SORTED_FILES or -1.  */
+  static int search_find_match(const char *prefix) {
+    if (!SORTED_FILES || SORTED_COUNT == 0 || prefix[0] == '\0') return -1;
+    int plen = strlen(prefix);
+    /* Pass 1: prefix match */
+    for (int i = 0; i < SORTED_COUNT; i++) {
+      if (strncasecmp(SORTED_FILES[i], prefix, plen) == 0) return i;
+    }
+    /* Pass 2: substring match */
+    for (int i = 0; i < SORTED_COUNT; i++) {
+      const char *name = SORTED_FILES[i];
+      int nlen = strlen(name);
+      for (int j = 0; j <= nlen - plen; j++) {
+        if (strncasecmp(&name[j], prefix, plen) == 0) return i;
+      }
+    }
+    return -1;
+  }
+
+  /*
+   * show_search_keyboard - Main search entry point.
+   * Called when X is pressed in the browser (STEP >= 3).
+   * Draws keyboard, handles touch, updates search filter.
+   * On exit, ROMS.offset and BROWSER_SEL are set to the match position.
+   */
+  void show_search_keyboard(void) {
+    char search_str[SEARCH_MAX + 1] = "";
+    int search_len = 0;
+    bool was_touched = false;
+
+    /* Disable touch-to-button mapping so keyboard touches don't trigger MENU */
+    odroid_input_touch_buttons_disable = true;
+
+    /* Wait for all buttons release so we don't immediately exit */
+    do { vTaskDelay(pdMS_TO_TICKS(30)); odroid_input_gamepad_read(&gamepad); }
+    while (gamepad.values[ODROID_INPUT_MENU] || gamepad.values[ODROID_INPUT_A] ||
+           gamepad.values[ODROID_INPUT_B] || gamepad.values[ODROID_INPUT_X]);
+
+    /* Draw the keyboard */
+    kb_draw(search_str);
+    display_flush();
+
+    while (true) {
+      vTaskDelay(pdMS_TO_TICKS(30));
+
+      /* Check physical gamepad for exit (B closes, A confirms). */
+      odroid_input_gamepad_read(&gamepad);
+      if (gamepad.values[ODROID_INPUT_B]) {
+        debounce(ODROID_INPUT_B);
+        break;
+      }
+      if (gamepad.values[ODROID_INPUT_A]) {
+        debounce(ODROID_INPUT_A);
+        break;
+      }
+
+      /* Read touch */
+      uint16_t tx = 0, ty = 0;
+      bool touched = gt911_touch_get_xy(&tx, &ty);
+
+      /* Map portrait touch to landscape UI */
+      int ui_x = (int)ty;
+      int ui_y = 479 - (int)tx;
+
+      if (touched && !was_touched) {
+        /* New touch â€” check keyboard hit */
+        char key = kb_hit_test(ui_x, ui_y);
+
+        if (key == '\x1b') {
+          break;
+        } else if (key == '\b') {
+          if (search_len > 0) {
+            search_str[--search_len] = '\0';
+          }
+        } else if (key != '\0' && search_len < SEARCH_MAX) {
+          search_str[search_len++] = key;
+          search_str[search_len] = '\0';
+        }
+
+        if (key != '\0') {
+          int match = search_find_match(search_str);
+          if (match >= 0) {
+            ROMS.offset = match;
+            if (ROMS.offset + BROWSER_LIMIT > ROMS.total)
+              ROMS.offset = ROMS.total > BROWSER_LIMIT ? ROMS.total - BROWSER_LIMIT : 0;
+            BROWSER_SEL = match - ROMS.offset;
+          }
+          /* Redraw keyboard + search bar only (browser redraws on exit) */
+          kb_draw(search_str);
+          display_flush();
+        }
+      }
+
+      was_touched = touched;
+    }
+
+    /* Re-enable touch-to-button mapping */
+    odroid_input_touch_buttons_disable = false;
+
+    /* Redraw browser (clear keyboard overlay) */
+    if (ROMS.total > 0) {
+      seek_files();
+      draw_browser_screen();
+    }
+  }
+
+//}#pragma endregion Search
 
 //{#pragma region Recents
   void create_recents() {
@@ -2759,7 +3121,7 @@
        * ARTWORK WIPE TRANSITION
        * Draw the final black header + icons first, then wipe artwork
        * strips over the old content.  Nothing is drawn underneath the
-       * artwork — every pixel is written exactly once.
+       * artwork â€” every pixel is written exactly once.
        */
       int art_w = 800, art_h = 450, art_y = 30;
       int steps = 10;
@@ -2774,8 +3136,11 @@
         uint16_t saved_bg = GUI.bg, saved_fg = GUI.fg;
         GUI.bg = 0x0000;
         GUI.fg = 0xFFE0;
-        char cnt[24];
-        sprintf(cnt, "%d files", ROM_COUNTS[STEP]);
+        char cnt[32];
+        if (SHORT_NAMES[STEP][0])
+          sprintf(cnt, "%s (%d files)", SHORT_NAMES[STEP], ROM_COUNTS[STEP]);
+        else
+          sprintf(cnt, "%d files", ROM_COUNTS[STEP]);
         draw_text(8, 0, cnt, false, false, false);
         GUI.bg = saved_bg;
         GUI.fg = saved_fg;
@@ -2915,6 +3280,20 @@
       delete_numbers();
       draw_mask(0, 0, SCREEN.w - 112, 40);
       draw_text(16, 4, EMULATORS[STEP], false, true, false);
+      /* Show file count with short name after system name */
+      if (STEP >= 1 && ROM_COUNTS[STEP] >= 0) {
+        uint16_t saved_fg = GUI.fg;
+        GUI.fg = 0xFFE0;
+        char cnt[32];
+        if (SHORT_NAMES[STEP][0])
+          sprintf(cnt, "%s (%d files)", SHORT_NAMES[STEP], ROM_COUNTS[STEP]);
+        else
+          sprintf(cnt, "%d files", ROM_COUNTS[STEP]);
+        int name_len = strlen(EMULATORS[STEP]);
+        int cx = 16 + (name_len + 1) * 20;
+        draw_text(cx, 4, cnt, false, false, false);
+        GUI.fg = saved_fg;
+      }
       draw_contrast();
 
       int y = POS.y + 92;
@@ -2995,6 +3374,24 @@
     draw_systems();
     draw_text(16,4,EMULATORS[STEP],false,true, false);
 
+    /* Show file count with short name in header for emulator systems */
+    if (STEP >= 1 && ROM_COUNTS[STEP] >= 0) {
+      uint16_t saved_bg = GUI.bg, saved_fg = GUI.fg;
+      GUI.bg = GUI.bg;
+      GUI.fg = 0xFFE0; /* yellow */
+      char cnt[32];
+      if (SHORT_NAMES[STEP][0])
+        sprintf(cnt, "%s (%d files)", SHORT_NAMES[STEP], ROM_COUNTS[STEP]);
+      else
+        sprintf(cnt, "%d files", ROM_COUNTS[STEP]);
+      /* Right-align or place after system name */
+      int name_len = strlen(EMULATORS[STEP]);
+      int cx = 16 + (name_len + 1) * 20;
+      draw_text(cx, 4, cnt, false, false, false);
+      GUI.bg = saved_bg;
+      GUI.fg = saved_fg;
+    }
+
     /* In carousel mode, show a hint instead of auto-loading ROM list */
     if (!BROWSER) {
       if (STEP == 0) {
@@ -3028,12 +3425,12 @@
 //}#pragma endregion Animations
 
 //{#pragma region Boot Screens
-  /*───────────────────────────────────────────────────────────────
-    show_png_logo_native() — Load /sd/boot_logo.png and display it
-    scaled 2× to fill the full 480×800 LCD panel.  Uses PPA to
-    rotate 270° + scale (matching panel orientation).
+  /*â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    show_png_logo_native() â€” Load /sd/boot_logo.png and display it
+    scaled 2Ã— to fill the full 480Ã—800 LCD panel.  Uses PPA to
+    rotate 270Â° + scale (matching panel orientation).
     Returns 1 on success (image is already on LCD), 0 on failure.
-  ───────────────────────────────────────────────────────────────*/
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€*/
   static int show_png_logo_native(void)
   {
     pngObject png = {0};
@@ -3052,14 +3449,14 @@
     memcpy(ppa_in, src, in_size);
     free(src);
 
-    /* After 270° rotation, dimensions swap: rotated_w = ph, rotated_h = pw.
-       Force 2× scale to fill 480×800 LCD from a 240×400 (or similar) logo. */
+    /* After 270Â° rotation, dimensions swap: rotated_w = ph, rotated_h = pw.
+       Force 2Ã— scale to fill 480Ã—800 LCD from a 240Ã—400 (or similar) logo. */
     uint16_t lcd_w = st7701_lcd_width();   /* 480 */
     uint16_t lcd_h = st7701_lcd_height();  /* 800 */
     float scale_x = (float)lcd_w / (float)ph;   /* fit rotated width  */
     float scale_y = (float)lcd_h / (float)pw;   /* fit rotated height */
 
-    /* PPA rotate 270° + scale → output fills LCD */
+    /* PPA rotate 270Â° + scale â†’ output fills LCD */
     uint32_t out_w = lcd_w;
     uint32_t out_h = lcd_h;
     size_t out_size = out_w * out_h * 2;
@@ -3100,12 +3497,12 @@
     return 1;
   }
 
-  /*───────────────────────────────────────────────────────────────
-    load_bmp_logo() — Try to load /sd/boot_logo.bmp into buffer[].
-    Supports 24-bit uncompressed BMP, max 800×480, w*h ≤ 64000.
+  /*â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    load_bmp_logo() â€” Try to load /sd/boot_logo.bmp into buffer[].
+    Supports 24-bit uncompressed BMP, max 800Ã—480, w*h â‰¤ 64000.
     Returns 1 on success (buffer filled with RGB565, w/h/x/y set).
     Returns 0 on failure (file missing, bad format, too large).
-  ───────────────────────────────────────────────────────────────*/
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€*/
   static int load_bmp_logo(int *out_w, int *out_h, int *out_x, int *out_y)
   {
     FILE *f = fopen("/sd/boot_logo.bmp", "rb");
@@ -3141,7 +3538,7 @@
     /* Seek to pixel data */
     fseek(f, data_offset, SEEK_SET);
 
-    /* Read row-by-row, converting BGR888 → RGB565 into buffer[] */
+    /* Read row-by-row, converting BGR888 â†’ RGB565 into buffer[] */
     uint8_t row_buf[2400 + 4];  /* max 800*3 = 2400 bytes per row */
     for (int r = 0; r < abs_h; r++) {
       int dest_row = flip ? (abs_h - 1 - r) : r;
@@ -3152,7 +3549,7 @@
         uint8_t b = row_buf[c * 3 + 0];
         uint8_t g = row_buf[c * 3 + 1];
         uint8_t rd = row_buf[c * 3 + 2];
-        /* RGB888 → RGB565 */
+        /* RGB888 â†’ RGB565 */
         buffer[dest_row * bmp_w + c] =
             ((rd >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
       }
@@ -3161,12 +3558,12 @@
 
     *out_w = bmp_w;
     *out_h = abs_h;
-    *out_x = (800 - bmp_w) / 2;   /* center on 800×480 screen */
+    *out_x = (800 - bmp_w) / 2;   /* center on 800Ã—480 screen */
     *out_y = (480 - abs_h) / 2;
     return 1;
   }
 
-  /*── Helper: render the built-in logo3d into buffer[] and blit ──*/
+  /*â”€â”€ Helper: render the built-in logo3d into buffer[] and blit â”€â”€*/
   static void draw_builtin_logo(void)
   {
     int src_w = 280, src_h = 100;
@@ -3216,7 +3613,7 @@
     }
   }
 
-  /*── Helper: wait up to ms milliseconds, return early if A pressed ──*/
+  /*â”€â”€ Helper: wait up to ms milliseconds, return early if A pressed â”€â”€*/
   static void wait_or_button(int ms)
   {
     odroid_gamepad_state st;
@@ -3232,14 +3629,14 @@
   void splash() {
     draw_background();
 
-    /* ── Phase 1: main logo (SD PNG native → SD BMP → built-in), 5 sec, A to skip ── */
+    /* â”€â”€ Phase 1: main logo (SD PNG native â†’ SD BMP â†’ built-in), 5 sec, A to skip â”€â”€ */
     int png_native = show_png_logo_native();
 
     if (!png_native) {
       int w, h, x, y;
       int from_sd = load_bmp_logo(&w, &h, &x, &y);
       if (from_sd) {
-        /* BMP loaded from SD card — buffer[] already has RGB565 pixels */
+        /* BMP loaded from SD card â€” buffer[] already has RGB565 pixels */
         ili9341_write_frame_rectangleLE(x, y, w, h, buffer);
       } else {
         draw_builtin_logo();
@@ -3277,7 +3674,7 @@
       return;
     }
 
-    /* ── Phase 2: built-in logo + credit, 2 seconds ── */
+    /* â”€â”€ Phase 2: built-in logo + credit, 2 seconds â”€â”€ */
     draw_background();
     draw_builtin_logo();
 
@@ -3367,7 +3764,7 @@
     char rom_path[256] = "";
     sprintf(rom_path, "%s/%s", ROM.path, ROM.name);
 
-    /* ── PSRAM App: handle .papp files via PSRAM XIP loader ───────── */
+    /* â”€â”€ PSRAM App: handle .papp files via PSRAM XIP loader â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     if (ext_eq(ROM.ext, "papp")) {
 
       /* Save ROM path to NVS so the PSRAM app can retrieve it */
@@ -3386,7 +3783,7 @@
         return;
       }
 
-      /* Run the PSRAM app — blocks until it returns */
+      /* Run the PSRAM app â€” blocks until it returns */
       int result = psram_app_run(papp);
       (void)result;
 
@@ -3584,6 +3981,100 @@
   }
 
   /*
+   * papp_preview_free - Free cached PAPP preview image
+   */
+  static void papp_preview_free(void) {
+    if (papp_preview_buf) { free(papp_preview_buf); papp_preview_buf = NULL; }
+    papp_preview_w = 0;
+    papp_preview_h = 0;
+    papp_preview_name[0] = '\0';
+  }
+
+  /*
+   * draw_papp_preview - Load and display a PNG preview for the selected PAPP file.
+   * Looks for <ROM.path>/<basename>.png alongside the .papp file.
+   * Scales to fit 300x300, displayed at right-center of browser area.
+   */
+  static void draw_papp_preview(void) {
+    if (!ext_eq(EXTENSIONS[STEP], "papp") || !ROM.ready) return;
+
+    /* Check if already cached for this file */
+    if (!papp_preview_buf || strcmp(papp_preview_name, ROM.art) != 0) {
+      /* Free old */
+      papp_preview_free();
+
+      /* Build PNG path: same folder, same base name, .png extension */
+      char png_path[512];
+      snprintf(png_path, sizeof(png_path), "%s/%s.png", ROM.path, ROM.art);
+
+      pngObject png = {0};
+      if (!loadPngFromFileRaw(png_path, &png, true, true)) return;
+      if (png.w == 0 || png.h == 0 || !png.data) return;
+
+      uint16_t *src = (uint16_t *)png.data;
+      int sw = png.w, sh = png.h;
+
+      /* Scale to fit 300x300 maintaining aspect ratio */
+      int dw, dh;
+      if (sw >= sh) {
+        dw = 300; dh = (sh * 300) / sw;
+      } else {
+        dh = 300; dw = (sw * 300) / sh;
+      }
+      if (dw < 1) dw = 1;
+      if (dh < 1) dh = 1;
+
+      papp_preview_buf = (uint16_t *)heap_caps_malloc(dw * dh * 2, MALLOC_CAP_SPIRAM);
+      if (!papp_preview_buf) { free(src); return; }
+
+      /* Nearest-neighbor scale with byte-swap + R<->B swap for MIPI panel */
+      for (int y = 0; y < dh; y++) {
+        int sy = (y * sh) / dh;
+        for (int x = 0; x < dw; x++) {
+          int sx = (x * sw) / dw;
+          uint16_t p = src[sy * sw + sx];
+          uint16_t bs = (p >> 8) | (p << 8);
+          uint16_t fixed = ((bs & 0x1F) << 11) | (bs & 0x07E0) | ((bs >> 11) & 0x1F);
+          papp_preview_buf[y * dw + x] = fixed;
+        }
+      }
+      free(src);
+
+      papp_preview_w = dw;
+      papp_preview_h = dh;
+      strncpy(papp_preview_name, ROM.art, sizeof(papp_preview_name) - 1);
+      papp_preview_name[sizeof(papp_preview_name) - 1] = '\0';
+    }
+
+    /* Blit: right side, vertically centered in browser area */
+    int preview_x = 800 - papp_preview_w - 16;
+    int browser_y_start = 44;
+    int browser_h = BROWSER_LIMIT * 44;
+    int preview_y = browser_y_start + (browser_h - papp_preview_h) / 2;
+    if (preview_y < browser_y_start) preview_y = browser_y_start;
+
+    /* Clear the preview zone first (removes old preview residue) */
+    int clear_x = 800 - 300 - 16;
+    int clear_y = browser_y_start + (browser_h - 300) / 2;
+    if (clear_y < browser_y_start) clear_y = browser_y_start;
+    int clear_h = 300;
+    if (clear_y + clear_h > browser_y_start + browser_h)
+      clear_h = browser_y_start + browser_h - clear_y;
+    draw_mask(clear_x, clear_y, 316, clear_h);
+
+    /* Blit in strips that fit buffer[64000] */
+    int max_rows = 64000 / papp_preview_w;
+    if (max_rows < 1) max_rows = 1;
+    for (int row = 0; row < papp_preview_h; row += max_rows) {
+      int rows = (row + max_rows <= papp_preview_h) ? max_rows : (papp_preview_h - row);
+      int count = rows * papp_preview_w;
+      for (int i = 0; i < count; i++)
+        buffer[i] = papp_preview_buf[row * papp_preview_w + i];
+      ili9341_write_frame_rectangleLE(preview_x, preview_y + row, papp_preview_w, rows, buffer);
+    }
+  }
+
+  /*
    * draw_browser_list - Draw the ROM list in browser mode (full screen)
    * Uses BROWSER_LIMIT items per page, starting from ROMS.offset.
    * The first item (index 0 in the visible list) is the selected one.
@@ -3618,6 +4109,15 @@
       /* Draw filename (without extension) */
       draw_text(x + 40, y + 6, FILES[n], true, selected, false);
 
+      /* Draw star for favorites (non-directory items only) */
+      if (!is_dir && STEP >= 3) {
+        char fav_path[512];
+        snprintf(fav_path, sizeof(fav_path), "%s/%s", ROM.path, FILES[n]);
+        if (check_favorite_cached(fav_path)) {
+          draw_star(752, y + 6);
+        }
+      }
+
       /* Set ROM info for the selected item */
       if (selected) {
         strcpy(ROM.name, FILES[n]);
@@ -3643,13 +4143,16 @@
 
       /* Draw track */
       for (int i = 0; i < bar_h; i++) buffer[i] = GUI.bg;
-      /* darken track slightly — use fg at low intensity */
+      /* darken track slightly â€” use fg at low intensity */
       draw_mask(bar_x, y_start, 8, bar_h);
 
       /* Draw thumb */
       for (int i = 0; i < thumb_h * 8; i++) buffer[i] = GUI.fg;
       ili9341_write_frame_rectangleLE(bar_x, thumb_y, 8, thumb_h, buffer);
     }
+
+    /* Draw PAPP preview image if available */
+    draw_papp_preview();
   }
 
   /*
@@ -3681,6 +4184,15 @@
 
     /* Draw filename */
     draw_text(x + 40, y + 6, FILES[n], true, selected, false);
+
+    /* Draw star for favorites (non-directory items only) */
+    if (!is_dir && STEP >= 3) {
+      char fav_path[512];
+      snprintf(fav_path, sizeof(fav_path), "%s/%s", ROM.path, FILES[n]);
+      if (check_favorite_cached(fav_path)) {
+        draw_star(752, y + 6);
+      }
+    }
 
     /* Update ROM info if selected */
     if (selected) {
@@ -3720,8 +4232,13 @@
    * oldSel = previous BROWSER_SEL, newSel = new BROWSER_SEL
    */
   void browser_partial_update(int oldSel, int newSel) {
-    draw_browser_row(oldSel);
-    draw_browser_row(newSel);
+    if (ext_eq(EXTENSIONS[STEP], "papp")) {
+      /* Full redraw for PAPP: preview clear wipes filenames, must restore all */
+      draw_browser_list();
+    } else {
+      draw_browser_row(oldSel);
+      draw_browser_row(newSel);
+    }
     draw_browser_header();
     display_flush();
   }
@@ -3746,6 +4263,8 @@
     ROMS.limit = BROWSER_LIMIT;
     folder_path[0] = 0;
     FOLDER = false;
+
+    load_favorites_cache();
 
     clear_screen();
     draw_browser_header();
@@ -3776,6 +4295,7 @@
     ROMS.offset = 0;
     BROWSER_SEL = 0;
     folder_path[0] = 0;
+    papp_preview_free();
     free_sorted_files();
     draw_carousel_screen();
   }
@@ -3807,67 +4327,29 @@
 
         /* --- LEFT: previous system --- */
         if (gamepad.values[ODROID_INPUT_LEFT]) {
-          if (!SETTINGS && (STEP != 0 || SETTING == 0)) {
+          if (STEP != 0 || SETTING == 0) {
             STEP--;
             if (STEP < 0) STEP = COUNT - 1;
             ROMS.offset = 0;
             animate(-1);
-          } else if (STEP == 0 && !SETTINGS) {
+          } else if (STEP == 0) {
             /* Settings adjustments: LEFT decreases */
-            if (SETTING == 1) {
-              nvs_handle handle;
-              nvs_open("storage", NVS_READWRITE, &handle);
-              nvs_set_i8(handle, "COLOR", 0);
-              nvs_commit(handle);
-              nvs_close(handle);
-              draw_toggle();
-              draw_systems();
-              display_flush();
-            }
-            if (SETTING == 2 && VOLUME > 0) { VOLUME--; set_volume(); usleep(200000); }
-            if (SETTING == 3 && BRIGHTNESS > 0) { BRIGHTNESS--; set_brightness(); usleep(200000); }
-            if (SETTING == 4) {
-              nvs_handle handle;
-              nvs_open("storage", NVS_READWRITE, &handle);
-              nvs_set_i8(handle, "COVER", 0);
-              nvs_commit(handle);
-              nvs_close(handle);
-              draw_cover_toggle();
-              display_flush();
-            }
+            if (SETTING == 1 && VOLUME > 0) { VOLUME--; set_volume(); usleep(200000); }
+            if (SETTING == 2 && BRIGHTNESS > 0) { BRIGHTNESS--; set_brightness(); usleep(200000); }
           }
           usleep(100000);
         }
 
         /* --- RIGHT: next system --- */
         if (gamepad.values[ODROID_INPUT_RIGHT]) {
-          if (!SETTINGS && (STEP != 0 || SETTING == 0)) {
+          if (STEP != 0 || SETTING == 0) {
             STEP++;
             if (STEP > COUNT - 1) STEP = 0;
             ROMS.offset = 0;
             animate(1);
-          } else if (STEP == 0 && !SETTINGS) {
-            if (SETTING == 1) {
-              nvs_handle handle;
-              nvs_open("storage", NVS_READWRITE, &handle);
-              nvs_set_i8(handle, "COLOR", 1);
-              nvs_commit(handle);
-              nvs_close(handle);
-              draw_toggle();
-              draw_systems();
-              display_flush();
-            }
-            if (SETTING == 2 && VOLUME < 8) { VOLUME++; set_volume(); usleep(200000); }
-            if (SETTING == 3 && BRIGHTNESS < (BRIGHTNESS_COUNT-1)) { BRIGHTNESS++; set_brightness(); usleep(200000); }
-            if (SETTING == 4) {
-              nvs_handle handle;
-              nvs_open("storage", NVS_READWRITE, &handle);
-              nvs_set_i8(handle, "COVER", 1);
-              nvs_commit(handle);
-              nvs_close(handle);
-              draw_cover_toggle();
-              display_flush();
-            }
+          } else if (STEP == 0) {
+            if (SETTING == 1 && VOLUME < 8) { VOLUME++; set_volume(); usleep(200000); }
+            if (SETTING == 2 && BRIGHTNESS < (BRIGHTNESS_COUNT-1)) { BRIGHTNESS++; set_brightness(); usleep(200000); }
           }
           usleep(100000);
         }
@@ -3875,30 +4357,18 @@
         /* --- UP/DOWN: settings navigation when on STEP 0 --- */
         if (gamepad.values[ODROID_INPUT_UP]) {
           if (STEP == 0) {
-            if (!SETTINGS) {
-              SETTING--;
-              if (SETTING < 0) SETTING = 5;
-              draw_settings();
-            } else {
-              USER--;
-              if (USER < 0) USER = 21;
-              draw_themes();
-            }
+            SETTING--;
+            if (SETTING < 0) SETTING = 2;
+            draw_settings();
           }
           usleep(200000);
         }
 
         if (gamepad.values[ODROID_INPUT_DOWN]) {
           if (STEP == 0) {
-            if (!SETTINGS) {
-              SETTING++;
-              if (SETTING > 5) SETTING = 0;
-              draw_settings();
-            } else {
-              USER++;
-              if (USER > 21) USER = 0;
-              draw_themes();
-            }
+            SETTING++;
+            if (SETTING > 2) SETTING = 0;
+            draw_settings();
           }
           usleep(200000);
         }
@@ -3906,20 +4376,8 @@
         /* --- A: enter ROM browser / settings action --- */
         if (gamepad.values[ODROID_INPUT_A]) {
           if (STEP == 0) {
-            /* Settings logic (unchanged) */
-            if (!SETTINGS && SETTING == 0) {
-              SETTINGS = true;
-              draw_background();
-              draw_systems();
-              draw_text(16, 4, (char *)"THEMES", false, true, false);
-              draw_themes();
-            } else {
-              switch (SETTING) {
-                case 0: update_theme(); break;
-                case 1: set_toggle(); draw_toggle(); draw_systems(); break;
-                case 4: set_cover_toggle(); draw_cover_toggle(); break;
-                case 5: delete_recents(); break;
-              }
+            if (SETTING == 0) {
+              delete_recents();
             }
           } else if (STEP >= 3) {
             /* Enter ROM browser for emulator systems */
@@ -3946,15 +4404,8 @@
           debounce(ODROID_INPUT_A);
         }
 
-        /* --- B: exit settings if open --- */
+        /* --- B: no action in carousel mode --- */
         if (gamepad.values[ODROID_INPUT_B]) {
-          if (SETTINGS) {
-            SETTINGS = false;
-            draw_background();
-            draw_systems();
-            draw_text(16, 4, EMULATORS[STEP], false, true, false);
-            draw_settings();
-          }
           debounce(ODROID_INPUT_B);
         }
 
@@ -3967,7 +4418,7 @@
         if (gamepad.values[ODROID_INPUT_UP]) {
           if (ROMS.total > 0) {
             if (BROWSER_SEL > 0) {
-              /* Cursor moves up within the visible page — partial redraw */
+              /* Cursor moves up within the visible page â€” partial redraw */
               int oldSel = BROWSER_SEL;
               BROWSER_SEL--;
               if (STEP >= 3) {
@@ -3977,7 +4428,7 @@
                 favrecent_partial_update(oldSel, BROWSER_SEL, list);
               }
             } else if (ROMS.offset > 0) {
-              /* At top of page, scroll up by one — highlight stays at top */
+              /* At top of page, scroll up by one â€” highlight stays at top */
               ROMS.offset--;
               if (STEP >= 3) {
                 browser_seek_and_draw();
@@ -3985,7 +4436,7 @@
                 STEP == 1 ? process_favorites() : process_recents();
               }
             } else {
-              /* At very first item — wrap to last */
+              /* At very first item â€” wrap to last */
               ROMS.offset = ROMS.total > BROWSER_LIMIT ? ROMS.total - BROWSER_LIMIT : 0;
               int visible = ROMS.total - ROMS.offset;
               BROWSER_SEL = visible - 1;
@@ -4005,7 +4456,7 @@
             int visible = (ROMS.total - ROMS.offset) < BROWSER_LIMIT ?
               (ROMS.total - ROMS.offset) : BROWSER_LIMIT;
             if (BROWSER_SEL < visible - 1) {
-              /* Cursor moves down within the visible page — partial redraw */
+              /* Cursor moves down within the visible page â€” partial redraw */
               int oldSel = BROWSER_SEL;
               BROWSER_SEL++;
               if (STEP >= 3) {
@@ -4015,7 +4466,7 @@
                 favrecent_partial_update(oldSel, BROWSER_SEL, list);
               }
             } else if (ROMS.offset + BROWSER_LIMIT < ROMS.total) {
-              /* At bottom of page, scroll down by one — highlight stays at bottom */
+              /* At bottom of page, scroll down by one â€” highlight stays at bottom */
               ROMS.offset++;
               if (STEP >= 3) {
                 browser_seek_and_draw();
@@ -4023,7 +4474,7 @@
                 STEP == 1 ? process_favorites() : process_recents();
               }
             } else {
-              /* At very last item — wrap to first */
+              /* At very last item â€” wrap to first */
               ROMS.offset = 0;
               BROWSER_SEL = 0;
               if (STEP >= 3) {
@@ -4124,6 +4575,12 @@
           debounce(ODROID_INPUT_B);
         }
 
+        /* --- X: search keyboard (emulator browser only, STEP >= 3) --- */
+        if (gamepad.values[ODROID_INPUT_MENU] && STEP >= 3 && ROMS.total > 0) {
+          show_search_keyboard();
+          debounce(ODROID_INPUT_MENU);
+        }
+
       /* ============================================================
        *  ROM LAUNCH OPTIONS  (Play / Resume / Favorite)
        * ============================================================ */
@@ -4156,13 +4613,14 @@
               break;
             case 1:
               SAVED ? rom_run(true) : ROM.favorite ? delete_favorite(path) : add_favorite(path);
-              if (!SAVED) draw_launcher_options();
+              if (!SAVED) { load_favorites_cache(); draw_launcher_options(); }
               break;
             case 2:
               rom_delete_save();
               break;
             case 3:
               ROM.favorite ? delete_favorite(path) : add_favorite(path);
+              load_favorites_cache();
               draw_launcher_options();
               break;
           }

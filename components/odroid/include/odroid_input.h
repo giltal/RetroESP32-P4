@@ -104,6 +104,12 @@ extern volatile int odroid_paddle_adc_raw;
 extern bool odroid_input_xy_menu_disable;
 
 /**
+ * @brief When true, touch-panel virtual MENU/VOLUME buttons are disabled.
+ *        Set during on-screen keyboard to prevent touch-key conflicts.
+ */
+extern bool odroid_input_touch_buttons_disable;
+
+/**
  * @brief Initialise the ADC for the analog paddle on GPIO 52 (ADC2_CH3).
  * Call once before reading odroid_paddle_adc_raw.
  */

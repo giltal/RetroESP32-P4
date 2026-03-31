@@ -54,8 +54,8 @@ using std::string;
 #define DISPLAY_HEIGHT     240
 
 /* Paddle ADC constants */
-#define PADDLE_ADC_LO       100   /* ADC low clamp (avoid noise floor) */
-#define PADDLE_ADC_HI       4000  /* ADC clamp: pot at 3.3V end (avoid ceiling noise) */
+#define PADDLE_ADC_LO       5     /* ADC low clamp (measured min=0, small noise margin) */
+#define PADDLE_ADC_HI       3340  /* ADC high clamp (measured max=3332, small margin) */
 #define PADDLE_DETECT_SPREAD 300  /* max ADC spread for pot detection */
 
 static bool st_paddle_adc_enabled = false;
@@ -180,29 +180,6 @@ static void st_videoTask(void *arg)
                        (DISPLAY_HEIGHT - used_lines) * DISPLAY_WIDTH * sizeof(uint16_t));
             }
 
-            /* Volume overlay */
-            if (volume_show_frames > 0) {
-                volume_show_frames--;
-                /* Draw volume bar in top-right corner */
-                const int bar_x = DISPLAY_WIDTH - 40;
-                const int bar_y = 4;
-                const int bar_w = 36;
-                const int bar_h = 8;
-                /* Background */
-                for (int y = bar_y; y < bar_y + bar_h && y < DISPLAY_HEIGHT; y++) {
-                    for (int x = bar_x; x < bar_x + bar_w && x < DISPLAY_WIDTH; x++) {
-                        st_displayBuffer[y * DISPLAY_WIDTH + x] = 0x0000;
-                    }
-                }
-                /* Filled portion */
-                int fill_w = (bar_w * volume_level) / 4;
-                for (int y = bar_y + 1; y < bar_y + bar_h - 1 && y < DISPLAY_HEIGHT; y++) {
-                    for (int x = bar_x + 1; x < bar_x + 1 + fill_w && x < DISPLAY_WIDTH; x++) {
-                        st_displayBuffer[y * DISPLAY_WIDTH + x] = 0x07E0; /* green */
-                    }
-                }
-            }
-
             ili9341_write_frame_rgb565(st_displayBuffer);
 
             xQueueReceive(st_vidQueue, &param, pdMS_TO_TICKS(100));
@@ -321,6 +298,114 @@ static void st_fill_rect(uint16_t *fb, int x, int y, int w, int h, uint16_t colo
             if (col < 0) continue;
             fb[row * DISPLAY_WIDTH + col] = color;
         }
+    }
+}
+
+/* ===================================================================
+ * Volume Overlay (NES-style interactive)
+ * =================================================================== */
+static void show_stella_volume_overlay(void)
+{
+    static const char *level_names[] = { "MUTE", "25%", "50%", "75%", "100%" };
+    const int num_levels = 5;
+
+    int level = (int)odroid_audio_volume_get();
+    int timeout = 25;  /* ~2 seconds at 80ms per frame */
+
+    odroid_gamepad_state prev;
+    odroid_input_gamepad_read(&prev);
+
+    /* Debounce: wait for volume button release */
+    for (int i = 0; i < 100; i++) {
+        odroid_gamepad_state tmp;
+        odroid_input_gamepad_read(&tmp);
+        if (!tmp.values[ODROID_INPUT_VOLUME]) break;
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    odroid_input_gamepad_read(&prev);
+
+    while (timeout > 0) {
+        /* Draw overlay onto the current display buffer */
+        int box_w = 140;
+        int box_h = 34;
+        int box_x = (DISPLAY_WIDTH - box_w) / 2;
+        int box_y = 8;
+
+        /* Dark background + white border */
+        st_fill_rect(st_displayBuffer, box_x, box_y, box_w, box_h, 0x0000);
+        st_fill_rect(st_displayBuffer, box_x, box_y, box_w, 1, 0xFFFF);
+        st_fill_rect(st_displayBuffer, box_x, box_y + box_h - 1, box_w, 1, 0xFFFF);
+        st_fill_rect(st_displayBuffer, box_x, box_y, 1, box_h, 0xFFFF);
+        st_fill_rect(st_displayBuffer, box_x + box_w - 1, box_y, 1, box_h, 0xFFFF);
+
+        /* Title */
+        char title[32];
+        snprintf(title, sizeof(title), "VOLUME: %s", level_names[level]);
+        int title_w = strlen(title) * 6;
+        st_draw_string(st_displayBuffer, box_x + (box_w - title_w) / 2, box_y + 4, title, 0xFFE0);
+
+        /* Bar background */
+        int bar_x = box_x + 10;
+        int bar_y = box_y + 16;
+        int bar_w = box_w - 20;
+        int bar_h = 10;
+        st_fill_rect(st_displayBuffer, bar_x, bar_y, bar_w, bar_h, 0x2108);
+
+        /* Filled portion */
+        if (level > 0) {
+            int fill_w = (bar_w * level) / (num_levels - 1);
+            uint16_t bar_color = (level <= 1) ? 0x07E0 :    /* green */
+                                 (level <= 3) ? 0x07FF :    /* cyan */
+                                                0xFFE0;     /* yellow */
+            st_fill_rect(st_displayBuffer, bar_x, bar_y, fill_w, bar_h, bar_color);
+        }
+
+        /* Bar border */
+        st_fill_rect(st_displayBuffer, bar_x, bar_y, bar_w, 1, 0xFFFF);
+        st_fill_rect(st_displayBuffer, bar_x, bar_y + bar_h - 1, bar_w, 1, 0xFFFF);
+        st_fill_rect(st_displayBuffer, bar_x, bar_y, 1, bar_h, 0xFFFF);
+        st_fill_rect(st_displayBuffer, bar_x + bar_w - 1, bar_y, 1, bar_h, 0xFFFF);
+
+        /* Segment markers */
+        for (int i = 1; i < num_levels - 1; i++) {
+            int sx = bar_x + (bar_w * i) / (num_levels - 1);
+            st_fill_rect(st_displayBuffer, sx, bar_y, 1, bar_h, 0xFFFF);
+        }
+
+        ili9341_write_frame_rgb565(st_displayBuffer);
+
+        /* Input */
+        vTaskDelay(pdMS_TO_TICKS(80));
+        odroid_gamepad_state state;
+        odroid_input_gamepad_read(&state);
+
+        bool changed = false;
+
+        if (state.values[ODROID_INPUT_LEFT] && !prev.values[ODROID_INPUT_LEFT]) {
+            if (level > 0) { level--; changed = true; }
+            timeout = 25;
+        }
+        if (state.values[ODROID_INPUT_RIGHT] && !prev.values[ODROID_INPUT_RIGHT]) {
+            if (level < num_levels - 1) { level++; changed = true; }
+            timeout = 25;
+        }
+        if (state.values[ODROID_INPUT_VOLUME] && !prev.values[ODROID_INPUT_VOLUME]) {
+            level = (level + 1) % num_levels;
+            changed = true;
+            timeout = 25;
+        }
+        if ((state.values[ODROID_INPUT_A] && !prev.values[ODROID_INPUT_A]) ||
+            (state.values[ODROID_INPUT_B] && !prev.values[ODROID_INPUT_B])) {
+            timeout = 0;
+        }
+
+        if (changed) {
+            odroid_audio_volume_set(level);
+            odroid_settings_Volume_set(level);
+        }
+
+        prev = state;
+        timeout--;
     }
 }
 
@@ -607,11 +692,11 @@ static void stella_step(odroid_gamepad_state *gamepad)
         int raw_adc = odroid_paddle_adc_raw;
 
         if (raw_adc >= 0) {
-            /* EMA smoothing: alpha ~0.2 (51/256) */
+            /* EMA smoothing: alpha ~0.6 (153/256) — fast response */
             if (ema_adc < 0)
                 ema_adc = raw_adc;
             else
-                ema_adc = (51 * raw_adc + 205 * ema_adc + 128) >> 8;
+                ema_adc = (153 * raw_adc + 103 * ema_adc + 128) >> 8;
 
             int clamped = ema_adc;
             if (clamped < PADDLE_ADC_LO) clamped = PADDLE_ADC_LO;
@@ -623,7 +708,7 @@ static void stella_step(odroid_gamepad_state *gamepad)
 
             int diff = paddle_axis - last_axis;
             if (diff < 0) diff = -diff;
-            if (last_axis == -99999 || diff > 200) {
+            if (last_axis == -99999 || diff > 50) {
                 last_axis = paddle_axis;
                 ev.set(Event::Type(Event::SALeftAxis0Value), paddle_axis);
             }
@@ -811,9 +896,8 @@ extern "C" void stella_run(const char *rom_path)
         if (!last_gamepad.values[ODROID_INPUT_VOLUME] &&
             gamepad.values[ODROID_INPUT_VOLUME])
         {
-            odroid_audio_volume_change();
+            show_stella_volume_overlay();
             volume_level = odroid_audio_volume_get();
-            volume_show_frames = 90;
             printf("stella_run: Volume=%d\n", volume_level);
         }
 
