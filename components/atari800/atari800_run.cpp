@@ -39,6 +39,7 @@
 #include "pokey.h"
 #include "statesav.h"
 #include "libatari800_statesav.h"
+#include "binload.h"
 
 /* ---------- Odroid platform (C code) ---------- */
 extern "C" {
@@ -151,7 +152,6 @@ static int lcdfb_write_idx = 0;
 /* Save state */
 /* File-based save/load via StateSav_SaveAtariState / StateSav_ReadAtariState */
 static char save_path[256] = "";
-#define STATESAV_MAX_SIZE (210 * 1024)
 
 static volatile bool a800_quit_flag = false;
 
@@ -790,6 +790,14 @@ static void emu_step(odroid_gamepad_state *gamepad)
 }
 
 /* ─── Save/Load state helpers ─────────────────────────────────── */
+/*
+ * LIBATARI800 mode: StateSav_SaveAtariState / StateSav_ReadAtariState
+ * write/read to an in-memory buffer (LIBATARI800_StateSav_buffer),
+ * NOT the filesystem.  We allocate the buffer, run the serializer,
+ * then flush/read the buffer from the actual SD card file.
+ */
+static emulator_state_t *s_emu_state = NULL;
+
 static void build_save_path(const char *rom_path)
 {
     char *fileName = odroid_util_GetFileName(rom_path);
@@ -807,12 +815,30 @@ static void SaveState(void)
     snprintf(dirBuf, sizeof(dirBuf), "/sd/odroid/data");    mkdir(dirBuf, 0775);
     snprintf(dirBuf, sizeof(dirBuf), "/sd/odroid/data/a800"); mkdir(dirBuf, 0775);
 
-    int rc = StateSav_SaveAtariState(save_path, "wb", TRUE);
-    if (rc) {
-        ESP_LOGI(TAG, "Saved state to %s", save_path);
-    } else {
-        ESP_LOGW(TAG, "Failed to save state to %s", save_path);
+    if (!s_emu_state) {
+        s_emu_state = (emulator_state_t *)heap_caps_calloc(1, sizeof(emulator_state_t), MALLOC_CAP_SPIRAM);
+        if (!s_emu_state) {
+            ESP_LOGW(TAG, "SaveState: out of memory for state buffer");
+            return;
+        }
     }
+
+    /* Serialize emulator state into the in-memory buffer */
+    LIBATARI800_StateSave(s_emu_state->state, &s_emu_state->tags);
+
+    /* Flush buffer to SD card file */
+    FILE *f = fopen(save_path, "wb");
+    if (!f) {
+        ESP_LOGW(TAG, "SaveState: cannot open %s", save_path);
+        return;
+    }
+    size_t written = fwrite(s_emu_state->state, 1, STATESAV_MAX_SIZE, f);
+    fclose(f);
+
+    if (written == STATESAV_MAX_SIZE)
+        ESP_LOGI(TAG, "Saved state to %s (%u bytes)", save_path, (unsigned)written);
+    else
+        ESP_LOGW(TAG, "SaveState: short write %u/%u to %s", (unsigned)written, STATESAV_MAX_SIZE, save_path);
 }
 
 static bool LoadState(void)
@@ -822,9 +848,32 @@ static bool LoadState(void)
     struct stat st;
     if (stat(save_path, &st) != 0) return false;
 
-    int rc = StateSav_ReadAtariState(save_path, "rb");
-    ESP_LOGI(TAG, "Loaded state from %s (rc=%d)", save_path, rc);
-    return rc != 0;
+    if (!s_emu_state) {
+        s_emu_state = (emulator_state_t *)heap_caps_calloc(1, sizeof(emulator_state_t), MALLOC_CAP_SPIRAM);
+        if (!s_emu_state) {
+            ESP_LOGW(TAG, "LoadState: out of memory for state buffer");
+            return false;
+        }
+    }
+
+    /* Read file into the in-memory buffer */
+    FILE *f = fopen(save_path, "rb");
+    if (!f) {
+        ESP_LOGW(TAG, "LoadState: cannot open %s", save_path);
+        return false;
+    }
+    size_t got = fread(s_emu_state->state, 1, STATESAV_MAX_SIZE, f);
+    fclose(f);
+
+    if (got < 10) {
+        ESP_LOGW(TAG, "LoadState: file too small (%u bytes)", (unsigned)got);
+        return false;
+    }
+
+    /* Deserialize from the buffer into the emulator */
+    LIBATARI800_StateLoad(s_emu_state->state);
+    ESP_LOGI(TAG, "Loaded state from %s (%u bytes)", save_path, (unsigned)got);
+    return true;
 }
 
 static bool a800_check_save_exists(void)
@@ -1145,10 +1194,20 @@ extern "C" void atari800_run(const char *rom_path)
     build_save_path(rom_path);
 
     /* Auto-load saved state if requested */
-    if (odroid_settings_StartAction_get() == ODROID_START_ACTION_RESTART) {
-        odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
-        if (LoadState())
-            ESP_LOGI(TAG, "Resumed from save state");
+    {
+        ODROID_START_ACTION sa = odroid_settings_StartAction_get();
+        if (sa == ODROID_START_ACTION_RESTART) {
+            odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
+            if (LoadState()) {
+                BINLOAD_start_binloading = FALSE;
+                BINLOAD_loading_basic = 0;
+                if (BINLOAD_bin_file) {
+                    fclose(BINLOAD_bin_file);
+                    BINLOAD_bin_file = NULL;
+                }
+                ESP_LOGI(TAG, "Resumed from saved state");
+            }
+        }
     }
 
     /* Video queue and task */
@@ -1306,6 +1365,7 @@ cleanup:
     if (lcdfb[1]) { heap_caps_free(lcdfb[1]); lcdfb[1] = NULL; }
     if (vidQueue)   { vQueueDelete(vidQueue);   vidQueue   = NULL; }
     if (audioQueue) { vQueueDelete(audioQueue); audioQueue = NULL; }
+    if (s_emu_state) { heap_caps_free(s_emu_state); s_emu_state = NULL; }
 
     a800_quit_flag = false;
     ESP_LOGI(TAG, "atari800_run: returning to launcher");

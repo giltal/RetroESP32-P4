@@ -23,7 +23,7 @@ ULONG StateSav_Tell(void);
 /* STATESAV_MAX_SIZE defined in libatari800 include file */
 #define STATESAV_TAG(a) (LIBATARI800_StateSav_tags->a = StateSav_Tell())
 #else /* LIBATARI800 */
-#define STATESAV_MAX_SIZE 210000 /* max size of state save data */
+#define STATESAV_MAX_SIZE 300000 /* max size of state save data */
 #define STATESAV_TAG(a)
 #endif /* LIBATARI800 */
 

@@ -1960,34 +1960,17 @@
   void has_save_file(char *save_name) {
     SAVED = false;
 
-    //  printf("\n----- %s -----", __func__);
-    //printf("\nsave_name: %s", save_name);
-
     char save_dir[256] = "/sd/odroid/data/";
     strcat(&save_dir[strlen(save_dir) - 1], get_save_subdir());
-    //  printf("\nsave_dir: %s", save_dir);
 
     char save_file[256] = "";
     sprintf(save_file, "%s/%s", save_dir, save_name);
     strcat(&save_file[strlen(save_file) - 1], ".sav");
-    //printf("\nsave_file: %s", save_file);
 
-    DIR *directory = opendir(save_dir);
-    if(directory == NULL) {
-      perror("opendir() error");
-    } else {
-      struct dirent *file;
-      while ((file = readdir(directory)) != NULL) {
-        char tmp[256] = "";
-        strcat(tmp, file->d_name);
-        tmp[strlen(tmp)-4] = '\0';
-        //printf("\ntmp:%s save_name:%s", tmp, save_name);
-        if(strcmp(save_name, tmp) == 0) {
-          SAVED = true;
-        }
-      }
+    struct stat st;
+    if (stat(save_file, &st) == 0 && st.st_size > 0) {
+      SAVED = true;
     }
-    //printf("\n---------------------\n");
   }
 //}#pragma endregion Files
 
