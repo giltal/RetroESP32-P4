@@ -97,10 +97,10 @@ Simply swap 3.3V and GND
 ## 🚀 Features
 
 - 🎮 **14 emulators** (biggest number ever on an ESP!) + support to run apps from the SD card (folder named papp)
-- Apps currently In the SD card: **Open Tyrian, DOOM and Quake**
+- Apps currently In the SD card: **Open Tyrian, DOOM, Quake and Duke3D**
 - ⚡ Near full-speed emulation (60 FPS on all systems except for SNES and Mega Drive- I will try to improve)
 - 💾 Save / Load states (**SNES and Mega Drive from within the game**)
-- 🖥️ Touchscreen-optimized UI
+- 🖥️ Touchscreen-optimized UI search in browse mode
 - 🎯 USB controller support (currently the one showed in the picture)
 - 🕹️ Paddle support for Atari (Via IO51)
 
@@ -116,7 +116,7 @@ Simply swap 3.3V and GND
 - ColecoVision
 - SNES (Titles which uses the FX accelerator are not supported for now)
 - SEGA Genesis - Mega Drive (Titles which uses the DSP accelerator are not supported for now)
-- Open Tyrian, DOOM and Quake via **Run Apps** entry in the launcher (more apps will be added in time)
+- Open Tyrian, DOOM, Quake and Duke3D via **Run Apps** entry in the launcher (more apps will be added in time)
 
 ## ⚡ Performance Breakdown
 
@@ -126,7 +126,7 @@ Simply swap 3.3V and GND
 | SMS / GG | ✅ 60 FPS ||
 | Atari family | ✅ 60 FPS | Fixed legacy bugs |
 | PCE | ✅ 60 FPS | Major improvements |
-| SNES / Mega Drive | ⚠️ ~50 FPS | No SuperFX / DSP |
+| SNES / Mega Drive | ⚠️ ~50 FPS | No for SuperFX / DSP |
 |The P4's PPA (Pixel Processing Accelerator) is in action for smooth graphics and speed|||
 
 ### SNES Mega Drive \ Limitations
@@ -163,12 +163,13 @@ This project is designed with performance and modularity in mind:
 - Enhanced UI/UX
 - Added more emulators
 - Save / load support for all emulators
+- Skip frames removed from all emulators
 
 ## 🛠️ Hardware Requirements
 
-- ESP32-P4 board
+- ESP32-P4 board (The one the pictures)
 - 4.3" 480x800 touchscreen
-- USB controller
+- SNES USB controller
 
 ## 📁 ROM Setup
 
@@ -191,7 +192,7 @@ Contributions welcome:
 - Performance tuning
 - Emulator fixes
 - UI improvements
-- New apps running from SD card directly
+- **New apps running from SD card directly** (In the Git there is a ready to use project with nice demo)
 
 ## 📜 License
 
