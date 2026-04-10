@@ -84,6 +84,7 @@
 #include "../sprites/logo3d.h"
 #include "../sprites/media.h"
 #include "../sprites/speaker.h"
+#include "../sprites/gamepad_icons.h"
 #include "../sprites/toggle.h"
 #include "../sprites/systems.h"
 #include "../sprites/genesis_icon.h"

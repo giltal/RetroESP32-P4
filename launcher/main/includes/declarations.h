@@ -90,6 +90,7 @@ void draw_folder(int x, int y, bool current);
 void draw_battery();
 void draw_speaker();
 void draw_contrast();
+void draw_gamepad_icons();
 void draw_numbers();
 void delete_numbers();
 void draw_launcher();

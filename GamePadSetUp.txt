@@ -1,0 +1,22 @@
+I have designed a custom gamepad that is connected to GPIOs on the board we are using:
+This the code that should be used to get it working:
+Joy left\right share analog in 49:
+JOYPAD_LEFT = ((analogRead(PIN_RIGHT_LEFT_JOY) > 3500)
+JOYPAD_RIGHT = (((analogRead(PIN_RIGHT_LEFT_JOY) > 1800) && (analogRead(PIN_RIGHT_LEFT_JOY) < 2300))) 
+joy up\down share analog in 50:
+JOYPAD_DOWN = (((analogRead(PIN_DOWN_UP_JOY) > 1800) && (analogRead(PIN_DOWN_UP_JOY) < 2300)))
+JOYPAD_UP = ((analogRead(PIN_DOWN_UP_JOY) > 3500))
+A B share analog in 52:
+A = ((analogRead(52) > 3500)
+B = (((analogRead(52) > 1800) && (analogRead(52) < 2300)))
+L1 io  29 (has physical pull down, when pressed will be "1")
+L2 io  30 (has physical pull down, when pressed will be "1")
+X io  33 (has physical pull down, when pressed will be "1")
+Y io  34 (has physical pull down, when pressed will be "1")
+Start io  28 (has physical pull down, when pressed will be "1")
+Select io  32 (has physical pull down, when pressed will be "1")
+Paddle for Atari is at analog pin 51, please remove the previous assignment of the paddle I/O
+
+Need to set the set this gamepad in parallel to the USB gamepad
+You can detect the presence of this new game pad by applying pull up to io 29 and read it, if it will be 0 this means the custom gamepad in connected.
+Lets try the new game pad on the launcher first and then deploy to all emulators

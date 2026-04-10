@@ -666,6 +666,7 @@
     draw_battery();
     draw_speaker();
     draw_contrast();
+    draw_gamepad_icons();
   }
 
   /* Clear the full screen safely in strips (buffer is 64000 elements!) */
@@ -1373,6 +1374,40 @@
       }
       #endif
 
+      /* USB gamepad icon */
+      {
+        bool usb = odroid_input_usb_gamepad_connected();
+        int i = 0, x = SCREEN.w - 184;
+        for (int h = 0; h < 16; h++) {
+          for (int sh = 0; sh < 2; sh++) {
+            for (int w = 0; w < 16; w++) {
+              buffer[i++] = usb_gamepad_icon[h][w] == WHITE
+                            ? (usb ? GUI.hl : 0x4208) : 0x0000;
+              buffer[i++] = usb_gamepad_icon[h][w] == WHITE
+                            ? (usb ? GUI.hl : 0x4208) : 0x0000;
+            }
+          }
+        }
+        ili9341_write_frame_rectangleLE(x, 0, 32, 32, buffer);
+      }
+
+      /* GPIO gamepad icon */
+      {
+        bool gpio = odroid_input_gpio_pad_detected();
+        int i = 0, x = SCREEN.w - 224;
+        for (int h = 0; h < 16; h++) {
+          for (int sh = 0; sh < 2; sh++) {
+            for (int w = 0; w < 16; w++) {
+              buffer[i++] = gpio_gamepad_icon[h][w] == WHITE
+                            ? (gpio ? GUI.hl : 0x4208) : 0x0000;
+              buffer[i++] = gpio_gamepad_icon[h][w] == WHITE
+                            ? (gpio ? GUI.hl : 0x4208) : 0x0000;
+            }
+          }
+        }
+        ili9341_write_frame_rectangleLE(x, 0, 32, 32, buffer);
+      }
+
       GUI.bg = saved_bg;
     }
 
@@ -1533,6 +1568,47 @@
       }
     }
     ili9341_write_frame_rectangleLE(x, y, 32, 32, buffer);
+  }
+
+  void draw_gamepad_icons() {
+    /* USB gamepad icon at SCREEN.w - 184 */
+    {
+      int i = 0;
+      int x = SCREEN.w - 184;
+      int y = 16;
+      draw_mask(x, y, 32, 32);
+      bool usb = odroid_input_usb_gamepad_connected();
+      for (int h = 0; h < 16; h++) {
+        for (int sh = 0; sh < 2; sh++) {
+          for (int w = 0; w < 16; w++) {
+            uint16_t pixel = usb_gamepad_icon[h][w] == WHITE
+                             ? (usb ? GUI.hl : GUI.fg) : GUI.bg;
+            buffer[i++] = pixel;
+            buffer[i++] = pixel;
+          }
+        }
+      }
+      ili9341_write_frame_rectangleLE(x, y, 32, 32, buffer);
+    }
+    /* GPIO gamepad icon at SCREEN.w - 224 */
+    {
+      int i = 0;
+      int x = SCREEN.w - 224;
+      int y = 16;
+      draw_mask(x, y, 32, 32);
+      bool gpio = odroid_input_gpio_pad_detected();
+      for (int h = 0; h < 16; h++) {
+        for (int sh = 0; sh < 2; sh++) {
+          for (int w = 0; w < 16; w++) {
+            uint16_t pixel = gpio_gamepad_icon[h][w] == WHITE
+                             ? (gpio ? GUI.hl : GUI.fg) : GUI.bg;
+            buffer[i++] = pixel;
+            buffer[i++] = pixel;
+          }
+        }
+      }
+      ili9341_write_frame_rectangleLE(x, y, 32, 32, buffer);
+    }
   }
 
   void draw_numbers() {
@@ -3203,6 +3279,40 @@
           ili9341_write_frame_rectangleLE(x + 4, 12, bw * 2, 8, buffer);
         }
         #endif
+
+        /* USB gamepad icon */
+        {
+          bool usb = odroid_input_usb_gamepad_connected();
+          int i = 0, x = SCREEN.w - 184;
+          for (int h = 0; h < 16; h++) {
+            for (int sh = 0; sh < 2; sh++) {
+              for (int w = 0; w < 16; w++) {
+                buffer[i++] = usb_gamepad_icon[h][w] == WHITE
+                              ? (usb ? GUI.hl : 0x4208) : 0x0000;
+                buffer[i++] = usb_gamepad_icon[h][w] == WHITE
+                              ? (usb ? GUI.hl : 0x4208) : 0x0000;
+              }
+            }
+          }
+          ili9341_write_frame_rectangleLE(x, 0, 32, 32, buffer);
+        }
+
+        /* GPIO gamepad icon */
+        {
+          bool gpio = odroid_input_gpio_pad_detected();
+          int i = 0, x = SCREEN.w - 224;
+          for (int h = 0; h < 16; h++) {
+            for (int sh = 0; sh < 2; sh++) {
+              for (int w = 0; w < 16; w++) {
+                buffer[i++] = gpio_gamepad_icon[h][w] == WHITE
+                              ? (gpio ? GUI.hl : 0x4208) : 0x0000;
+                buffer[i++] = gpio_gamepad_icon[h][w] == WHITE
+                              ? (gpio ? GUI.hl : 0x4208) : 0x0000;
+              }
+            }
+          }
+          ili9341_write_frame_rectangleLE(x, 0, 32, 32, buffer);
+        }
 
         GUI.bg = saved_bg;
       }

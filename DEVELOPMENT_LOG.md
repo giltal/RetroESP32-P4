@@ -2125,3 +2125,116 @@ For `.xex` files, `BINLOAD_Loader()` sets `BINLOAD_start_binloading=TRUE` and ke
 | `components/atari800/statesav.h` | `STATESAV_MAX_SIZE` 210000 → 300000 |
 | `launcher/main/main.c` | `has_save_file()`: replaced `opendir()`/`readdir()` scan with `stat()` check |
 | `launcher/sdkconfig` | Enabled `CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG` for debug visibility on COM30 |
+
+---
+
+## Phase 40 — Custom GPIO Gamepad Support
+
+**Date:** 2026-04-10
+**Status:** Complete
+
+### Overview
+
+Added support for a custom GPIO-based gamepad that operates in parallel with the USB HID gamepad. The custom pad uses analog (ADC2) channels for joystick and A/B buttons, plus digital GPIO pins for L1, L2, X, Y, Start, and Select. Detection is automatic via pull-up on GPIO 29 — if a physical pull-down is present (pad connected), the GPIO gamepad logic activates.
+
+### Pin Map
+
+| Function | GPIO | Type | Notes |
+|----------|------|------|-------|
+| Joy Left/Right | 49 | ADC2_CH0 | HIGH=Right, MID=Left |
+| Joy Up/Down | 50 | ADC2_CH1 | HIGH=Down, MID=Up |
+| A/B Buttons | 52 | ADC2_CH3 | HIGH=A, MID=B |
+| L1 (+ detection) | 29 | Digital | Physical pull-down; pull-up check for detection |
+| L2 | 30 | Digital | Physical pull-down |
+| X (→ MENU) | 33 | Digital | Physical pull-down; maps to ODROID_INPUT_MENU |
+| Y | 34 | Digital | Physical pull-down |
+| Start | 28 | Digital | Physical pull-down |
+| Select | 32 | Digital | Physical pull-down |
+| Paddle | 51 | ADC2_CH2 | Moved from GPIO 52 to avoid conflict with A/B |
+
+### ADC Thresholds (measured from hardware)
+
+- **HIGH:** >2800 (actual reading ~3300)
+- **MID:** 1200–2200 (actual reading ~1650)
+
+### Detection Logic
+
+1. Configure GPIO 29 as input with internal pull-up
+2. Short delay (10ms) for voltage to settle
+3. Read GPIO 29: LOW = pad connected (physical pull-down wins), HIGH = no pad
+4. If detected: initialize ADC2 for 3 channels (CH0, CH1, CH3 — 12-bit, 11dB) + configure 6 digital pins as input
+
+### Behavior
+
+- GPIO pad state is OR'd with USB HID state in `odroid_input_gamepad_read()` — both work simultaneously
+- GPIO X/Y map to `ODROID_INPUT_X`/`ODROID_INPUT_Y` (same as USB), then the existing `odroid_input_xy_menu_disable` flag controls routing:
+  - **SNES/Genesis** (`flag=true`): X/Y pass through as native game buttons
+  - **All other emulators** (`flag=false`): X aliased to MENU, Y aliased to VOLUME
+- Paddle ADC (GPIO 51) reuses the GPIO pad's ADC2 handle if already initialized
+
+### Issues Debugged
+
+1. **ADC thresholds too high** — Initial thresholds (3500/1800-2300) missed real hardware values (~3300/~1650). Fixed to 2800/1200-2200.
+2. **GPIO 35 (X) floating HIGH** — GPIO 35 had no physical pull-down, read HIGH constantly, triggering MENU on every frame. Moved X to GPIO 33 (has physical pull-down).
+3. **X→MENU blocking browser** — When GPIO pad detected, USB auto-mapping of X→MENU was still active, causing double-trigger. Fixed by disabling USB auto-mapping when GPIO pad is active.
+4. **GPIO X hardcoded to MENU broke SNES/Genesis** — GPIO pad X was mapped directly to `ODROID_INPUT_MENU` instead of `ODROID_INPUT_X`. This meant on SNES/Genesis (which set `odroid_input_xy_menu_disable=true`), GPIO X always opened the menu instead of sending the game X button. Fixed: GPIO X now sets `ODROID_INPUT_X`, same pipeline as USB.
+5. **`!s_gpio_pad_detected` guard broke USB X/Y** — The X→MENU/Y→VOLUME aliasing block had a `!s_gpio_pad_detected` condition that disabled the aliasing for ALL inputs (including USB) when GPIO pad was connected. This broke USB X→MENU and USB/GPIO Y→VOLUME on NES, GB, SMS, etc. Fixed: removed the guard — the `odroid_input_xy_menu_disable` flag alone controls aliasing.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `components/odroid/odroid_input.c` | Added GPIO pad detection (`gpio_pad_detect_and_init`), reading (`gpio_pad_read`), pin defines, ADC thresholds. Paddle moved to GPIO 51/CH2. GPIO X/Y map to `ODROID_INPUT_X`/`ODROID_INPUT_Y` (not MENU/VOLUME directly). X/Y→MENU/VOLUME aliasing controlled solely by `odroid_input_xy_menu_disable` flag. |
+
+---
+
+## Phase 41 — Gamepad Status Icons in Launcher
+
+**Date:** 2026-04-10
+**Status:** Complete
+
+### Overview
+
+Added two gamepad connection status icons to the launcher's top-right status bar, alongside the existing brightness, speaker, and battery icons. Icons show whether a USB HID gamepad and/or the custom GPIO gamepad are connected.
+
+### Icon Layout (right-to-left)
+
+| Position | Icon | Description |
+|----------|------|-------------|
+| `SCREEN.w - 64` (x=736) | Battery | Existing |
+| `SCREEN.w - 104` (x=696) | Speaker/Volume | Existing |
+| `SCREEN.w - 144` (x=656) | Brightness | Existing |
+| `SCREEN.w - 184` (x=616) | USB Gamepad | **New** — controller outline shape |
+| `SCREEN.w - 224` (x=576) | GPIO Gamepad | **New** — D-pad + buttons shape |
+
+### Visual Design
+
+- **16×16 monochrome bitmaps**, rendered at **2× scale** (32×32 on screen), matching existing icon pattern
+- **Connected:** Theme highlight color (`GUI.hl`)
+- **Disconnected:** Dimmed foreground (`GUI.fg` on carousel, dark gray `0x4208` on artwork header)
+- USB icon: classic controller outline (D-pad left, face buttons right, grips at bottom)
+- GPIO icon: D-pad cross + two buttons above a flat base/board
+
+### API Additions
+
+Two new query functions exposed through `odroid_input.h`:
+- `bool odroid_input_gpio_pad_detected(void)` — returns `s_gpio_pad_detected` static state
+- `bool odroid_input_usb_gamepad_connected(void)` — wraps `gamepad_is_connected()` from `gamepad.h`
+
+### Rendering Locations
+
+Icons are drawn in **3 places** (matching the existing battery/speaker/brightness pattern):
+1. `draw_gamepad_icons()` — called from `draw_background()` (carousel screen, y=16)
+2. `show_system_artwork()` — inline code on artwork header (black stripe, y=0)
+3. `animate()` — inline code on artwork header during transitions (y=0)
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `launcher/main/sprites/gamepad_icons.h` | New file — two 16×16 monochrome sprite arrays (`usb_gamepad_icon`, `gpio_gamepad_icon`) |
+| `components/odroid/include/odroid_input.h` | Added `odroid_input_gpio_pad_detected()` and `odroid_input_usb_gamepad_connected()` declarations |
+| `components/odroid/odroid_input.c` | Implemented both query functions; added `gamepad.h` include |
+| `launcher/main/includes/core.h` | Added `#include "../sprites/gamepad_icons.h"` |
+| `launcher/main/includes/declarations.h` | Added `draw_gamepad_icons()` forward declaration |
+| `launcher/main/main.c` | Added `draw_gamepad_icons()` function; called from `draw_background()`; added inline icon rendering in `show_system_artwork()` and `animate()` |

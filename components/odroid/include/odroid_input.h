@@ -115,6 +115,18 @@ extern bool odroid_input_touch_buttons_disable;
  */
 void odroid_paddle_adc_init(void);
 
+/**
+ * @brief Check if the custom GPIO gamepad is detected.
+ * @return true if GPIO gamepad hardware is connected
+ */
+bool odroid_input_gpio_pad_detected(void);
+
+/**
+ * @brief Check if a USB HID gamepad is currently connected.
+ * @return true if USB gamepad is connected
+ */
+bool odroid_input_usb_gamepad_connected(void);
+
 #ifdef __cplusplus
 }
 #endif
