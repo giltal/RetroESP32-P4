@@ -129,6 +129,13 @@ void gamepad_buttons_to_str(uint32_t buttons, char *buf, size_t buf_size);
  */
 int gamepad_get_raw_report(uint8_t *buf, size_t buf_size);
 
+/**
+ * @brief Get the VID and PID of the currently connected USB gamepad
+ * @param[out] vid  Vendor ID (0 if no device)
+ * @param[out] pid  Product ID (0 if no device)
+ */
+void gamepad_get_vid_pid(uint16_t *vid, uint16_t *pid);
+
 #ifdef __cplusplus
 }
 #endif

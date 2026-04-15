@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** April 2026 — **Phase 39: Atari 800 save/load state fix** (LIBATARI800 in-memory buffer was never flushed to SD card — SaveState/LoadState now use LIBATARI800_StateSave/StateLoad API with explicit fwrite/fread to SD), **Phase 38: PAPP performance optimization — AXI-GDMA & dual-core benchmarking** (two new PPA hardware blend functions with foreground color-key transparency — `ppa_blend_colorkey_rgb565()` and `ppa_blend_colorkey_rgb565_to()` with RGB565→RGB888 threshold expansion; two new PAPP services — `png_load_rgb565` loads PNG from SD with byte-swap+R↔B for MIPI, `sprite_blit` does PPA hardware color-keyed blend with lazy-allocated DMA-aligned output buffer to avoid in-place DMA conflict, software fallback on failure; `svc_mem_caps_alloc` now uses 64-byte cache-line-aligned allocation when DMA requested; template demo upgraded to sprite demo — loads background.png+spaceship.png from SD, PPA composites spaceship with black colorkey, D-pad movement; `build_template.ps1` fixed for PS 5.1 Join-Path 2-arg limit), **Phase 36: PAPP Template project & launcher PAPP preview** (created `ESP32_P4_PAPP_Template/` — complete template project for building PAPP applications with 400×240 RGB565 framebuffer, PPA rotate 270° + scale 2× to fill 480×800 LCD, ball demo app with gamepad input, CONTEXT.md with full API reference, self-contained `build_template.ps1` build script; launcher PAPP preview — when browsing the PAPP folder, loads and displays a 300×300 PNG preview image alongside highlighted `.papp` files, cached to avoid reload, right-aligned vertically centered in browser area, full list redraw in PAPP mode to prevent filename overlap; launcher version bumped to v3.1), **Phase 35: Stella paddle fixes, launcher favorites, touch search keyboard, carousel short names & settings cleanup** (Atari 2600 paddle full-range fix — `<=` TRIGMAX with else snap, ADC clamp calibrated 5–3340 from measured GPIO 52 range, EMA alpha 0.6/dead zone 50 for snappy response; NES-style interactive volume overlay for Stella — bordered box, colored bar with segments, L/R adjust, Y cycle, auto-dismiss; launcher favorite star icons — yellow 16×16 bitmap at right edge of browser rows with fav_cache system; launcher touch search keyboard — full QWERTY overlay with GT911 touch input, incremental prefix search, DEL/SPACE/CLOSE keys, `odroid_input_touch_buttons_disable` flag to prevent touch-zone phantom button presses during keyboard use; carousel short names — `SHORT_NAMES[]` array with `NES`, `GB`, `GBC`, etc. shown under icons at 1× font scale as `NES (43)` and in header bar as `NES (43 files)` in yellow across all carousel views; settings page simplified to 3 options — Clear Recents/Volume/Brightness, themes/colored icons/cover art removed, volume and brightness bars repositioned inline with text), **Phase 34: Release prep & script fixes** (removed `SDcard/` from `.gitignore` so SD card content is tracked in git; fixed `generate_merged_bin.ps1` — hashtable `+=` and em-dash encoding broke argument list in PowerShell 5.1, rewrote with parallel string arrays and `ArrayList.Add()`; regenerated merged firmware `RetroESP32_P4_v1.bin` 10.87 MB), **Phase 33: Duke3D gamepad, save/load, exit fixes** (full gamepad remapping: A=fire, B=open, X=jump, Y=crouch, L/R=weapon cycle via number key injection with held-key duration, AutoRun enabled; save/load fully working — buffer overflow fix, `access()` now probes SD for absolute paths, `numplayers` forced to 1, save name auto-fill + B button confirms; exit fix — `gameexit()` calls `_exit(0)` directly skipping heavy cleanup), **Phase 32: Duke Nukem 3D PSRAM app** (Chocolate Duke3D BUILD engine ported as fourth .papp, 320×200 8bpp→RGB565 via lcdpal[] LUT, 2.4× display scale, GRP archive from SD, multiple hang fixes: blocking getchar→return, sound precache skip, demo playback skip, menu MODE_MENU clear after skill selection, newgame() spin-wait timeout, cinematics skip; menu system working with New Game/Episode/Skill selection and in-game restart), **Phase 31: Quake audio & brightness fix** (audio task moved core 0→1, sample rate 11025→22050 Hz, mixer volume shift >>20→>>16 for proper levels, volume default 0.7→1.0, direct gamma 0.5 brightness boost in palette LUT via sqrtf curve), **Phase 30: Full rebuild & OpenTyrian cleanup** (removed OpenTyrian from `SYSTEMS[]` array, `get_ota_slot()`, `build_all.ps1`, `flash_all.ps1`, `generate_merged_bin.ps1`; fixed OTA slot mapping — SNES→ota_10, Genesis→ota_11; fixed Python env py3.11→py3.12; fixed `$ROOT` paths to `RetroESP32_P4_PSRAM`; full rebuild of launcher + 11 emulators; merged firmware binary 10.87 MB; single-shot flash at 0x0), **Phase 29: Quake PSRAM app** (WinQuake engine ported as third .papp, 320×240 software renderer, 8bpp→RGB565 native LE, 11025 Hz stereo audio, 256KB PSRAM-backed task stack via `xTaskCreateStaticPinnedToCore`, heap_caps_malloc redirect ≥1KB→PSRAM, stack overflow fix with static precache arrays, scale 2.0× for 480px LCD, gamma 0.7 for brightness, demo playback confirmed working), **Phase 28: PSRAM app stability, launcher cleanup, Atari 800 virtual keyboard** (I2S mutex deadlock fix for multi-app launches, FreeRTOS task exit crash fix, `_fstat` bug fix improving OpenTyrian load time, OpenTyrian removed from launcher carousel as standalone PSRAM app, NVS STEP bounds check prevents launcher reboot loop, Atari 800 virtual keyboard overlay with L1 toggle + Shift/Ctrl modifiers, prboom CMakeLists.txt fixed to not break other emulator builds), **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480→640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
+> **Last Updated:** April 2026 — **Phase 42.1: Battery ADC calibration & charging detection fix** (ESP32-P4 ADC reads ~15% low — empirical Vref 3861mV correction, battery range 3.3–3.9V under load, charging detection when bat_mv > 3900, curve-fitting calibration crashed device so reverted to empirical), **Phase 42: Battery level monitoring via GPIO 53** (real ADC2_CH4 battery voltage, 68K/100K divider, 4-sample averaging, charging bool in battery_state), **Phase 41: Gamepad status icons** (USB + GPIO gamepad 16×16 icons in launcher header), **Phase 40: Custom GPIO gamepad support** (analog joystick + buttons on ADC2, X/Y button mapping fix), **Phase 39: Atari 800 save/load state fix** (LIBATARI800 in-memory buffer was never flushed to SD card — SaveState/LoadState now use LIBATARI800_StateSave/StateLoad API with explicit fwrite/fread to SD), **Phase 38: PAPP performance optimization — AXI-GDMA & dual-core benchmarking** (two new PPA hardware blend functions with foreground color-key transparency — `ppa_blend_colorkey_rgb565()` and `ppa_blend_colorkey_rgb565_to()` with RGB565→RGB888 threshold expansion; two new PAPP services — `png_load_rgb565` loads PNG from SD with byte-swap+R↔B for MIPI, `sprite_blit` does PPA hardware color-keyed blend with lazy-allocated DMA-aligned output buffer to avoid in-place DMA conflict, software fallback on failure; `svc_mem_caps_alloc` now uses 64-byte cache-line-aligned allocation when DMA requested; template demo upgraded to sprite demo — loads background.png+spaceship.png from SD, PPA composites spaceship with black colorkey, D-pad movement; `build_template.ps1` fixed for PS 5.1 Join-Path 2-arg limit), **Phase 36: PAPP Template project & launcher PAPP preview** (created `ESP32_P4_PAPP_Template/` — complete template project for building PAPP applications with 400×240 RGB565 framebuffer, PPA rotate 270° + scale 2× to fill 480×800 LCD, ball demo app with gamepad input, CONTEXT.md with full API reference, self-contained `build_template.ps1` build script; launcher PAPP preview — when browsing the PAPP folder, loads and displays a 300×300 PNG preview image alongside highlighted `.papp` files, cached to avoid reload, right-aligned vertically centered in browser area, full list redraw in PAPP mode to prevent filename overlap; launcher version bumped to v3.1), **Phase 35: Stella paddle fixes, launcher favorites, touch search keyboard, carousel short names & settings cleanup** (Atari 2600 paddle full-range fix — `<=` TRIGMAX with else snap, ADC clamp calibrated 5–3340 from measured GPIO 52 range, EMA alpha 0.6/dead zone 50 for snappy response; NES-style interactive volume overlay for Stella — bordered box, colored bar with segments, L/R adjust, Y cycle, auto-dismiss; launcher favorite star icons — yellow 16×16 bitmap at right edge of browser rows with fav_cache system; launcher touch search keyboard — full QWERTY overlay with GT911 touch input, incremental prefix search, DEL/SPACE/CLOSE keys, `odroid_input_touch_buttons_disable` flag to prevent touch-zone phantom button presses during keyboard use; carousel short names — `SHORT_NAMES[]` array with `NES`, `GB`, `GBC`, etc. shown under icons at 1× font scale as `NES (43)` and in header bar as `NES (43 files)` in yellow across all carousel views; settings page simplified to 3 options — Clear Recents/Volume/Brightness, themes/colored icons/cover art removed, volume and brightness bars repositioned inline with text), **Phase 34: Release prep & script fixes** (removed `SDcard/` from `.gitignore` so SD card content is tracked in git; fixed `generate_merged_bin.ps1` — hashtable `+=` and em-dash encoding broke argument list in PowerShell 5.1, rewrote with parallel string arrays and `ArrayList.Add()`; regenerated merged firmware `RetroESP32_P4_v1.bin` 10.87 MB), **Phase 33: Duke3D gamepad, save/load, exit fixes** (full gamepad remapping: A=fire, B=open, X=jump, Y=crouch, L/R=weapon cycle via number key injection with held-key duration, AutoRun enabled; save/load fully working — buffer overflow fix, `access()` now probes SD for absolute paths, `numplayers` forced to 1, save name auto-fill + B button confirms; exit fix — `gameexit()` calls `_exit(0)` directly skipping heavy cleanup), **Phase 32: Duke Nukem 3D PSRAM app** (Chocolate Duke3D BUILD engine ported as fourth .papp, 320×200 8bpp→RGB565 via lcdpal[] LUT, 2.4× display scale, GRP archive from SD, multiple hang fixes: blocking getchar→return, sound precache skip, demo playback skip, menu MODE_MENU clear after skill selection, newgame() spin-wait timeout, cinematics skip; menu system working with New Game/Episode/Skill selection and in-game restart), **Phase 31: Quake audio & brightness fix** (audio task moved core 0→1, sample rate 11025→22050 Hz, mixer volume shift >>20→>>16 for proper levels, volume default 0.7→1.0, direct gamma 0.5 brightness boost in palette LUT via sqrtf curve), **Phase 30: Full rebuild & OpenTyrian cleanup** (removed OpenTyrian from `SYSTEMS[]` array, `get_ota_slot()`, `build_all.ps1`, `flash_all.ps1`, `generate_merged_bin.ps1`; fixed OTA slot mapping — SNES→ota_10, Genesis→ota_11; fixed Python env py3.11→py3.12; fixed `$ROOT` paths to `RetroESP32_P4_PSRAM`; full rebuild of launcher + 11 emulators; merged firmware binary 10.87 MB; single-shot flash at 0x0), **Phase 29: Quake PSRAM app** (WinQuake engine ported as third .papp, 320×240 software renderer, 8bpp→RGB565 native LE, 11025 Hz stereo audio, 256KB PSRAM-backed task stack via `xTaskCreateStaticPinnedToCore`, heap_caps_malloc redirect ≥1KB→PSRAM, stack overflow fix with static precache arrays, scale 2.0× for 480px LCD, gamma 0.7 for brightness, demo playback confirmed working), **Phase 28: PSRAM app stability, launcher cleanup, Atari 800 virtual keyboard** (I2S mutex deadlock fix for multi-app launches, FreeRTOS task exit crash fix, `_fstat` bug fix improving OpenTyrian load time, OpenTyrian removed from launcher carousel as standalone PSRAM app, NVS STEP bounds check prevents launcher reboot loop, Atari 800 virtual keyboard overlay with L1 toggle + Shift/Ctrl modifiers, prboom CMakeLists.txt fixed to not break other emulator builds), **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480→640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -2238,3 +2238,193 @@ Icons are drawn in **3 places** (matching the existing battery/speaker/brightnes
 | `launcher/main/includes/core.h` | Added `#include "../sprites/gamepad_icons.h"` |
 | `launcher/main/includes/declarations.h` | Added `draw_gamepad_icons()` forward declaration |
 | `launcher/main/main.c` | Added `draw_gamepad_icons()` function; called from `draw_background()`; added inline icon rendering in `show_system_artwork()` and `animate()` |
+
+---
+
+## Phase 42 — Battery Level Monitoring via GPIO 53
+
+**Date:** 2026-04-13
+**Status:** Complete
+
+### Overview
+
+Added real battery voltage monitoring via GPIO 53 (ADC2_CH4). A voltage divider on the hardware (68K from battery, 100K to GND) scales the battery voltage to the ADC-safe range. The launcher's existing battery icon (which was always showing 100% via stub functions) now displays the actual battery level.
+
+### Hardware
+
+- **GPIO 53** = ADC2_CH4 on ESP32-P4
+- **Voltage divider:** 68KΩ (high side, battery) + 100KΩ (low side, GND)
+- **Ratio:** V_gpio = V_bat × 100 / 168 (≈ 0.595)
+- **LiPo range:** 4.2V (full) → 3.0V (empty)
+- **At GPIO:** ~2.50V (full) → ~1.79V (empty)
+
+### Implementation
+
+- `odroid_input_battery_level_init()` — configures ADC2_CH4 with 12dB attenuation, 12-bit resolution. Reuses existing ADC2 handle from GPIO gamepad or paddle if already initialized.
+- `odroid_input_battery_level_read()` — averages 4 ADC samples, converts raw → GPIO mV (empirical Vref 3861mV) → battery mV using divider ratio, linear maps 3.3–3.9V to 0–100%. Detects charging state when bat_mv > 3900.
+- ADC2 handle sharing: battery → GPIO pad → paddle all share one `adc_oneshot_unit_handle_t`, whoever initializes first creates it.
+- Only the launcher calls `odroid_input_battery_level_init()` and draws the battery icon. Emulators don't use it.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `components/odroid/odroid_input.c` | Replaced battery stub functions with real ADC2_CH4 implementation. Added `BATTERY_ADC_CHANNEL`, `BATTERY_DIVIDER_NUM/DEN` defines. Added `s_battery_adc_handle` static. Updated paddle init to also check battery handle for ADC2 reuse. |
+| `components/odroid/include/odroid_input.h` | Added `bool charging` field to `odroid_battery_state` struct. |
+
+---
+
+## Phase 42.1 — Battery ADC Calibration & Charging Detection Fix
+
+**Date:** 2026-04-14
+**Status:** Complete
+
+### Problem
+
+Battery indicator always showed red (0–10%) even after a full overnight charge. On-screen debug revealed the ADC was reading ~3333mV when a multimeter measured 3.9V at the battery terminals — a ~15% systematic under-read.
+
+### Root Cause
+
+The ESP32-P4 ADC at 12dB attenuation does not follow the ideal `raw × 3300 / 4095` conversion accurately. The raw-to-mV mapping is non-linear and the effective full-scale voltage is higher than 3300mV. Additionally, the original 3.0V–4.2V LiPo mapping was based on textbook open-circuit values, but under load a full battery reads ~3.9V.
+
+### Attempted Fix: Curve-Fitting Calibration
+
+Used `esp_adc/adc_cali.h` + `adc_cali_create_scheme_curve_fitting()` — this **crashed the device** (dead screen). Reverted immediately.
+
+### Working Fix: Empirical Correction
+
+1. **ADC Vref correction:** Measured data point (displayed 3333mV vs actual 3900mV) gives ×1.17 correction. Applied as effective Vref of 3861mV: `gpio_mv = raw_avg * 3861 / 4095`. After correction, readings matched multimeter within ~25mV.
+
+2. **Battery range adjustment:** Changed from 3.0–4.2V (textbook) to 3.3–3.9V (practical under-load range). A full battery under device load reads ~3.9V, and 3.3V is approximately where the device would struggle to operate.
+
+3. **Charging detection:** When `bat_mv > 3900` (above the under-load ceiling), the device must be on charger. Sets `battery_state.charging = true`, battery bar shows full green, launcher can display "Charging" status.
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `components/odroid/odroid_input.c` | Empirical Vref 3861mV instead of raw×3300/4095. Battery range 3.3–3.9V. Charging flag when bat_mv > 3900. Removed temporary debug code (usb_serial_jtag.h include, printf, usb_serial_jtag_write_bytes). |
+| `components/odroid/include/odroid_input.h` | Added `bool charging` field to `odroid_battery_state`. Updated comment. |
+| `launcher/main/main.c` | `draw_battery()` shows full green bar when charging. Removed on-screen debug text overlay. |
+
+### Calibration Data
+
+| Condition | Multimeter | ADC (before fix) | ADC (after fix) |
+|-----------|-----------|-------------------|-----------------|
+| Charger disconnected, full battery | 3.9V | 3333mV (27%) | 3875mV (95%) |
+| Charger connected | 4.2V | — | 3975mV → "Charging" |
+| Under load, battery range | 3.3–3.9V | — | 3300–3900mV (0–100%) |
+
+---
+
+## Phase 43 — SNES SRAM Save Persistence
+
+### Problem
+SNES game progress (SRAM saves) was lost every time the user exited the emulator. The snes9x core tracked `CPU.SRAMModified` but the flag was silently cleared each frame — no SRAM was ever written to SD card.
+
+### Solution
+Added explicit SRAM file I/O to `apps/snes/main/snes_run.c`:
+
+- **`snes_get_sram_path()`** — Returns `/sd/odroid/data/snes/<rom_basename>.srm`
+- **`snes_load_sram()`** — Called after `LoadROM()` + SuperFX init. Reads `.srm` file into `Memory.SRAM` (size = `SRAMMask + 1`). Skips SuperFX games where SRAM region overlaps GSU RAM.
+- **`snes_save_sram()`** — Called on emulator exit (before video/audio task cleanup). Writes `Memory.SRAM` to `.srm` file. Skips SuperFX games.
+- **Auto-resume** — Checks `odroid_settings_StartAction_get() == RESTART`, resets to NORMAL, calls `snes_do_load_state()`.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `apps/snes/main/snes_run.c` | Added `snes_get_sram_path()`, `snes_load_sram()`, `snes_save_sram()`, auto-resume logic |
+
+---
+
+## Phase 44 — USB Controller Button Mapping
+
+### Problem
+Different USB controllers send different HID button bitmasks for the same logical button (A, B, X, Y, etc.). A hardcoded mapping only worked for one controller model.
+
+### Solution
+Implemented a per-device button mapping system with a settings wizard:
+
+1. **VID/PID tracking** (`components/gamepad/gamepad.c`) — On USB HID device connect, retrieves Vendor ID and Product ID via `hid_host_get_device_info()`. Stored as static vars, cleared on disconnect. New API: `gamepad_get_vid_pid()`.
+
+2. **Mapping table** (`components/odroid/odroid_input.c`) — `odroid_usb_map_t` holds 8 button bitmasks (A, B, X, Y, L, R, SELECT, START). Auto-loads from SD card on first gamepad read or when VID/PID changes. Map files stored at `/sd/odroid/gamepad/XXXX_YYYY.map` (binary: "GMAP" magic + 8×uint32_t LE). Falls back to built-in defaults if no map file exists.
+
+3. **Settings wizard** (`launcher/main/main.c`) — New "MAP CONTROLLER" option in settings menu. Prompts user to press each button sequentially, records the raw HID bitmask, saves the mapping file keyed by VID:PID.
+
+### Partition Table Update
+Launcher binary grew from 620KB to 706KB, exceeding the factory partition size (0xB0000 = 704KB). Expanded factory to 0xC0000 (768KB) and shifted ota_0 (NES) from 0xC0000 to 0xD0000.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `components/gamepad/gamepad.c` | Added `s_vid`/`s_pid` statics, VID/PID retrieval on connect, clear on disconnect, `gamepad_get_vid_pid()` |
+| `components/gamepad/include/gamepad.h` | Added `gamepad_get_vid_pid()` declaration |
+| `components/odroid/odroid_input.c` | Added mapping table with defaults, auto-load, `odroid_input_usb_map_load/save/get/set()` |
+| `components/odroid/include/odroid_input.h` | Added `odroid_usb_map_t`, `ODROID_USB_MAP_COUNT`, mapping API |
+| `launcher/main/main.c` | Added MAP CONTROLLER wizard, settings item #3 |
+| `launcher/main/includes/core.h` | Added `#include "gamepad.h"` |
+| `launcher/main/includes/declarations.h` | Added `run_map_controller_wizard()` forward declaration |
+| `partitions_ota.csv` | Expanded factory to 0xC0000, shifted ota_0 to 0xD0000 |
+| `flash_all.ps1` | Updated NES offset, fixed smart quotes/em dashes causing parse errors |
+| `generate_merged_bin.ps1` | Updated NES offset to 0xD0000 |
+
+---
+
+## Phase 44.1 — Auto-Detect Unknown USB Controllers
+
+### Problem
+When plugging in an unmapped USB controller (e.g. PS3 DualShock 3), the launcher would "freak out" — the default button mapping produced garbage input because the HID report format was completely different.
+
+### Solution
+Added automatic mapping wizard trigger for unknown controllers:
+
+1. **`odroid_input_usb_map_exists()`** — New API that checks whether a `.map` file exists on SD for the current controller's VID:PID, without loading it.
+
+2. **Startup auto-detect** — In `app_main()`, after initialization and before entering the main loop, checks if a USB controller is connected with no saved mapping. If so, launches the mapping wizard automatically.
+
+3. **Hot-plug detection** — The main launcher loop tracks the last-seen VID:PID. When a new controller is plugged in mid-session without a saved mapping, the wizard triggers immediately. Controllers with existing mappings load silently.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `components/odroid/odroid_input.c` | Added `odroid_input_usb_map_exists()` using `stat()` |
+| `components/odroid/include/odroid_input.h` | Added `odroid_input_usb_map_exists()` declaration |
+| `launcher/main/main.c` | Added startup auto-detect before `launcher()`, hot-plug detection with `last_wizard_vid/pid` tracking in main loop |
+
+---
+
+## Phase 44.2 — PS3 DualShock 3 Native Support
+
+### Problem
+The PS3 DualShock 3 uses a completely different HID report layout (49 bytes) than PS4/PS5. The format detector misidentified it as PS4 because both use report ID `0x01`, causing all buttons and axes to be read from wrong byte offsets — no button presses were detected.
+
+### PS3 DualShock 3 Report Format
+```
+Byte  0:  Report ID (0x01)
+Byte  1:  Reserved (0x00)
+Byte  2:  Digital buttons 1 — bit0=Sel, bit1=L3, bit2=R3, bit3=Start, bit4=Up, bit5=Right, bit6=Down, bit7=Left
+Byte  3:  Digital buttons 2 — bit0=L2, bit1=R2, bit2=L1, bit3=R1, bit4=Tri, bit5=Cir, bit6=Cross, bit7=Sq
+Byte  4:  PS button (bit0)
+Byte  5:  Reserved (0x00)
+Bytes 6-9: Analog sticks — LX, LY, RX, RY (0x80 = center)
+Bytes 18-19: L2/R2 analog pressure
+Total: 49 bytes
+```
+
+### Solution
+Added `GP_FORMAT_PS3` to the gamepad report parser:
+
+1. **Detection** — Identifies PS3 by: 49+ byte reports, report ID 0x01, byte[1]=0x00, axes at bytes 6-9 near center (0x60-0xA0), bytes 1-4 NOT near center (distinguishes from PS4 which has axes at bytes 1-4).
+
+2. **Parsing** — Full button mapping: Cross→A, Circle→B, Square→X, Triangle→Y, L1/R1/L2/R2 digital, Select/Start/L3/R3, PS button→Home, d-pad from digital bits (not hat switch), analog trigger pressure from bytes 18-19.
+
+3. **Format name array** — Updated deferred log output to include "PS3" in the format name list.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `components/gamepad/gamepad.c` | Added `GP_FORMAT_PS3` enum, PS3 detection in `detect_format()`, full PS3 report parsing in `parse_gamepad_report()`, updated format name array |

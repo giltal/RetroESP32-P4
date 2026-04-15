@@ -1,8 +1,8 @@
-# flash_all.ps1 — Flash all binaries to ESP32-P4 via COM30
+# flash_all.ps1 -- Flash all binaries to ESP32-P4 via COM30
 # Usage: .\flash_all.ps1
 # Requires ESP-IDF environment to be active
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # Ensure ESP-IDF environment is loaded
 $env:IDF_PYTHON_ENV_PATH = "C:\Users\97254\.espressif\python_env\idf5.5_py3.12_env"
@@ -16,14 +16,14 @@ $PORT = "COM30"
 Stop-Process -Name python -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 
-# ── Partition table layout (must match partitions_ota.csv) ─────
+# -- Partition table layout (must match partitions_ota.csv) -----
 # Name       Offset     Bin file
 $flash_map = @(
     @{ Offset = "0x2000";   File = "bootloader.bin";      Desc = "Bootloader" },
     @{ Offset = "0x8000";   File = "partition-table.bin";  Desc = "Partition Table" },
     @{ Offset = "0xD000";   File = "ota_data_initial.bin"; Desc = "OTA Data (boot factory)" },
     @{ Offset = "0x10000";  File = "launcher.bin";         Desc = "Launcher (factory)" },
-    @{ Offset = "0x0C0000"; File = "nes_app.bin";          Desc = "NES (ota_0)" },
+    @{ Offset = "0x0D0000"; File = "nes_app.bin";          Desc = "NES (ota_0)" },
     @{ Offset = "0x160000"; File = "gb_app.bin";           Desc = "GB/GBC (ota_1)" },
     @{ Offset = "0x200000"; File = "sms_app.bin";          Desc = "SMS/GG/COL (ota_2)" },
     @{ Offset = "0x350000"; File = "spectrum_app.bin";     Desc = "ZX Spectrum (ota_3)" },
@@ -58,7 +58,7 @@ foreach ($entry in $flash_map) {
         $args_list += $entry.Offset
         $args_list += $path
     } else {
-        Write-Host "  $($entry.Desc): MISSING $($entry.File) — skipping" -ForegroundColor Yellow
+        Write-Host "  $($entry.Desc): MISSING $($entry.File) - skipping" -ForegroundColor Yellow
         $missing += $entry.Desc
     }
 }
@@ -71,8 +71,8 @@ Write-Host "`n=== Flashing to $PORT ===" -ForegroundColor Green
 python -m esptool $args_list
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "`n=== Flash complete! ===" -ForegroundColor Green
+    Write-Host "=== Flash complete! ===" -ForegroundColor Green
 } else {
-    Write-Host "`n=== Flash FAILED ===" -ForegroundColor Red
+    Write-Host "=== Flash FAILED ===" -ForegroundColor Red
     exit 1
 }

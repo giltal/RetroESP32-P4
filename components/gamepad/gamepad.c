@@ -28,6 +28,7 @@ static const char *TAG = "gamepad";
 
 typedef enum {
     GP_FORMAT_UNKNOWN = 0,
+    GP_FORMAT_PS3,      /* [id=0x01][00][btn1][btn2][ps][00][LX][LY][RX][RY][pressure...]  49 bytes */
     GP_FORMAT_PS4,      /* [id=0x01][LX][LY][RX][RY][hat+btn1][btn2][btn3][L2][R2]... */
     GP_FORMAT_PS5,      /* [id=0x01][LX][LY][RX][RY][L2][R2][cnt][hat+btn1][btn2][btn3]... */
     GP_FORMAT_GENERIC,  /* [LX][LY][RX][RY][hat+btn][btn]... or [id][LX][LY]... */
@@ -48,6 +49,10 @@ static volatile int s_format_log_len = 0;      /* report len for deferred log */
 static volatile int s_raw_dump_count = 0;      /* how many raw dumps have been emitted */
 static uint8_t s_raw_dump_buf[64];             /* buffer for deferred raw hex dump */
 static volatile int s_raw_dump_len = 0;
+
+/* ========================= Device Identity ========================= */
+static uint16_t s_vid = 0;
+static uint16_t s_pid = 0;
 
 /* ========================= Event Queue ========================= */
 
@@ -89,6 +94,20 @@ static gp_report_format_t detect_format(const uint8_t *data, int len)
     /* Short report or no report ID → generic */
     if (len < 10 || data[0] != 0x01) {
         return GP_FORMAT_GENERIC;
+    }
+
+    /* PS3 DualShock 3: 49 bytes, id=0x01, byte[1]=0x00 (reserved),
+     * axes at bytes [6..9] near 0x80, bytes [1..4] are NOT axes (buttons, usually low). */
+    if (len >= 49) {
+        bool ps3_axes_center = (data[6] >= 0x60 && data[6] <= 0xA0) &&
+                               (data[7] >= 0x60 && data[7] <= 0xA0) &&
+                               (data[8] >= 0x60 && data[8] <= 0xA0) &&
+                               (data[9] >= 0x60 && data[9] <= 0xA0);
+        bool ps4_axes_center = (data[1] >= 0x70 && data[1] <= 0x90) &&
+                               (data[2] >= 0x70 && data[2] <= 0x90);
+        if (ps3_axes_center && !ps4_axes_center && data[1] == 0x00) {
+            return GP_FORMAT_PS3;
+        }
     }
 
     /* Long report with ID 0x01: PS4 or PS5 */
@@ -185,6 +204,44 @@ static void parse_gamepad_report(const uint8_t *data, int len)
     gs.connected = 1;
 
     switch (s_format) {
+    case GP_FORMAT_PS3:
+        /* PS3 DualShock 3: [0x01][00][btn1][btn2][ps_btn][00][LX][LY][RX][RY]...
+         * btn1 byte[2]: bit0=Sel bit1=L3 bit2=R3 bit3=Start bit4=Up bit5=Right bit6=Down bit7=Left
+         * btn2 byte[3]: bit0=L2 bit1=R2 bit2=L1 bit3=R1 bit4=Tri bit5=Cir bit6=Cross bit7=Sq
+         */
+        if (len < 10) break;
+        gs.axis_lx  = (int16_t)data[6] - 128;
+        gs.axis_ly  = (int16_t)data[7] - 128;
+        gs.axis_rx  = (int16_t)data[8] - 128;
+        gs.axis_ry  = (int16_t)data[9] - 128;
+        /* D-pad from byte 2 digital bits */
+        if (data[2] & 0x10) gs.dpad |= GAMEPAD_DPAD_UP;
+        if (data[2] & 0x20) gs.dpad |= GAMEPAD_DPAD_RIGHT;
+        if (data[2] & 0x40) gs.dpad |= GAMEPAD_DPAD_DOWN;
+        if (data[2] & 0x80) gs.dpad |= GAMEPAD_DPAD_LEFT;
+        /* Face buttons from byte 3 */
+        if (data[3] & 0x40) gs.buttons |= GAMEPAD_BTN_A;       /* Cross  */
+        if (data[3] & 0x20) gs.buttons |= GAMEPAD_BTN_B;       /* Circle */
+        if (data[3] & 0x80) gs.buttons |= GAMEPAD_BTN_X;       /* Square */
+        if (data[3] & 0x10) gs.buttons |= GAMEPAD_BTN_Y;       /* Triangle */
+        if (data[3] & 0x04) gs.buttons |= GAMEPAD_BTN_L1;
+        if (data[3] & 0x08) gs.buttons |= GAMEPAD_BTN_R1;
+        if (data[3] & 0x01) gs.buttons |= GAMEPAD_BTN_L2;
+        if (data[3] & 0x02) gs.buttons |= GAMEPAD_BTN_R2;
+        /* System buttons from byte 2 */
+        if (data[2] & 0x01) gs.buttons |= GAMEPAD_BTN_SELECT;
+        if (data[2] & 0x08) gs.buttons |= GAMEPAD_BTN_START;
+        if (data[2] & 0x02) gs.buttons |= GAMEPAD_BTN_L3;
+        if (data[2] & 0x04) gs.buttons |= GAMEPAD_BTN_R3;
+        /* PS button from byte 4 */
+        if (data[4] & 0x01) gs.buttons |= GAMEPAD_BTN_HOME;
+        /* Analog triggers (if report long enough) */
+        if (len >= 20) {
+            gs.brake    = ((uint16_t)data[18]) << 2;   /* L2 pressure */
+            gs.throttle = ((uint16_t)data[19]) << 2;   /* R2 pressure */
+        }
+        break;
+
     case GP_FORMAT_PS4:
         /* PS4: [0x01][LX][LY][RX][RY][hat+btn1][btn2][btn3][L2][R2]... */
         if (len < 10) break;
@@ -317,6 +374,8 @@ static void hid_interface_cb(hid_host_device_handle_t hid_dev,
         xSemaphoreTake(s_mutex, portMAX_DELAY);
         memset(&s_state, 0, sizeof(s_state));
         xSemaphoreGive(s_mutex);
+        s_vid = 0;
+        s_pid = 0;
         /* Reset format detection for next device */
         s_format = GP_FORMAT_UNKNOWN;
         s_detect_count = 0;
@@ -393,7 +452,7 @@ static void gamepad_task(void *arg)
         /* Deferred format detection log (avoid logging in USB callback context) */
         if (s_format_log_pending) {
             s_format_log_pending = 0;
-            const char *names[] = {"unknown", "PS4", "PS5", "Generic"};
+            const char *names[] = {"unknown", "PS3", "PS4", "PS5", "Generic"};
             ESP_LOGI(TAG, "Detected report format: %s (len=%d)", names[s_format], s_format_log_len);
         }
 
@@ -415,6 +474,14 @@ static void gamepad_task(void *arg)
 
                 if (params.proto != HID_PROTOCOL_KEYBOARD && params.proto != HID_PROTOCOL_MOUSE) {
                     ESP_LOGI(TAG, "==> Gamepad detected!");
+
+                    /* Retrieve VID/PID for controller identification */
+                    hid_host_dev_info_t dev_info;
+                    if (hid_host_get_device_info(evt.hid_handle, &dev_info) == ESP_OK) {
+                        s_vid = dev_info.VID;
+                        s_pid = dev_info.PID;
+                        ESP_LOGI(TAG, "Gamepad VID=0x%04X PID=0x%04X", s_vid, s_pid);
+                    }
                 }
 
                 /* Open device and configure interface callback */
@@ -642,4 +709,10 @@ int gamepad_get_raw_report(uint8_t *buf, size_t buf_size)
     int copy = (s_raw_dump_len < (int)buf_size) ? s_raw_dump_len : (int)buf_size;
     memcpy(buf, s_raw_dump_buf, copy);
     return copy;
+}
+
+void gamepad_get_vid_pid(uint16_t *vid, uint16_t *pid)
+{
+    if (vid) *vid = s_vid;
+    if (pid) *pid = s_pid;
 }

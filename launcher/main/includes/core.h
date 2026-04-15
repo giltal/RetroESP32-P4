@@ -68,6 +68,11 @@
 #include "audio.h"
 
 /*
+  Gamepad (USB HID controller)
+*/
+#include "gamepad.h"
+
+/*
   Touch Panel
 */
 #include "gt911_touch.h"

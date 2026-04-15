@@ -330,6 +330,75 @@ static char *snes_get_save_path(void)
     return strdup(pathBuf);
 }
 
+static char *snes_get_sram_path(void)
+{
+    char *romName = odroid_settings_RomFilePath_get();
+    if (!romName) return NULL;
+    char *fileName = odroid_util_GetFileNameWithoutExtension(romName);
+    free(romName);
+    if (!fileName) return NULL;
+    char pathBuf[256];
+    snprintf(pathBuf, sizeof(pathBuf), "/sd/odroid/data/snes/%s.srm", fileName);
+    free(fileName);
+    return strdup(pathBuf);
+}
+
+static void snes_load_sram(void)
+{
+    if (Memory.SRAMSize == 0) return;  /* ROM has no battery save */
+
+    char *path = snes_get_sram_path();
+    if (!path) return;
+
+    int sram_bytes = (Memory.SRAMMask + 1);
+    if (sram_bytes <= 0 || sram_bytes > 0x20000) { free(path); return; }
+
+    esp_err_t r = odroid_sdcard_open("/sd");
+    if (r != ESP_OK) { free(path); return; }
+
+    FILE *f = fopen(path, "rb");
+    if (f) {
+        size_t n = fread(Memory.SRAM, 1, sram_bytes, f);
+        fclose(f);
+        ESP_LOGI(TAG, "SRAM loaded: %d bytes from %s", (int)n, path);
+    } else {
+        ESP_LOGI(TAG, "No SRAM file found: %s (new game)", path);
+    }
+
+    odroid_sdcard_close();
+    free(path);
+}
+
+static void snes_save_sram(void)
+{
+    if (Memory.SRAMSize == 0) return;  /* ROM has no battery save */
+
+    char *path = snes_get_sram_path();
+    if (!path) return;
+
+    int sram_bytes = (Memory.SRAMMask + 1);
+    if (sram_bytes <= 0 || sram_bytes > 0x20000) { free(path); return; }
+
+    esp_err_t r = odroid_sdcard_open("/sd");
+    if (r != ESP_OK) { free(path); return; }
+
+    mkdir("/sd/odroid", 0775);
+    mkdir("/sd/odroid/data", 0775);
+    mkdir("/sd/odroid/data/snes", 0775);
+
+    FILE *f = fopen(path, "wb");
+    if (f) {
+        size_t n = fwrite(Memory.SRAM, 1, sram_bytes, f);
+        fclose(f);
+        ESP_LOGI(TAG, "SRAM saved: %d bytes to %s", (int)n, path);
+    } else {
+        ESP_LOGE(TAG, "Failed to write SRAM: %s", path);
+    }
+
+    odroid_sdcard_close();
+    free(path);
+}
+
 static bool snes_check_save_exists(void)
 {
     char *path = snes_get_save_path();
@@ -907,6 +976,11 @@ void snes_run(const char *rom_path)
 
     /* S9xInitDisplay already called inside snes_init_core() */
 
+    /* ── Load SRAM (battery saves) from SD — skip for SuperFX (uses SRAM as GSU RAM) ── */
+    if (!Settings.SuperFX) {
+        snes_load_sram();
+    }
+
     /* ── Initialize audio ── */
     odroid_audio_init(AUDIO_SAMPLE_RATE);
 
@@ -924,6 +998,15 @@ void snes_run(const char *rom_path)
     /* ── Create audio task (Core 1, signal-based) ── */
     xTaskCreatePinnedToCore(snes_audio_task, "snes_audio", 4096,
                             NULL, 6, &audioTaskHandle, 1);
+
+    /* ── Auto-resume: load save state if launcher requested it ── */
+    if (odroid_settings_StartAction_get() == ODROID_START_ACTION_RESTART) {
+        odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
+        if (snes_check_save_exists()) {
+            ESP_LOGI(TAG, "Auto-resuming from save state");
+            snes_do_load_state();
+        }
+    }
 
     /* ── Emulation loop ── */
     int frame_no = 0;
@@ -1079,6 +1162,11 @@ void snes_run(const char *rom_path)
 
     /* ── Shutdown ── */
     ESP_LOGI(TAG, "Exiting emulation loop");
+
+    /* Save SRAM (battery saves) to SD before cleanup — skip for SuperFX */
+    if (!Settings.SuperFX) {
+        snes_save_sram();
+    }
 
     /* Signal video task to exit */
     {

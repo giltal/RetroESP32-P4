@@ -25,6 +25,8 @@
 #include "gt911_touch.h"
 
 #include <string.h>
+#include <stdio.h>
+#include <sys/stat.h>
 #include "esp_log.h"
 #include "esp_adc/adc_oneshot.h"
 #include "soc/adc_channel.h"
@@ -51,6 +53,13 @@ static int64_t      s_touch_last_us = 0;
 /* ─── Paddle ADC (GPIO 51 = ADC2_CH2 on ESP32-P4) ───────────────── */
 #define PADDLE_ADC_UNIT    ADC_UNIT_2
 #define PADDLE_ADC_CHANNEL ADC_CHANNEL_2   /* GPIO 51 */
+
+/* ─── Battery ADC (GPIO 53 = ADC2_CH4 on ESP32-P4) ──────────────── */
+/*  Voltage divider: 68K (battery side) + 100K (GND side)             */
+/*  Vgpio = Vbat × 100 / 168  →  Vbat = Vgpio × 168 / 100           */
+#define BATTERY_ADC_CHANNEL ADC_CHANNEL_4  /* GPIO 53 */
+#define BATTERY_DIVIDER_NUM 168            /* R_high + R_low */
+#define BATTERY_DIVIDER_DEN 100            /* R_low */
 
 /* ─── Custom GPIO Gamepad (active when physical board detected) ──── */
 /*  Analog inputs (shared ADC2):                                      */
@@ -86,6 +95,25 @@ volatile int odroid_paddle_adc_raw = -1;
 bool odroid_input_xy_menu_disable = false;
 bool odroid_input_touch_buttons_disable = false;
 static adc_oneshot_unit_handle_t s_paddle_adc_handle = NULL;
+static adc_oneshot_unit_handle_t s_battery_adc_handle = NULL;
+
+/* ─── USB Gamepad Button Mapping ─────────────────────────────────── */
+/* Index: 0=A, 1=B, 2=X, 3=Y, 4=L, 5=R, 6=SELECT, 7=START */
+static odroid_usb_map_t s_usb_map = {
+    .btn = {
+        GAMEPAD_BTN_A,                        /* A */
+        GAMEPAD_BTN_B,                        /* B */
+        GAMEPAD_BTN_X,                        /* X */
+        GAMEPAD_BTN_Y,                        /* Y */
+        GAMEPAD_BTN_L1 | GAMEPAD_BTN_L2,      /* L */
+        GAMEPAD_BTN_R1 | GAMEPAD_BTN_R2,      /* R */
+        GAMEPAD_BTN_SELECT,                   /* SELECT */
+        GAMEPAD_BTN_START,                    /* START */
+    }
+};
+static bool s_usb_map_loaded = false;
+static uint16_t s_usb_map_vid = 0;  /* VID of the currently loaded map */
+static uint16_t s_usb_map_pid = 0;  /* PID of the currently loaded map */
 
 /* ─── GPIO gamepad detection & init ──────────────────────────────── */
 static void gpio_pad_detect_and_init(void)
@@ -228,6 +256,13 @@ void odroid_input_gamepad_read(odroid_gamepad_state *state)
     gamepad_get_state(&gp);
 
     if (gp.connected) {
+        /* Auto-load mapping for this controller if not yet loaded */
+        uint16_t vid = 0, pid = 0;
+        gamepad_get_vid_pid(&vid, &pid);
+        if (!s_usb_map_loaded || vid != s_usb_map_vid || pid != s_usb_map_pid) {
+            odroid_input_usb_map_load();
+        }
+
         /* D-pad — from dpad bitmask */
         state->values[ODROID_INPUT_UP]    = (gp.dpad & GAMEPAD_DPAD_UP)    ? 1 : 0;
         state->values[ODROID_INPUT_DOWN]  = (gp.dpad & GAMEPAD_DPAD_DOWN)  ? 1 : 0;
@@ -240,21 +275,17 @@ void odroid_input_gamepad_read(odroid_gamepad_state *state)
         if (gp.axis_lx < -64) state->values[ODROID_INPUT_LEFT]  = 1;
         if (gp.axis_lx >  64) state->values[ODROID_INPUT_RIGHT] = 1;
 
-        /* Face buttons — native SNES layout (A=right, B=bottom, X=top, Y=left) */
-        state->values[ODROID_INPUT_A]      = (gp.buttons & GAMEPAD_BTN_A)      ? 1 : 0;
-        state->values[ODROID_INPUT_B]      = (gp.buttons & GAMEPAD_BTN_B)      ? 1 : 0;
-        state->values[ODROID_INPUT_X]      = (gp.buttons & GAMEPAD_BTN_X)      ? 1 : 0;
-        state->values[ODROID_INPUT_Y]      = (gp.buttons & GAMEPAD_BTN_Y)      ? 1 : 0;
-
-        /* Shoulder buttons — L1 and L2 both trigger L; R1 and R2 both trigger R */
-        state->values[ODROID_INPUT_L]      = ((gp.buttons & GAMEPAD_BTN_L1) ||
-                                              (gp.buttons & GAMEPAD_BTN_L2)) ? 1 : 0;
-        state->values[ODROID_INPUT_R]      = ((gp.buttons & GAMEPAD_BTN_R1) ||
-                                              (gp.buttons & GAMEPAD_BTN_R2)) ? 1 : 0;
+        /* Buttons — from configurable mapping table */
+        state->values[ODROID_INPUT_A]      = (gp.buttons & s_usb_map.btn[0]) ? 1 : 0;
+        state->values[ODROID_INPUT_B]      = (gp.buttons & s_usb_map.btn[1]) ? 1 : 0;
+        state->values[ODROID_INPUT_X]      = (gp.buttons & s_usb_map.btn[2]) ? 1 : 0;
+        state->values[ODROID_INPUT_Y]      = (gp.buttons & s_usb_map.btn[3]) ? 1 : 0;
+        state->values[ODROID_INPUT_L]      = (gp.buttons & s_usb_map.btn[4]) ? 1 : 0;
+        state->values[ODROID_INPUT_R]      = (gp.buttons & s_usb_map.btn[5]) ? 1 : 0;
 
         /* System buttons */
-        state->values[ODROID_INPUT_SELECT] = (gp.buttons & GAMEPAD_BTN_SELECT) ? 1 : 0;
-        state->values[ODROID_INPUT_START]  = (gp.buttons & GAMEPAD_BTN_START)  ? 1 : 0;
+        state->values[ODROID_INPUT_SELECT] = (gp.buttons & s_usb_map.btn[6]) ? 1 : 0;
+        state->values[ODROID_INPUT_START]  = (gp.buttons & s_usb_map.btn[7]) ? 1 : 0;
 
         /* Read paddle potentiometer if ADC has been initialised and
            GPIO gamepad is NOT active (GPIO pad reads paddle itself) */
@@ -311,9 +342,11 @@ void odroid_paddle_adc_init(void)
 {
     if (s_paddle_adc_handle) return;  /* already initialised */
 
-    /* If the GPIO gamepad already created ADC2, reuse its handle */
+    /* Reuse existing ADC2 handle if GPIO gamepad or battery already created it */
     if (s_gpio_pad_adc) {
         s_paddle_adc_handle = s_gpio_pad_adc;
+    } else if (s_battery_adc_handle) {
+        s_paddle_adc_handle = s_battery_adc_handle;
     } else {
         adc_oneshot_unit_init_cfg_t unit_cfg = {
             .unit_id = PADDLE_ADC_UNIT,
@@ -332,16 +365,82 @@ void odroid_paddle_adc_init(void)
 
 void odroid_input_battery_level_init(void)
 {
-    /* No battery on ESP32-P4 — stub */
-    ESP_LOGI(TAG, "Battery monitor: not available (no battery on P4)");
+    if (s_battery_adc_handle) return;  /* already initialised */
+
+    /* Reuse existing ADC2 handle if GPIO pad or paddle already created it */
+    if (s_gpio_pad_adc) {
+        s_battery_adc_handle = s_gpio_pad_adc;
+    } else if (s_paddle_adc_handle) {
+        s_battery_adc_handle = s_paddle_adc_handle;
+    } else {
+        adc_oneshot_unit_init_cfg_t unit_cfg = {
+            .unit_id = ADC_UNIT_2,
+        };
+        esp_err_t err = adc_oneshot_new_unit(&unit_cfg, &s_battery_adc_handle);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Battery ADC: unit init failed (%s)", esp_err_to_name(err));
+            return;
+        }
+    }
+
+    adc_oneshot_chan_cfg_t chan_cfg = {
+        .atten   = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_12,
+    };
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(s_battery_adc_handle,
+                                               BATTERY_ADC_CHANNEL, &chan_cfg));
+
+    ESP_LOGI(TAG, "Battery ADC initialised: ADC2_CH4 (GPIO 53), divider 68K/100K");
 }
 
 void odroid_input_battery_level_read(odroid_battery_state *state)
 {
     if (!state) return;
-    /* Always report full "battery" */
-    state->millivolts = 4200;
-    state->percentage = 100;
+
+    if (!s_battery_adc_handle) {
+        /* Not initialised — report full */
+        state->millivolts = 4200;
+        state->percentage = 100;
+        return;
+    }
+
+    /* Average 4 samples for stability */
+    int sum = 0;
+    int ok_count = 0;
+    for (int i = 0; i < 4; i++) {
+        int raw = 0;
+        esp_err_t err = adc_oneshot_read(s_battery_adc_handle, BATTERY_ADC_CHANNEL, &raw);
+        if (err == ESP_OK) {
+            sum += raw;
+            ok_count++;
+        }
+    }
+    int raw_avg = ok_count > 0 ? sum / ok_count : 0;
+
+    /* Convert: raw → mV at GPIO → mV at battery.
+     * ESP32-P4 ADC at 12dB atten reads ~15% low vs ideal 3300mV full-scale.
+     * Empirical correction: measured 3333mV vs multimeter 3900mV → ×1.17.
+     * Apply by using effective Vref of 3861mV (3300 × 1.17). */
+    int gpio_mv = raw_avg * 3861 / 4095;
+    int bat_mv  = gpio_mv * BATTERY_DIVIDER_NUM / BATTERY_DIVIDER_DEN;
+
+    /* Detect charging: voltage above full-battery-under-load threshold */
+    bool charging = (bat_mv > 3900);
+
+    /* Clamp to practical LiPo range under load.
+     * Full (just off charger, device running): ~3.9V
+     * Empty (device about to shut off):        ~3.3V */
+    if (bat_mv > 3900) bat_mv = 3900;
+    if (bat_mv < 3300) bat_mv = 3300;
+
+    /* Linear percentage: 3.3V = 0%, 3.9V = 100% */
+    int pct = (bat_mv - 3300) * 100 / (3900 - 3300);
+    if (pct > 100) pct = 100;
+    if (pct < 0)   pct = 0;
+
+    state->millivolts = bat_mv;
+    state->percentage = pct;
+    state->charging = charging;
 }
 
 void odroid_input_battery_monitor_enabled_set(bool enabled)
@@ -358,4 +457,119 @@ bool odroid_input_gpio_pad_detected(void)
 bool odroid_input_usb_gamepad_connected(void)
 {
     return gamepad_is_connected();
+}
+
+/* ─── USB Gamepad Button Mapping — file I/O ──────────────────────── */
+
+/* Map file format: 4-byte magic "GMAP", then ODROID_USB_MAP_COUNT × uint32_t LE */
+#define GMAP_MAGIC 0x50414D47  /* "GMAP" little-endian */
+
+static void usb_map_set_defaults(void)
+{
+    s_usb_map.btn[0] = GAMEPAD_BTN_A;
+    s_usb_map.btn[1] = GAMEPAD_BTN_B;
+    s_usb_map.btn[2] = GAMEPAD_BTN_X;
+    s_usb_map.btn[3] = GAMEPAD_BTN_Y;
+    s_usb_map.btn[4] = GAMEPAD_BTN_L1 | GAMEPAD_BTN_L2;
+    s_usb_map.btn[5] = GAMEPAD_BTN_R1 | GAMEPAD_BTN_R2;
+    s_usb_map.btn[6] = GAMEPAD_BTN_SELECT;
+    s_usb_map.btn[7] = GAMEPAD_BTN_START;
+}
+
+static bool usb_map_get_path(char *buf, size_t buflen)
+{
+    uint16_t vid = 0, pid = 0;
+    gamepad_get_vid_pid(&vid, &pid);
+    if (vid == 0 && pid == 0) return false;
+    snprintf(buf, buflen, "/sd/odroid/gamepad/%04X_%04X.map", vid, pid);
+    return true;
+}
+
+bool odroid_input_usb_map_exists(void)
+{
+    char path[80];
+    if (!usb_map_get_path(path, sizeof(path))) return false;
+    struct stat st;
+    return (stat(path, &st) == 0);
+}
+
+void odroid_input_usb_map_load(void)
+{
+    uint16_t vid = 0, pid = 0;
+    gamepad_get_vid_pid(&vid, &pid);
+
+    /* Default mapping first */
+    usb_map_set_defaults();
+    s_usb_map_loaded = true;
+    s_usb_map_vid = vid;
+    s_usb_map_pid = pid;
+
+    char path[80];
+    if (!usb_map_get_path(path, sizeof(path))) return;
+
+    /* Try to read from SD — SD may or may not be mounted */
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        ESP_LOGI(TAG, "No custom map for %04X:%04X, using defaults", vid, pid);
+        return;
+    }
+
+    uint32_t magic = 0;
+    if (fread(&magic, 4, 1, f) != 1 || magic != GMAP_MAGIC) {
+        ESP_LOGW(TAG, "Invalid map file magic for %04X:%04X", vid, pid);
+        fclose(f);
+        return;
+    }
+
+    uint32_t data[ODROID_USB_MAP_COUNT];
+    if (fread(data, sizeof(uint32_t), ODROID_USB_MAP_COUNT, f) != ODROID_USB_MAP_COUNT) {
+        ESP_LOGW(TAG, "Short map file for %04X:%04X", vid, pid);
+        fclose(f);
+        usb_map_set_defaults();
+        return;
+    }
+    fclose(f);
+
+    for (int i = 0; i < ODROID_USB_MAP_COUNT; i++)
+        s_usb_map.btn[i] = data[i];
+
+    ESP_LOGI(TAG, "Loaded custom map for %04X:%04X", vid, pid);
+}
+
+bool odroid_input_usb_map_save(const odroid_usb_map_t *map)
+{
+    if (!map) return false;
+
+    char path[80];
+    if (!usb_map_get_path(path, sizeof(path))) return false;
+
+    /* Ensure directories exist — SD should already be mounted by caller */
+    mkdir("/sd/odroid", 0775);
+    mkdir("/sd/odroid/gamepad", 0775);
+
+    FILE *f = fopen(path, "wb");
+    if (!f) {
+        ESP_LOGE(TAG, "Failed to create map file: %s", path);
+        return false;
+    }
+
+    uint32_t magic = GMAP_MAGIC;
+    fwrite(&magic, 4, 1, f);
+    fwrite(map->btn, sizeof(uint32_t), ODROID_USB_MAP_COUNT, f);
+    fclose(f);
+
+    /* Apply immediately */
+    memcpy(&s_usb_map, map, sizeof(odroid_usb_map_t));
+    ESP_LOGI(TAG, "Saved map to %s", path);
+    return true;
+}
+
+void odroid_input_usb_map_get(odroid_usb_map_t *map)
+{
+    if (map) memcpy(map, &s_usb_map, sizeof(odroid_usb_map_t));
+}
+
+void odroid_input_usb_map_set(const odroid_usb_map_t *map)
+{
+    if (map) memcpy(&s_usb_map, map, sizeof(odroid_usb_map_t));
 }

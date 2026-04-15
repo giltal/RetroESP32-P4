@@ -30,6 +30,7 @@ void draw_background();
 void count_all_roms();
 void create_settings();
 void draw_settings();
+void run_map_controller_wizard();
 
 /*
  Toggle

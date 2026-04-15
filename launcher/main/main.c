@@ -300,6 +300,16 @@
       display_flush();
     }
     //xTaskCreate(launcher, "launcher", 8192, NULL, 5, NULL);
+
+    /* Auto-detect unknown USB controller and launch mapping wizard */
+    if (odroid_input_usb_gamepad_connected() && !odroid_input_usb_map_exists()) {
+      run_map_controller_wizard();
+      /* Redraw after wizard */
+      draw_background();
+      restore_layout();
+      display_flush();
+    }
+
     launcher();
   }
 //}#pragma endregion Main
@@ -784,8 +794,94 @@
 
     draw_brightness();
 
+    y+=42;
+    draw_mask(x,y-1,400,38);
+    draw_text(x,y,(char *)"MAP CONTROLLER",false, SETTING == 3 ? true : false, false);
+
     display_flush();
   }
+
+  /* ─── MAP CONTROLLER wizard ─────────────────────────────────────── */
+  void run_map_controller_wizard(void)
+  {
+    if (!odroid_input_usb_gamepad_connected()) {
+      /* No controller — show message and return */
+      clear_screen();
+      draw_text(40, 200, (char *)"CONNECT USB CONTROLLER", false, true, false);
+      display_flush();
+      vTaskDelay(pdMS_TO_TICKS(2000));
+      return;
+    }
+
+    /* Button names in mapping order matching odroid_usb_map_t indices:
+       0=A, 1=B, 2=X, 3=Y, 4=L, 5=R, 6=SELECT, 7=START */
+    static const char *btn_names[ODROID_USB_MAP_COUNT] = {
+      "A", "B", "X", "Y", "L", "R", "SELECT", "START"
+    };
+
+    odroid_usb_map_t new_map;
+    memset(&new_map, 0, sizeof(new_map));
+
+    for (int i = 0; i < ODROID_USB_MAP_COUNT; i++) {
+      clear_screen();
+      char prompt[40];
+      snprintf(prompt, sizeof(prompt), "PRESS: %s", btn_names[i]);
+      draw_text(40, 180, prompt, false, true, false);
+
+      /* Sub-text showing progress */
+      char progress[32];
+      snprintf(progress, sizeof(progress), "(%d of %d)", i + 1, ODROID_USB_MAP_COUNT);
+      draw_text(40, 230, progress, false, false, false);
+      display_flush();
+
+      /* Wait for all buttons released first */
+      gamepad_state_t gp;
+      do {
+        vTaskDelay(pdMS_TO_TICKS(50));
+        gamepad_get_state(&gp);
+      } while (gp.buttons != 0);
+
+      /* Wait for a button press */
+      uint32_t pressed = 0;
+      while (pressed == 0) {
+        vTaskDelay(pdMS_TO_TICKS(30));
+        gamepad_get_state(&gp);
+        if (!gp.connected) {
+          /* Controller disconnected mid-wizard */
+          clear_screen();
+          draw_text(40, 200, (char *)"CONTROLLER DISCONNECTED", false, true, false);
+          display_flush();
+          vTaskDelay(pdMS_TO_TICKS(2000));
+          return;
+        }
+        pressed = gp.buttons;
+      }
+
+      new_map.btn[i] = pressed;
+
+      /* Brief flash to confirm */
+      clear_screen();
+      snprintf(prompt, sizeof(prompt), "%s: OK", btn_names[i]);
+      draw_text(40, 200, prompt, false, true, false);
+      display_flush();
+      vTaskDelay(pdMS_TO_TICKS(300));
+    }
+
+    /* Save to SD */
+    odroid_sdcard_open("/sd");
+    bool saved = odroid_input_usb_map_save(&new_map);
+    odroid_sdcard_close();
+
+    clear_screen();
+    if (saved) {
+      draw_text(40, 200, (char *)"MAPPING SAVED", false, true, false);
+    } else {
+      draw_text(40, 200, (char *)"SAVE FAILED", false, true, false);
+    }
+    display_flush();
+    vTaskDelay(pdMS_TO_TICKS(1500));
+  }
+
 //}#pragma endregion Settings
 
 //{#pragma region Toggle
@@ -1476,7 +1572,8 @@
       }
       ili9341_write_frame_rectangleLE(x, y, 32, 32, buffer);
 
-      int percentage = battery_state.percentage/10;
+      int percentage = battery_state.charging ? 100 : battery_state.percentage;
+      percentage /= 10;
       x += 4;
       y += 12;
       w = percentage > 0 ? percentage > 10 ? 10 : percentage : 10;
@@ -4409,9 +4506,32 @@
 //{#pragma region Launcher
   static void launcher() {
 
+  static uint16_t last_wizard_vid = 0, last_wizard_pid = 0;
+
   //{#pragma region Gamepad
     while (true) {
       odroid_input_gamepad_read(&gamepad);
+
+      /* Auto-map wizard: trigger when a new unknown USB controller is plugged in */
+      {
+        uint16_t vid = 0, pid = 0;
+        gamepad_get_vid_pid(&vid, &pid);
+        if (vid != 0 && pid != 0 &&
+            (vid != last_wizard_vid || pid != last_wizard_pid)) {
+          /* New controller detected — check if it has a mapping */
+          if (!odroid_input_usb_map_exists()) {
+            last_wizard_vid = vid;
+            last_wizard_pid = pid;
+            run_map_controller_wizard();
+            draw_background();
+            restore_layout();
+            display_flush();
+            continue;  /* re-read gamepad after wizard */
+          }
+          last_wizard_vid = vid;
+          last_wizard_pid = pid;
+        }
+      }
 
       /* ============================================================
        *  CAROUSEL MODE  (system selection)
@@ -4451,7 +4571,7 @@
         if (gamepad.values[ODROID_INPUT_UP]) {
           if (STEP == 0) {
             SETTING--;
-            if (SETTING < 0) SETTING = 2;
+            if (SETTING < 0) SETTING = 3;
             draw_settings();
           }
           usleep(200000);
@@ -4460,7 +4580,7 @@
         if (gamepad.values[ODROID_INPUT_DOWN]) {
           if (STEP == 0) {
             SETTING++;
-            if (SETTING > 2) SETTING = 0;
+            if (SETTING > 3) SETTING = 0;
             draw_settings();
           }
           usleep(200000);
@@ -4471,6 +4591,11 @@
           if (STEP == 0) {
             if (SETTING == 0) {
               delete_recents();
+            }
+            if (SETTING == 3) {
+              run_map_controller_wizard();
+              draw_background();
+              draw_settings();
             }
           } else if (STEP >= 3) {
             /* Enter ROM browser for emulator systems */

@@ -48,10 +48,11 @@ typedef struct {
     int values[ODROID_INPUT_MAX];
 } odroid_gamepad_state;
 
-/* Battery state (stub — P4 has no battery) */
+/* Battery state */
 typedef struct {
     int millivolts;
     int percentage;
+    bool charging;
 } odroid_battery_state;
 
 /**
@@ -126,6 +127,54 @@ bool odroid_input_gpio_pad_detected(void);
  * @return true if USB gamepad is connected
  */
 bool odroid_input_usb_gamepad_connected(void);
+
+/* ─── USB Gamepad Button Mapping ───────────────────────────────── */
+
+/** Number of mappable buttons (A, B, X, Y, L, R, SELECT, START) */
+#define ODROID_USB_MAP_COUNT 8
+
+/**
+ * @brief USB gamepad button mapping — maps GAMEPAD_BTN_* bitmask to each ODROID_INPUT.
+ * Index 0=A, 1=B, 2=X, 3=Y, 4=L, 5=R, 6=SELECT, 7=START.
+ * Each entry is a GAMEPAD_BTN_* bitmask (may combine multiple bits).
+ */
+typedef struct {
+    uint32_t btn[ODROID_USB_MAP_COUNT];
+} odroid_usb_map_t;
+
+/**
+ * @brief Check if a saved mapping file exists for the currently connected controller.
+ * @return true if /sd/odroid/gamepad/<VID>_<PID>.map exists
+ */
+bool odroid_input_usb_map_exists(void);
+
+/**
+ * @brief Load USB gamepad mapping for the currently connected controller.
+ * Looks for /sd/odroid/gamepad/<VID>_<PID>.map on SD card.
+ * If not found, uses default hardcoded mapping.
+ * Called automatically on first gamepad read after connect.
+ */
+void odroid_input_usb_map_load(void);
+
+/**
+ * @brief Save the given mapping for the currently connected controller.
+ * Writes to /sd/odroid/gamepad/<VID>_<PID>.map on SD card.
+ * @param map  The mapping to save
+ * @return true on success
+ */
+bool odroid_input_usb_map_save(const odroid_usb_map_t *map);
+
+/**
+ * @brief Get the currently active USB gamepad mapping.
+ * @param[out] map  Destination for the current mapping
+ */
+void odroid_input_usb_map_get(odroid_usb_map_t *map);
+
+/**
+ * @brief Set and immediately apply a new USB gamepad mapping.
+ * @param map  The mapping to apply
+ */
+void odroid_input_usb_map_set(const odroid_usb_map_t *map);
 
 #ifdef __cplusplus
 }
