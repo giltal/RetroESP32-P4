@@ -274,7 +274,11 @@ void odroid_input_gamepad_read(odroid_gamepad_state *state)
         if (gp.axis_ly >  64) state->values[ODROID_INPUT_DOWN]  = 1;
         if (gp.axis_lx < -64) state->values[ODROID_INPUT_LEFT]  = 1;
         if (gp.axis_lx >  64) state->values[ODROID_INPUT_RIGHT] = 1;
-
+        /* D-pad from mapped buttons (for controllers that report d-pad as buttons) */
+        if (s_usb_map.btn[8]  && (gp.buttons & s_usb_map.btn[8]))  state->values[ODROID_INPUT_UP]    = 1;
+        if (s_usb_map.btn[9]  && (gp.buttons & s_usb_map.btn[9]))  state->values[ODROID_INPUT_DOWN]  = 1;
+        if (s_usb_map.btn[10] && (gp.buttons & s_usb_map.btn[10])) state->values[ODROID_INPUT_LEFT]  = 1;
+        if (s_usb_map.btn[11] && (gp.buttons & s_usb_map.btn[11])) state->values[ODROID_INPUT_RIGHT] = 1;
         /* Buttons — from configurable mapping table */
         state->values[ODROID_INPUT_A]      = (gp.buttons & s_usb_map.btn[0]) ? 1 : 0;
         state->values[ODROID_INPUT_B]      = (gp.buttons & s_usb_map.btn[1]) ? 1 : 0;
@@ -474,6 +478,11 @@ static void usb_map_set_defaults(void)
     s_usb_map.btn[5] = GAMEPAD_BTN_R1 | GAMEPAD_BTN_R2;
     s_usb_map.btn[6] = GAMEPAD_BTN_SELECT;
     s_usb_map.btn[7] = GAMEPAD_BTN_START;
+    /* D-pad: 0 = use built-in hat switch / analog stick detection */
+    s_usb_map.btn[8]  = 0;  /* UP */
+    s_usb_map.btn[9]  = 0;  /* DOWN */
+    s_usb_map.btn[10] = 0;  /* LEFT */
+    s_usb_map.btn[11] = 0;  /* RIGHT */
 }
 
 static bool usb_map_get_path(char *buf, size_t buflen)
@@ -522,13 +531,16 @@ void odroid_input_usb_map_load(void)
     }
 
     uint32_t data[ODROID_USB_MAP_COUNT];
-    if (fread(data, sizeof(uint32_t), ODROID_USB_MAP_COUNT, f) != ODROID_USB_MAP_COUNT) {
-        ESP_LOGW(TAG, "Short map file for %04X:%04X", vid, pid);
-        fclose(f);
+    memset(data, 0, sizeof(data));
+    size_t nread = fread(data, sizeof(uint32_t), ODROID_USB_MAP_COUNT, f);
+    fclose(f);
+
+    if (nread < 8) {
+        ESP_LOGW(TAG, "Short map file for %04X:%04X (got %d entries)", vid, pid, (int)nread);
         usb_map_set_defaults();
         return;
     }
-    fclose(f);
+    /* Old 8-entry files: indices 8-11 stay 0 (use hat/axis fallback) */
 
     for (int i = 0; i < ODROID_USB_MAP_COUNT; i++)
         s_usb_map.btn[i] = data[i];

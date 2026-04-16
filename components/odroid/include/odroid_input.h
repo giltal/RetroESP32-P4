@@ -130,13 +130,15 @@ bool odroid_input_usb_gamepad_connected(void);
 
 /* ─── USB Gamepad Button Mapping ───────────────────────────────── */
 
-/** Number of mappable buttons (A, B, X, Y, L, R, SELECT, START) */
-#define ODROID_USB_MAP_COUNT 8
+/** Number of mappable inputs (A, B, X, Y, L, R, SELECT, START, UP, DOWN, LEFT, RIGHT) */
+#define ODROID_USB_MAP_COUNT 12
 
 /**
- * @brief USB gamepad button mapping — maps GAMEPAD_BTN_* bitmask to each ODROID_INPUT.
- * Index 0=A, 1=B, 2=X, 3=Y, 4=L, 5=R, 6=SELECT, 7=START.
+ * @brief USB gamepad button mapping -- maps GAMEPAD_BTN_* bitmask to each ODROID_INPUT.
+ * Index 0=A, 1=B, 2=X, 3=Y, 4=L, 5=R, 6=SELECT, 7=START,
+ *       8=UP, 9=DOWN, 10=LEFT, 11=RIGHT.
  * Each entry is a GAMEPAD_BTN_* bitmask (may combine multiple bits).
+ * D-pad entries (8-11): 0 means use built-in hat/axis detection.
  */
 typedef struct {
     uint32_t btn[ODROID_USB_MAP_COUNT];

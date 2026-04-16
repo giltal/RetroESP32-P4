@@ -2428,3 +2428,31 @@ Added `GP_FORMAT_PS3` to the gamepad report parser:
 | File | Change |
 |------|--------|
 | `components/gamepad/gamepad.c` | Added `GP_FORMAT_PS3` enum, PS3 detection in `detect_format()`, full PS3 report parsing in `parse_gamepad_report()`, updated format name array |
+
+---
+
+## Phase 44.3 — D-Pad Button Mapping Support
+
+### Problem
+Some USB controllers report d-pad directions as HID buttons rather than a hat switch or analog axes. The mapping wizard only captured 8 face/shoulder/system buttons, so these controllers had no working d-pad.
+
+### Solution
+Extended the USB map from 8 to 12 entries, adding mappable d-pad directions:
+
+1. **`ODROID_USB_MAP_COUNT`** — Changed from 8 to 12. New indices: 8=UP, 9=DOWN, 10=LEFT, 11=RIGHT.
+
+2. **Default values** — D-pad entries default to 0, meaning "use built-in hat switch and analog stick detection." This preserves behavior for controllers that use standard hat/axis d-pads.
+
+3. **Input reader** — After the existing hat switch and analog stick d-pad mapping, checks entries 8-11. If non-zero, OR's matched button bitmasks into d-pad state. Both methods stack: if a controller has both hat and button d-pad, both work.
+
+4. **Wizard** — Now prompts for 12 inputs (8 buttons + 4 d-pad). For d-pad entries, accepts button presses (stored as bitmask for button-based d-pads), OR hat/axis input (stored as 0, falling back to built-in detection).
+
+5. **Backward compatible** — Old 8-entry `.map` files load correctly; missing entries 8-11 default to 0. New `.map` files contain 12 entries (magic + 12 x uint32_t = 52 bytes).
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `components/odroid/include/odroid_input.h` | `ODROID_USB_MAP_COUNT` 8→12, updated `odroid_usb_map_t` docs |
+| `components/odroid/odroid_input.c` | Extended `usb_map_set_defaults()` to 12 entries, added d-pad button mapping in gamepad read, made loader tolerate old 8-entry files |
+| `launcher/main/main.c` | Wizard prompts for 12 inputs, d-pad entries accept button/hat/axis input |

@@ -814,15 +814,19 @@
     }
 
     /* Button names in mapping order matching odroid_usb_map_t indices:
-       0=A, 1=B, 2=X, 3=Y, 4=L, 5=R, 6=SELECT, 7=START */
+       0=A, 1=B, 2=X, 3=Y, 4=L, 5=R, 6=SELECT, 7=START,
+       8=UP, 9=DOWN, 10=LEFT, 11=RIGHT */
     static const char *btn_names[ODROID_USB_MAP_COUNT] = {
-      "A", "B", "X", "Y", "L", "R", "SELECT", "START"
+      "A", "B", "X", "Y", "L", "R", "SELECT", "START",
+      "D-PAD UP", "D-PAD DOWN", "D-PAD LEFT", "D-PAD RIGHT"
     };
 
     odroid_usb_map_t new_map;
     memset(&new_map, 0, sizeof(new_map));
 
     for (int i = 0; i < ODROID_USB_MAP_COUNT; i++) {
+      bool is_dpad = (i >= 8);
+
       clear_screen();
       char prompt[40];
       snprintf(prompt, sizeof(prompt), "PRESS: %s", btn_names[i]);
@@ -834,16 +838,19 @@
       draw_text(40, 230, progress, false, false, false);
       display_flush();
 
-      /* Wait for all buttons released first */
+      /* Wait for all inputs released first */
       gamepad_state_t gp;
       do {
         vTaskDelay(pdMS_TO_TICKS(50));
         gamepad_get_state(&gp);
-      } while (gp.buttons != 0);
+      } while (gp.buttons != 0 || gp.dpad != 0 ||
+               gp.axis_lx < -96 || gp.axis_lx > 96 ||
+               gp.axis_ly < -96 || gp.axis_ly > 96);
 
-      /* Wait for a button press */
+      /* Wait for an input */
       uint32_t pressed = 0;
-      while (pressed == 0) {
+      bool detected = false;
+      while (!detected) {
         vTaskDelay(pdMS_TO_TICKS(30));
         gamepad_get_state(&gp);
         if (!gp.connected) {
@@ -854,7 +861,20 @@
           vTaskDelay(pdMS_TO_TICKS(2000));
           return;
         }
-        pressed = gp.buttons;
+        /* Check buttons (works for both regular buttons and d-pad-as-buttons) */
+        if (gp.buttons != 0) {
+          pressed = gp.buttons;
+          detected = true;
+        }
+        /* For d-pad entries, also accept hat switch and analog stick */
+        if (is_dpad && !detected) {
+          if (gp.dpad != 0 ||
+              gp.axis_lx < -96 || gp.axis_lx > 96 ||
+              gp.axis_ly < -96 || gp.axis_ly > 96) {
+            pressed = 0;  /* 0 = use built-in hat/axis detection */
+            detected = true;
+          }
+        }
       }
 
       new_map.btn[i] = pressed;
