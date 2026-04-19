@@ -1,0 +1,27 @@
+menu "RetroESP32 Platform"
+
+    config HDMI_OUTPUT
+        bool "Use HDMI output (LT8912) instead of LCD (ST7701)"
+        default n
+        help
+            When enabled, the display pipeline outputs to an HDMI monitor
+            via the LT8912 MIPI-to-HDMI bridge at 640x480 RGB888.
+            When disabled (default), the display outputs to the ST7701
+            480x800 MIPI DSI LCD panel.
+
+    config LT8912_I2C_SDA
+        int "LT8912 I2C SDA GPIO"
+        default 7
+        depends on HDMI_OUTPUT
+
+    config LT8912_I2C_SCL
+        int "LT8912 I2C SCL GPIO"
+        default 8
+        depends on HDMI_OUTPUT
+
+    config LT8912_RESET_GPIO
+        int "LT8912 Reset GPIO"
+        default 23
+        depends on HDMI_OUTPUT
+
+endmenu

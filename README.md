@@ -1,198 +1,151 @@
 # 🎮 RetroESP32-P4
 
-![Platform](https://img.shields.io/badge/platform-ESP32--P4-blue)
-![Status](https://img.shields.io/badge/status-active-success)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Performance](https://img.shields.io/badge/performance-60FPS-brightgreen)
-![UI](https://img.shields.io/badge/UI-touch--optimized-orange)
+RetroESP32-P4 is a retro gaming and application platform based on the powerful ESP32-P4.
+
+Built from my recent revival of the original RetroESP32, this project brings modern UI, **HDMI** support, touchscreen support, 14 emulators, and native apps running from SRAM.
+
+![image-20260419092805506](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419092805506.png)
 
 ---
 
-## 🧠 Overview
+# ✨ Features
 
-**RetroESP32-P4** is a high-performance retro gaming platform built on off the shelf ESP32-P4 platform (see picture), bringing together multiple classic systems into a single, compact device.
-The platform and the USB SNES controller available at AliExpress for around 35$ (both)
-
-🚀 Getting Started
-
-This platform is affordable, reliable, and performs great.
-Soon, I’ll be releasing a dedicated board that turns it into a fully standalone console.
-
-🧰 Setup Instructions
-
-Prepare SD Card
-
-Format your SD card as FAT32
-
-Copy all files from the SD folder onto the card
-
-**Flash Firmware**
-
-Flash RetroESP32_P4_v1.bin to address 0x0
-
-Recommended tool:
-👉 https://espressif.github.io/esptool-js/
-
-Add ROMs
-
-Copy your ROM files to the SD card (same structure as RetroESP32)
-
-Power On & Enjoy 🎮
-
-🖥️ GUI Improvements
-
-Files are now sorted
-
-File browser supports Page Up / Page Down
-
-Improved usability compared to the original RetroESP32
-
-⚠️ Recovery Mode
-
-If an emulator gets stuck:
-
-Press RESET
-
-Immediately touch and hold the screen
-
-The system will reboot back into the launcher
-
-🎮 Controls Notes
-
-SNES requires full button access, so:
-
-Menu and volume controls are handled via the touch screen
-
-🕹️ Atari Paddle Support
-
-To use paddle input:
-
-Connect a potentiometer:
-
-One side → 3.3V
-
-Other side → GND
-
-Middle (wiper) → IO51
-
-If rotation is reversed:
-
-Simply swap 3.3V and GND
-
-## 🎬 Demo (Add GIFs!)
-
-> Replace these with real recordings for maximum impact ⭐
-
-```
-![Launcher Demo](docs/images/launcher.gif)
-![SNES Gameplay](docs/images/snes.gif)
-```
-## 📸 Screenshots
-
-<img width="461" height="464" alt="image" src="https://github.com/user-attachments/assets/3823e33e-b138-437e-b063-3f2558e1ef88" />
-<img width="376" height="385" alt="image" src="https://github.com/user-attachments/assets/78103cdd-7762-476b-90b0-7cfaa3a09947" />
-
-<img src="C:\ESPIDFprojects\RetroESP32_P4\SDcard\system_art\papp.png" alt="papp" style="zoom: 80%;" />
-
-## 🚀 Features
-
-- 🎮 **14 emulators** (biggest number ever on an ESP!) + support to run apps from the SD card (folder named papp)
-- Apps currently In the SD card: **Open Tyrian, DOOM, Quake and Duke3D**
-- ⚡ Near full-speed emulation (60 FPS on all systems except for SNES and Mega Drive- I will try to improve)
-- 💾 Save / Load states (**SNES and Mega Drive from within the game**)
-- 🖥️ Touchscreen-optimized UI search in browse mode
-- 🎯 USB controller support (currently the one showed in the picture)
-- 🕹️ Paddle support for Atari (Via IO51)
-
-## 🎮 Supported Systems
+## 🎮 14 Supported Emulators
 
 - NES
-- Game Boy / GBC
-- Sega Master System / Game Gear
-- Atari 2600 / 7800 / 800XL / 5200
-- Atari Lynx
-- PC Engine (PCE)
-- ZX Spectrum (Kempston + virtual keyboard)
+- Game Boy
+- Game Boy Color
+- Game Gear
+- Sega Master System
 - ColecoVision
-- SNES (Titles which uses the FX accelerator are not supported for now)
-- SEGA Genesis - Mega Drive (Titles which uses the DSP accelerator are not supported for now)
-- Open Tyrian, DOOM, Quake and Duke3D via **Run Apps** entry in the launcher (more apps will be added in time)
+- Sinclair ZX
+- Atari Lynx
+- Atari 7800
+- Atari 2600 (Supports paddle for breakout, Kaboom and the alike in the console mode)
+- Atari 800XL / 5200  (Supports paddle for breakout, Kaboom and and the alike in the console mode)
+- PC Engine
+- SNES
+- Sega Genesis / Mega Drive
 
-## ⚡ Performance Breakdown
+## ⚡ Performance
 
-| System | Status | Notes |
-|--------|--------|------|
-| NES / GB / GBA | ✅ 60 FPS ||
-| SMS / GG | ✅ 60 FPS ||
-| Atari family | ✅ 60 FPS | Fixed legacy bugs |
-| PCE | ✅ 60 FPS | Major improvements |
-| SNES / Mega Drive | ⚠️ ~50 FPS | No for SuperFX / DSP |
-|The P4's PPA (Pixel Processing Accelerator) is in action for smooth graphics and speed|||
+- Most systems run at 60 FPS (without frame skips!)
+- SNES / Genesis run ~50 FPS
 
-### SNES Mega Drive \ Limitations
+## 💾 Save States
 
-- ❌ No Super FX\DSP support
-- ✔️ Most standard titles run well
+**All** emulators support Save / Load states (some from within the games)
 
-## 🧩 Architecture (Developer Insight)
+## 🎮 USB Gamepads
 
-This project is designed with performance and modularity in mind:
+Plug **any** USB controller and automatic button mapping starts on first use (**For the HDMI version you need L2 and R2 for Menu and Volume buttons in SNES and Genesis, a PS3 controller is best, cheap clones  are available on AliExpress**)
 
-- Separate emulator cores per system
-- Shared rendering pipeline (LCD optimized), using the **2D accelator** of the P4 for scale and rotate
-- Input abstraction layer (USB + touch)
-- Optimized memory usage for large ROMs
+![image-20260419093753500](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419093753500.png)
 
-### Key Challenges Solved
+---
 
-- Frame pacing for consistent 60 FPS
-- Efficient LCD updates (480x800)
-- Input latency minimization
-- Cross-emulator UI integration
+# 🖥️ Supported Hardware
 
-## 🎮 Controls
+## 1. Guition ESP32-P4 4.3" LCD
 
-- USB SNES controller (recommended)
-- Atari paddle support
+- 480x800 touchscreen (https://www.guition.com/esp32p4-display-module/esp32p4-display)
 
-## 🔧 Improvements Over Original RetroESP32
+- Full handheld mode
 
-- Fixed Atari 2600 issues
-- PCE now runs at full speed
-- Better stability across all systems
-- Enhanced UI/UX
-- Added more emulators
-- Save / load support for all emulators
-- Skip frames removed from all emulators
+- Can be purchased on AliExpress or from Guition site:
 
-## 🛠️ Hardware Requirements
+  ![image-20260419091837418](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419091837418.png)
 
-- ESP32-P4 board (The one the pictures)
-- 4.3" 480x800 touchscreen
-- SNES USB controller
+## 2. HDMI Version
 
-## 📁 ROM Setup
+- Guition ESP32-P4 board (https://www.guition.com/esp32p4-display-module/esp32p4-display-module)
 
-Place ROMs in their respective folders.
+- Olimex LT8912 CSI-to-HDMI bridge (https://www.olimex.com/Products/IoT/ESP32-P4/MIPI-HDMI/open-source-hardware) (**Be very careful to use the correct CSI flat cable**, better to buy it from Olimex - https://www.olimex.com/Products/IoT/ESP32-P4/FPC-15-1.0-150/)
 
-> ⚠️ Use only legally owned ROMs.
+  ![image-20260419091605829](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419091605829.png)
 
-## 🧩 Roadmap
+  ![image-20260419091951743](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419091951743.png)
 
-- [ ] Improve SNES performance
-- [ ] Investigate SuperFX feasibility
-- [ ] UI polish & animations
-- [ ] Bluetooth controller support
-- [ ] Dedicated board to make it a stand alone console (WIP)
+  ![image-20260419093151284](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419093151284.png)
 
-## 🤝 Contributing
+  
 
-Contributions welcome:
+  
 
-- Performance tuning
-- Emulator fixes
-- UI improvements
-- **New apps running from SD card directly** (In the Git there is a ready to use project with nice demo)
+---
+
+# 🧩 Native Apps from SRAM
+
+Apps load from SD card and execute directly from SRAM.
+
+Included:
+
+- Doom
+- Quake
+- Duke3D
+- OpenTyrian
+- Example demo template
+
+---
+
+# 🖥️ GUI Improvements
+
+- Modern launcher
+- Fast navigation
+- Search for ROM files
+- Better file browsing
+
+---
+
+# 🚀 Getting Started
+
+1. Format SD card to FAT32
+2. Copy contents of `/SDCARD`
+3. Flash firmware to address **0** (**RetroESP32_P4_v1**.bin or **RetroESP32_P4_HDMI_v1**.bin) (https://espressif.github.io/esptool-js/)
+4. Insert SD card
+5. Connect controller or plug into the console frame
+6. Enjoy
+
+---
+
+# 📦 Repository Contents
+
+- Firmware binaries
+- Source code
+- SD card files
+- Apps
+- Templates
+- Console board production file and schematic
+- STL files
+
+---
+
+# 🔧 Planned Future Updates
+
+- More emulators
+- Better performance
+- More apps
+- Improved UI
+- WiFi features
+- BLE controllers
+
+---
+
+# 🙌 Feedback
+
+This is only Version 1.
+
+Suggestions, testing results, and contributions are welcome.
+
+---
+
+# 📜 Credits
+
+Based on the original RetroESP32 project, revived and modernized for ESP32-P4.
+
+To original creators of the RetroESP32
+
+The creator of the ESP32 based Atari 800 emulator
 
 ## 📜 License
 
@@ -206,9 +159,8 @@ If you like this project:
 - 🍴 Fork it
 - 🧑‍💻 Contribute
 
----
+------
 
 ## 💥 Final Note
 
 RetroESP32-P4 is not just another emulator project — it's a demonstration of how far modern microcontrollers can go when optimized correctly.
-

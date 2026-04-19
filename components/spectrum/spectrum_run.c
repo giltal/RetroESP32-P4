@@ -293,8 +293,8 @@ static void zx_video_task(void *arg)
         xQueueReceive(zx_vidQueue, &fb, portMAX_DELAY);
         if (fb == NULL) break;  /* quit signal */
 
-        /* PPA does 2× scale + 270° rotation + byte-swap in one HW op */
-        ili9341_write_frame_rgb565_ex(fb, true);
+        /* PPA does 2× scale + 270° rotation in one HW op */
+        ili9341_write_frame_rgb565_ex(fb, false);
     }
     videoTaskIsRunning = false;
     vTaskDelete(NULL);

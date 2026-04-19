@@ -1,7 +1,11 @@
 /*
   Screen Dimensions in Pixels
 */
+#ifdef CONFIG_HDMI_OUTPUT
+#define WIDTH 640
+#else
 #define WIDTH 800
+#endif
 #define HEIGHT 480
 
 /*
@@ -13,7 +17,11 @@
 /*
   Show Battery Status
 */
+#ifdef CONFIG_HDMI_OUTPUT
+#define BATTERY false
+#else
 #define BATTERY true
+#endif
 
 /*
   Global Colors

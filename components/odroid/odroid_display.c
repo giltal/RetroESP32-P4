@@ -8,9 +8,15 @@
  */
 
 #include "odroid_display.h"
-#include "st7701_lcd.h"
 #include "ppa_engine.h"
 #include "pins_config.h"
+
+#ifdef CONFIG_HDMI_OUTPUT
+#include "hdmi_display.h"
+#include "esp_cache.h"
+#else
+#include "st7701_lcd.h"
+#endif
 
 #include <string.h>
 #include "esp_log.h"
@@ -22,17 +28,27 @@
 
 static const char *TAG = "odroid_display";
 
-/* Virtual framebuffer: 800×480 RGB565 (native resolution) */
+#ifdef CONFIG_HDMI_OUTPUT
+/* HDMI: 640×480 landscape, RGB888 (3 bytes/pixel) via LT8912 */
+#define FB_W  640
+#define FB_H  480
+static hdmi_display_t s_hdmi_disp;
+static bool s_hdmi_initialized = false;
+#else
+/* LCD: 800×480 landscape (rotated 270° to 480×800 portrait) */
 #define FB_W  800
 #define FB_H  480
+#endif
+
 #define FB_PIXELS (FB_W * FB_H)
-#define FB_SIZE   (FB_PIXELS * sizeof(uint16_t))
+#define FB_SIZE   (FB_PIXELS * sizeof(uint16_t))  /* internal drawing is always RGB565 */
 
 static uint16_t *s_framebuffer = NULL;
 static bool s_fb_dirty = false;
 static bool s_backlight_init = false;
 
-/* ─── Backlight (LEDC on GPIO23) ──────────────────────────────── */
+/* ─── Backlight (LEDC on GPIO23) — LCD only ───────────────────── */
+#ifndef CONFIG_HDMI_OUTPUT
 #define BL_GPIO       LCD_BK_LIGHT_GPIO
 #define BL_LEDC_CH    LEDC_CHANNEL_0
 #define BL_LEDC_TIMER LEDC_TIMER_0
@@ -64,9 +80,22 @@ static void backlight_init(void)
     s_backlight_init = true;
     ESP_LOGI(TAG, "Backlight LEDC initialized on GPIO %d", BL_GPIO);
 }
+#endif /* !CONFIG_HDMI_OUTPUT */
 
-/* ─── Pre-allocated PPA output buffer (rotate+scale) ──────────── */
-/* Max PPA output: 480×800 (full LCD). Actual size depends on scale factors. */
+/* ─── Pre-allocated PPA output buffer ──────────────────────────── */
+#ifdef CONFIG_HDMI_OUTPUT
+/* HDMI: PPA output is 640×480 RGB888 = 921,600 bytes.
+ * But we write directly to the HDMI DPI framebuffer (s_hdmi_disp.fb),
+ * so we only need a temporary PPA buffer for the launcher flush
+ * (RGB565→RGB888 conversion). Emulators also use this. */
+#define HDMI_OUT_W     640
+#define HDMI_OUT_H     480
+#define HDMI_OUT_BPP   3
+#define HDMI_OUT_SIZE  (HDMI_OUT_W * HDMI_OUT_H * HDMI_OUT_BPP)  /* 921600 */
+#define PPA_BUF_ALIGN  64
+/* s_ppa_out_buf not needed for HDMI — we write directly to s_hdmi_disp.fb */
+#else
+/* LCD: Max PPA output: 480×800 (full LCD). Actual size depends on scale factors. */
 #define PPA_OUT_MAX_W  480
 #define PPA_OUT_MAX_H  800
 #define PPA_OUT_MAX_SIZE (PPA_OUT_MAX_W * PPA_OUT_MAX_H * sizeof(uint16_t))  /* 768000 */
@@ -75,6 +104,7 @@ static void backlight_init(void)
 
 static void *s_ppa_out_buf = NULL;
 static size_t s_ppa_out_size = 0;
+#endif
 
 /* Emulator standard resolution (all Pipeline A emulators scale to this) */
 #define EMU_W 320
@@ -84,7 +114,9 @@ static size_t s_ppa_out_size = 0;
 
 /* Shared 320×240 intermediate buffer for Pipeline A emulators */
 static uint16_t *s_emu_scaled = NULL;
+#ifndef CONFIG_HDMI_OUTPUT
 static bool s_emu_borders_cleared_a = false;
+#endif
 
 /* Configurable scale factors (1×1 = native resolution → 480×800) */
 static float s_scale_x = 1.0f;
@@ -97,12 +129,30 @@ static int64_t s_timing_pal_acc = 0;
 static int     s_timing_count   = 0;
 #define TIMING_INTERVAL 60
 
-/* ─── Display flush: PPA rotate+scale → LCD (single operation) ── */
+/* ─── Display flush ───────────────────────────────────────────── */
 void display_flush(void)
 {
     if (!s_fb_dirty || !s_framebuffer) return;
     s_fb_dirty = false;
 
+#ifdef CONFIG_HDMI_OUTPUT
+    /* HDMI: PPA convert 640×480 RGB565 → RGB888 directly into HDMI DPI FB */
+    if (!s_hdmi_initialized) return;
+    int64_t t0 = esp_timer_get_time();
+    esp_err_t ret = ppa_scale_rgb565_to_rgb888(
+        s_framebuffer, FB_W, FB_H,
+        1.0f, 1.0f,
+        s_hdmi_disp.fb, s_hdmi_disp.fb_size,
+        NULL, NULL, false);  /* DSI outputs RGB byte order */
+    int64_t t1 = esp_timer_get_time();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "PPA RGB565→RGB888 flush failed (0x%x)", ret);
+        return;
+    }
+    esp_cache_msync(s_hdmi_disp.fb, s_hdmi_disp.fb_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+    int64_t t2 = esp_timer_get_time();
+#else
+    /* LCD: PPA rotate 270° + scale → push to ST7701 */
     /* Lazy-allocate the persistent PPA output buffer */
     if (!s_ppa_out_buf) {
         s_ppa_out_buf = heap_caps_aligned_calloc(
@@ -137,6 +187,7 @@ void display_flush(void)
 
     st7701_lcd_draw_rgb_bitmap(0, y_off, out_w, out_h, (const uint16_t *)s_ppa_out_buf);
     int64_t t2 = esp_timer_get_time();
+#endif /* CONFIG_HDMI_OUTPUT */
 
     s_timing_ppa_acc += (t1 - t0);
     s_timing_lcd_acc += (t2 - t1);
@@ -173,8 +224,28 @@ void display_set_scale(float sx, float sy)
  * Does the same thing as ili9341_write_frame_rgb565_ex() but without
  * lock/unlock, since the caller already owns the mutex.
  */
+/* ─── Emulator flush helper ────────────────────────────────────── */
 static void display_emu_flush_320x240(const uint16_t *buf, bool byte_swap)
 {
+#ifdef CONFIG_HDMI_OUTPUT
+    /* HDMI: PPA scale 320×240 RGB565 → 640×480 RGB888 into HDMI FB */
+    if (!s_hdmi_initialized) return;
+    int64_t t0 = esp_timer_get_time();
+    esp_err_t ret = ppa_scale_rgb565_to_rgb888(
+        buf, EMU_W, EMU_H,
+        (float)HDMI_OUT_W / EMU_W, (float)HDMI_OUT_H / EMU_H,
+        s_hdmi_disp.fb, s_hdmi_disp.fb_size,
+        NULL, NULL, false);  /* DSI outputs RGB byte order */
+    int64_t t1 = esp_timer_get_time();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "PPA emu HDMI flush failed (0x%x)", ret);
+        return;
+    }
+    esp_cache_msync(s_hdmi_disp.fb, s_hdmi_disp.fb_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+    int64_t t2 = esp_timer_get_time();
+    (void)byte_swap;
+#else
+    /* LCD: PPA 2× scale + 270° rotate → 480×640 */
     /* Lazy-allocate the persistent PPA output buffer */
     if (!s_ppa_out_buf) {
         s_ppa_out_buf = heap_caps_aligned_calloc(
@@ -216,6 +287,7 @@ static void display_emu_flush_320x240(const uint16_t *buf, bool byte_swap)
     uint16_t y_off = (lcd_h > out_h) ? (lcd_h - out_h) / 2 : 0;
     st7701_lcd_draw_rgb_bitmap(0, y_off, out_w, out_h, (const uint16_t *)s_ppa_out_buf);
     int64_t t2 = esp_timer_get_time();
+#endif /* CONFIG_HDMI_OUTPUT */
 
     s_timing_ppa_acc += (t1 - t0);
     s_timing_lcd_acc += (t2 - t1);
@@ -248,10 +320,25 @@ void ili9341_init(void)
     ESP_LOGI(TAG, "Virtual framebuffer allocated in PSRAM: %dx%d (%d bytes)",
              FB_W, FB_H, FB_SIZE);
 
-    /* Initialize backlight */
+#ifdef CONFIG_HDMI_OUTPUT
+    /* HDMI: Initialize the HDMI display (LT8912 via DSI) */
+    if (!s_hdmi_initialized) {
+        esp_err_t ret = hdmi_display_init(HDMI_MODE_640x480, &s_hdmi_disp);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "HDMI display init failed (0x%x)", ret);
+            return;
+        }
+        s_hdmi_initialized = true;
+        ESP_LOGI(TAG, "HDMI display initialized: %dx%d, fb=%p (%lu bytes)",
+                 s_hdmi_disp.h_res, s_hdmi_disp.v_res,
+                 s_hdmi_disp.fb, (unsigned long)s_hdmi_disp.fb_size);
+    }
+#else
+    /* LCD: Initialize backlight */
     if (!s_backlight_init) {
         backlight_init();
     }
+#endif
 }
 
 void ili9341_write_frame_rectangleLE(int x, int y, int w, int h, const uint16_t *data)
@@ -282,7 +369,11 @@ void ili9341_clear(uint16_t color)
 
 bool is_backlight_initialized(void)
 {
+#ifdef CONFIG_HDMI_OUTPUT
+    return s_hdmi_initialized;
+#else
     return s_backlight_init;
+#endif
 }
 
 uint16_t *display_get_framebuffer(void)
@@ -294,7 +385,11 @@ uint16_t *display_get_emu_buffer(void)
 {
     if (!s_emu_scaled) {
         s_emu_scaled = heap_caps_aligned_calloc(
-            64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            64, 1, EMU_SIZE, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+        if (!s_emu_scaled) {
+            s_emu_scaled = heap_caps_aligned_calloc(
+                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+        }
     }
     return s_emu_scaled;
 }
@@ -309,9 +404,14 @@ void display_emu_flush(void)
 void display_lcd_draw_raw(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
                           const uint16_t *data)
 {
+#ifdef CONFIG_HDMI_OUTPUT
+    /* HDMI: no direct portrait draw — no-op (HDMI has no portrait mode) */
+    (void)x; (void)y; (void)w; (void)h; (void)data;
+#else
     odroid_display_lock();
     st7701_lcd_draw_rgb_bitmap(x, y, w, h, data);
     odroid_display_unlock();
+#endif
 }
 
 /* ─── Display mutex for exclusive access ──────────────────────── */
@@ -365,13 +465,30 @@ void ili9341_write_frame_gb(uint16_t *buffer, int scale)
         /* Copy input into DMA-aligned temp buffer */
         memcpy(s_gb_temp, buffer, GB_PIXELS * sizeof(uint16_t));
 
-        /* Lazy-allocate shared 320×240 intermediate buffer */
+        /* Lazy-allocate shared 320×240 intermediate buffer (prefer internal SRAM) */
         if (!s_emu_scaled) {
             s_emu_scaled = heap_caps_aligned_calloc(
-                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+                64, 1, EMU_SIZE, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+            if (!s_emu_scaled) {
+                s_emu_scaled = heap_caps_aligned_calloc(
+                    64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            }
             if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock_gb_display(); return; }
         }
 
+#ifdef CONFIG_HDMI_OUTPUT
+        /* Software NN upscale 160×144 → 320×240 (PPA fractional scale leaves
+         * bottom rows unfilled; software fill is exact and avoids artifacts) */
+        for (int y = 0; y < EMU_H; y++) {
+            int src_y = y * GAMEBOY_HEIGHT / EMU_H;
+            const uint16_t *src_row = &s_gb_temp[src_y * GAMEBOY_WIDTH];
+            uint16_t *dst_row = &s_emu_scaled[y * EMU_W];
+            for (int x = 0; x < EMU_W; x++) {
+                dst_row[x] = src_row[x * GAMEBOY_WIDTH / EMU_W];
+            }
+        }
+        esp_cache_msync(s_emu_scaled, EMU_SIZE, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+#else
         /* PPA scale 160×144 → 320×240 */
         float sx = (float)EMU_W / GAMEBOY_WIDTH;   /* 2.0 */
         float sy = (float)EMU_H / GAMEBOY_HEIGHT;  /* 1.6667 */
@@ -387,6 +504,7 @@ void ili9341_write_frame_gb(uint16_t *buffer, int scale)
             odroid_display_unlock_gb_display();
             return;
         }
+#endif
 
         display_emu_flush_320x240(s_emu_scaled, false);
     }
@@ -428,10 +546,14 @@ void ili9341_write_frame_nes(uint8_t *buffer, uint16_t *myPalette, uint8_t scale
             s_nes_temp[i] = (pixel >> 8) | (pixel << 8);
         }
 
-        /* Lazy-allocate shared 320×240 intermediate buffer */
+        /* Lazy-allocate shared 320×240 intermediate buffer (prefer internal SRAM) */
         if (!s_emu_scaled) {
             s_emu_scaled = heap_caps_aligned_calloc(
-                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+                64, 1, EMU_SIZE, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+            if (!s_emu_scaled) {
+                s_emu_scaled = heap_caps_aligned_calloc(
+                    64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            }
             if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock_nes_display(); return; }
         }
 
@@ -502,13 +624,47 @@ void ili9341_write_frame_sms(uint8_t *buffer, uint16_t color[], uint8_t isGameGe
             }
         }
 
-        /* Lazy-allocate shared 320×240 intermediate buffer */
+        /* Lazy-allocate shared 320×240 intermediate buffer (prefer internal SRAM) */
         if (!s_emu_scaled) {
             s_emu_scaled = heap_caps_aligned_calloc(
-                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+                64, 1, EMU_SIZE, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+            if (!s_emu_scaled) {
+                s_emu_scaled = heap_caps_aligned_calloc(
+                    64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            }
             if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock_sms_display(); return; }
         }
 
+#ifdef CONFIG_HDMI_OUTPUT
+        if (isGameGear) {
+            /* Software NN upscale 160×144 → 320×240 (PPA fractional scale
+             * leaves bottom rows unfilled; software fill is exact) */
+            for (int y = 0; y < EMU_H; y++) {
+                int src_y = y * GAMEGEAR_HEIGHT / EMU_H;
+                const uint16_t *sr = &s_sms_temp[src_y * GAMEGEAR_WIDTH];
+                uint16_t *dr = &s_emu_scaled[y * EMU_W];
+                for (int x = 0; x < EMU_W; x++) {
+                    dr[x] = sr[x * GAMEGEAR_WIDTH / EMU_W];
+                }
+            }
+            esp_cache_msync(s_emu_scaled, EMU_SIZE, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+        } else {
+            /* SMS: 256×192 → 320×240 (exact 1.25× both axes, PPA handles it) */
+            float sx = (float)EMU_W / src_w;
+            float sy = (float)EMU_H / src_h;
+            uint32_t out_w = 0, out_h = 0;
+            esp_err_t ret = ppa_rotate_scale_rgb565_to(
+                s_sms_temp, src_w, src_h,
+                0, sx, sy,
+                s_emu_scaled, EMU_SIZE,
+                &out_w, &out_h, false);
+            if (ret != ESP_OK) {
+                ESP_LOGE(TAG, "PPA SMS scale failed: %s", esp_err_to_name(ret));
+                odroid_display_unlock_sms_display();
+                return;
+            }
+        }
+#else
         /* PPA scale src_w×src_h → 320×240 */
         float sx = (float)EMU_W / src_w;
         float sy = (float)EMU_H / src_h;
@@ -524,6 +680,7 @@ void ili9341_write_frame_sms(uint8_t *buffer, uint16_t color[], uint8_t isGameGe
             odroid_display_unlock_sms_display();
             return;
         }
+#endif
 
         display_emu_flush_320x240(s_emu_scaled, false);
     }
@@ -542,10 +699,14 @@ void ili9341_write_frame_c64(uint8_t *buffer, uint16_t *palette)
     if (buffer == NULL) {
         ili9341_clear(0x0000);
     } else {
-        /* Lazy-allocate shared 320×240 intermediate buffer */
+        /* Lazy-allocate shared 320×240 intermediate buffer (prefer internal SRAM) */
         if (!s_emu_scaled) {
             s_emu_scaled = heap_caps_aligned_calloc(
-                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+                64, 1, EMU_SIZE, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+            if (!s_emu_scaled) {
+                s_emu_scaled = heap_caps_aligned_calloc(
+                    64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            }
             if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock(); return; }
         }
 
@@ -575,10 +736,14 @@ void ili9341_write_frame_prosystem(uint8_t *buffer, uint16_t *palette)
     if (buffer == NULL) {
         ili9341_clear(0x0000);
     } else {
-        /* Lazy-allocate shared 320×240 intermediate buffer */
+        /* Lazy-allocate shared 320×240 intermediate buffer (prefer internal SRAM to reduce PSRAM contention) */
         if (!s_emu_scaled) {
             s_emu_scaled = heap_caps_aligned_calloc(
-                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+                64, 1, EMU_SIZE, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+            if (!s_emu_scaled) {
+                s_emu_scaled = heap_caps_aligned_calloc(
+                    64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
+            }
             if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock(); return; }
         }
 
@@ -603,7 +768,7 @@ void ili9341_write_frame_prosystem(uint8_t *buffer, uint16_t *palette)
     odroid_display_unlock();
 }
 
-/* ─── Atari Lynx display: 160×102 RGB565 → PPA-scaled to 320×240 ──── */
+/* ─── Atari Lynx display: 160×102 RGB565 → single PPA to display ──── */
 #define LYNX_GAME_WIDTH  160
 #define LYNX_GAME_HEIGHT 102
 #define LYNX_PIXELS      (LYNX_GAME_WIDTH * LYNX_GAME_HEIGHT)
@@ -630,30 +795,40 @@ void ili9341_write_frame_lynx(const uint16_t *buffer)
 
         memcpy(s_lynx_temp, buffer, LYNX_PIXELS * sizeof(uint16_t));
 
-        /* Lazy-allocate shared 320×240 intermediate buffer */
-        if (!s_emu_scaled) {
-            s_emu_scaled = heap_caps_aligned_calloc(
-                64, 1, EMU_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
-            if (!s_emu_scaled) { ESP_LOGE(TAG, "emu_scaled alloc failed"); odroid_display_unlock(); return; }
+#ifdef CONFIG_HDMI_OUTPUT
+        /* HDMI: single PPA scale 160×102 → 640×480 RGB888 */
+        if (!s_hdmi_initialized) { odroid_display_unlock(); return; }
+        float sx = (float)HDMI_OUT_W / LYNX_GAME_WIDTH;
+        float sy = (float)HDMI_OUT_H / LYNX_GAME_HEIGHT;
+        esp_err_t ret = ppa_scale_rgb565_to_rgb888(
+            s_lynx_temp, LYNX_GAME_WIDTH, LYNX_GAME_HEIGHT,
+            sx, sy,
+            s_hdmi_disp.fb, s_hdmi_disp.fb_size,
+            NULL, NULL, false);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "PPA Lynx HDMI scale failed (0x%x)", ret);
+            odroid_display_unlock();
+            return;
         }
-
-        /* PPA scale 160×102 → 320×240 */
-        float sx = (float)EMU_W / LYNX_GAME_WIDTH;   /* 2.0 */
-        float sy = (float)EMU_H / LYNX_GAME_HEIGHT;  /* ~2.353 */
+        esp_cache_msync(s_hdmi_disp.fb, s_hdmi_disp.fb_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+#else
+        /* LCD: single PPA scale 160×102 → 800×480 into framebuffer, then flush */
+        float sx = (float)FB_W / LYNX_GAME_WIDTH;
+        float sy = (float)FB_H / LYNX_GAME_HEIGHT;
         uint32_t out_w = 0, out_h = 0;
         esp_err_t ret = ppa_rotate_scale_rgb565_to(
             s_lynx_temp, LYNX_GAME_WIDTH, LYNX_GAME_HEIGHT,
             0, sx, sy,
-            s_emu_scaled, EMU_SIZE,
+            s_framebuffer, FB_SIZE,
             &out_w, &out_h, false);
-
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "PPA Lynx scale failed: %s", esp_err_to_name(ret));
             odroid_display_unlock();
             return;
         }
-
-        display_emu_flush_320x240(s_emu_scaled, false);
+        s_fb_dirty = true;
+        display_flush();
+#endif
     }
 
     odroid_display_unlock();
@@ -669,10 +844,10 @@ void ili9341_write_frame_lynx(const uint16_t *buffer)
  * Input can be LE (pre-swapped by caller) or BE (native emulator output).
  * When byte_swap_input is set, PPA hardware swaps bytes during processing.
  */
-#define EMU_W 320
-#define EMU_H 240
 
+#ifndef CONFIG_HDMI_OUTPUT
 static bool s_emu_borders_cleared = false;
+#endif
 
 void ili9341_write_frame_rgb565_ex(const uint16_t *buffer, bool byte_swap_input)
 {
@@ -681,12 +856,18 @@ void ili9341_write_frame_rgb565_ex(const uint16_t *buffer, bool byte_swap_input)
     if (buffer == NULL) {
         ili9341_clear(0x0000);
         display_flush();
-        s_emu_borders_cleared = false;  /* full screen will be redrawn */
+#ifndef CONFIG_HDMI_OUTPUT
+        s_emu_borders_cleared = false;
+#endif
         odroid_display_unlock();
         return;
     }
 
-    /* Lazy-allocate the persistent PPA output buffer */
+#ifdef CONFIG_HDMI_OUTPUT
+    /* HDMI: PPA scale 320×240 RGB565 → 640×480 RGB888 directly into HDMI FB */
+    display_emu_flush_320x240(buffer, byte_swap_input);
+#else
+    /* LCD: PPA 2× scale + 270° rotate → push to ST7701 */
     if (!s_ppa_out_buf) {
         s_ppa_out_buf = heap_caps_aligned_calloc(
             PPA_BUF_ALIGN, 1, PPA_OUT_ALIGNED,
@@ -697,21 +878,16 @@ void ili9341_write_frame_rgb565_ex(const uint16_t *buffer, bool byte_swap_input)
             return;
         }
         s_ppa_out_size = PPA_OUT_ALIGNED;
-        ESP_LOGI(TAG, "PPA output buffer allocated: %d bytes", PPA_OUT_ALIGNED);
     }
 
-    /* Clear LCD border areas once (top/bottom 80 rows not touched by 480×640 draw) */
     if (!s_emu_borders_cleared) {
-        /* Use the PPA output buffer temporarily (it's zeroed from calloc on first use,
-         * or we zero a 480×80 slice for subsequent clears) */
-        size_t border_size = 480 * 80 * sizeof(uint16_t);  /* 76800 bytes */
+        size_t border_size = 480 * 80 * sizeof(uint16_t);
         memset(s_ppa_out_buf, 0, border_size);
         st7701_lcd_draw_rgb_bitmap(0, 0, 480, 80, (const uint16_t *)s_ppa_out_buf);
         st7701_lcd_draw_rgb_bitmap(0, 720, 480, 80, (const uint16_t *)s_ppa_out_buf);
         s_emu_borders_cleared = true;
     }
 
-    /* PPA: 320×240 → scale 2× + rotate 270° → 480×640 (single HW operation) */
     uint32_t out_w = 0, out_h = 0;
     int64_t t0 = esp_timer_get_time();
     esp_err_t ret = ppa_rotate_scale_rgb565_to(
@@ -727,7 +903,6 @@ void ili9341_write_frame_rgb565_ex(const uint16_t *buffer, bool byte_swap_input)
         return;
     }
 
-    /* Center on 480×800 LCD: y_off = (800 - 640) / 2 = 80 */
     uint16_t lcd_h = st7701_lcd_height();
     uint16_t y_off = (lcd_h > out_h) ? (lcd_h - out_h) / 2 : 0;
     st7701_lcd_draw_rgb_bitmap(0, y_off, out_w, out_h, (const uint16_t *)s_ppa_out_buf);
@@ -746,6 +921,7 @@ void ili9341_write_frame_rgb565_ex(const uint16_t *buffer, bool byte_swap_input)
         s_timing_pal_acc = 0;
         s_timing_count = 0;
     }
+#endif /* CONFIG_HDMI_OUTPUT */
 
     odroid_display_unlock();
 }
@@ -757,7 +933,9 @@ void ili9341_write_frame_rgb565(const uint16_t *buffer)
 }
 
 /* ─── Custom-size RGB565 frame writer (PPA scale + rotate) ───── */
+#ifndef CONFIG_HDMI_OUTPUT
 static bool s_custom_borders_cleared = false;
+#endif
 
 void ili9341_write_frame_rgb565_custom(const uint16_t *buffer, uint16_t in_w,
                                         uint16_t in_h, float scale,
@@ -768,12 +946,32 @@ void ili9341_write_frame_rgb565_custom(const uint16_t *buffer, uint16_t in_w,
     if (buffer == NULL) {
         ili9341_clear(0x0000);
         display_flush();
+#ifndef CONFIG_HDMI_OUTPUT
         s_custom_borders_cleared = false;
+#endif
         odroid_display_unlock();
         return;
     }
 
-    /* Lazy-allocate the persistent PPA output buffer */
+#ifdef CONFIG_HDMI_OUTPUT
+    /* HDMI: PPA scale in_w×in_h RGB565 → 640×480 RGB888 directly into HDMI FB */
+    if (!s_hdmi_initialized) { odroid_display_unlock(); return; }
+    float sx = (float)HDMI_OUT_W / in_w;
+    float sy = (float)HDMI_OUT_H / in_h;
+    esp_err_t ret = ppa_scale_rgb565_to_rgb888(
+        buffer, in_w, in_h,
+        sx, sy,
+        s_hdmi_disp.fb, s_hdmi_disp.fb_size,
+        NULL, NULL, false);  /* DSI outputs RGB byte order */
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "PPA custom HDMI scale failed (0x%x)", ret);
+        odroid_display_unlock();
+        return;
+    }
+    esp_cache_msync(s_hdmi_disp.fb, s_hdmi_disp.fb_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+    (void)scale; (void)byte_swap_input;
+#else
+    /* LCD: PPA scale + rotate 270° → push to ST7701 */
     if (!s_ppa_out_buf) {
         s_ppa_out_buf = heap_caps_aligned_calloc(
             PPA_BUF_ALIGN, 1, PPA_OUT_ALIGNED,
@@ -787,21 +985,19 @@ void ili9341_write_frame_rgb565_custom(const uint16_t *buffer, uint16_t in_w,
     }
 
     /* Compute output dimensions after scale + 270° rotation */
-    uint16_t out_w_exp = (uint16_t)(in_h * scale);  /* after 270° rot: height→width */
-    uint16_t out_h_exp = (uint16_t)(in_w * scale);  /* after 270° rot: width→height */
+    uint16_t out_w_exp = (uint16_t)(in_h * scale);
+    uint16_t out_h_exp = (uint16_t)(in_w * scale);
     uint16_t lcd_w = st7701_lcd_width();
     uint16_t lcd_h = st7701_lcd_height();
     uint16_t x_off = (lcd_w > out_w_exp) ? (lcd_w - out_w_exp) / 2 : 0;
     uint16_t y_off = (lcd_h > out_h_exp) ? (lcd_h - out_h_exp) / 2 : 0;
 
-    /* Clear border areas once */
     if (!s_custom_borders_cleared) {
         ili9341_clear(0x0000);
         display_flush_force();
         s_custom_borders_cleared = true;
     }
 
-    /* PPA: scale + rotate 270° */
     uint32_t out_w = 0, out_h = 0;
     esp_err_t ret = ppa_rotate_scale_rgb565_to(
         buffer, in_w, in_h,
@@ -817,17 +1013,20 @@ void ili9341_write_frame_rgb565_custom(const uint16_t *buffer, uint16_t in_w,
 
     st7701_lcd_draw_rgb_bitmap(x_off, y_off, out_w, out_h,
                                (const uint16_t *)s_ppa_out_buf);
+#endif /* CONFIG_HDMI_OUTPUT */
     odroid_display_unlock();
 }
 
 /* ─── Misc display functions ──────────────────────────────────── */
 void ili9341_poweroff(void)
 {
+#ifndef CONFIG_HDMI_OUTPUT
     /* Turn off backlight to avoid white flash during OTA reboot */
     if (s_backlight_init) {
         ledc_set_duty(LEDC_LOW_SPEED_MODE, BL_LEDC_CH, 0);
         ledc_update_duty(LEDC_LOW_SPEED_MODE, BL_LEDC_CH);
     }
+#endif
 }
 
 void ili9341_prepare(void)

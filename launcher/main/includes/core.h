@@ -75,7 +75,9 @@
 /*
   Touch Panel
 */
+#ifndef CONFIG_HDMI_OUTPUT
 #include "gt911_touch.h"
+#endif
 
 /*
   Sprites
@@ -104,7 +106,9 @@
   PPA engine + LCD (for native-size PNG splash)
 */
 #include "ppa_engine.h"
+#ifndef CONFIG_HDMI_OUTPUT
 #include "st7701_lcd.h"
+#endif
 
 /*
   PSRAM App Loader (load & execute apps from SD card via PSRAM XIP)

@@ -102,25 +102,58 @@ extern "C" void my_special_alloc_free(void *p)
     if (p) heap_caps_free(p);
 }
 
+/* Frame-done flag — set by display callback, cleared by main loop */
+static volatile bool hn_frameDone = false;
+
+/* Timing accumulators (microseconds) */
+static int64_t s_audio_time_acc = 0;
+static int64_t s_emu_time_acc = 0;
+static uint32_t s_audio_bytes_acc = 0;
+
 /* ===================================================================
  * Display callback — called by Mikie when a frame is complete
  * =================================================================== */
 static UBYTE *hn_display_callback(ULONG objref)
 {
-    /* Send the just-rendered framebuffer to the video task */
+    /* Send the just-rendered framebuffer to the video task (non-blocking) */
     uint16_t *fb = hn_framebuffer[hn_currentFB];
-    xQueueSend(hn_vidQueue, &fb, pdMS_TO_TICKS(20));
+    xQueueOverwrite(hn_vidQueue, &fb);
 
     /* Swap to the other framebuffer */
     hn_currentFB = hn_currentFB ? 0 : 1;
 
-    /* Process audio */
+    /* Process audio — i2s_channel_write blocks when DMA is full,
+     * which naturally paces emulation to real-time */
     if (gAudioBufferPointer > 0) {
         int samples = gAudioBufferPointer / 4;  /* 16-bit stereo → sample count */
+        s_audio_bytes_acc += gAudioBufferPointer;
         if (samples > 0) {
+            int64_t a0 = esp_timer_get_time();
             odroid_audio_submit((short *)gAudioBuffer, samples);
+            s_audio_time_acc += esp_timer_get_time() - a0;
         }
         gAudioBufferPointer = 0;
+    }
+
+    /* Signal frame done to main loop */
+    hn_frameDone = true;
+
+    /* FPS tracking */
+    fps_frame_count++;
+    int64_t now = esp_timer_get_time();
+    int64_t elapsed = now - fps_last_time;
+    if (elapsed >= 1000000) {  /* every 1 second */
+        fps_current = (float)fps_frame_count * 1000000.0f / (float)elapsed;
+        printf("LYNX FPS=%.1f  emu=%.1fms  audio=%.1fms  abytes=%u\n",
+               fps_current,
+               (float)s_emu_time_acc / (fps_frame_count * 1000.0f),
+               (float)s_audio_time_acc / (fps_frame_count * 1000.0f),
+               s_audio_bytes_acc);
+        fps_frame_count = 0;
+        fps_last_time = now;
+        s_audio_time_acc = 0;
+        s_emu_time_acc = 0;
+        s_audio_bytes_acc = 0;
     }
 
     return (UBYTE *)hn_framebuffer[hn_currentFB];
@@ -158,10 +191,9 @@ static void hn_videoTask(void *arg)
     while (hn_videoTaskIsRunning)
     {
         uint16_t *srcFB;
-        if (xQueuePeek(hn_vidQueue, &srcFB, pdMS_TO_TICKS(100)) == pdTRUE)
+        if (xQueueReceive(hn_vidQueue, &srcFB, pdMS_TO_TICKS(100)) == pdTRUE)
         {
             if (srcFB == NULL) {
-                xQueueReceive(hn_vidQueue, &srcFB, 0);
                 break;
             }
 
@@ -213,8 +245,6 @@ static void hn_videoTask(void *arg)
 
             /* PPA hardware-scale 160×102 → 320×240 and flush to LCD */
             ili9341_write_frame_lynx(decodeBuf);
-
-            xQueueReceive(hn_vidQueue, &srcFB, portMAX_DELAY);
         }
     }
 
@@ -618,11 +648,15 @@ extern "C" void handy_run(const char *rom_path)
     /* ===== Main emulation loop ===== */
     while (!hn_exitRequested)
     {
-        /* Update() steps the CPU + timers; display callback fires at frame end */
-        hn_lynx->Update();
+        /* Run a full frame: tight Update() loop until display callback fires */
+        hn_frameDone = false;
+        int64_t t0 = esp_timer_get_time();
+        while (!hn_frameDone && !hn_exitRequested) {
+            hn_lynx->Update();
+        }
+        s_emu_time_acc += esp_timer_get_time() - t0;
 
-        /* Input is processed in the display callback indirectly;
-           also poll here for menu/volume handling */
+        /* Poll input once per frame (was per-Update — thousands of times) */
         hn_process_input();
     }
 

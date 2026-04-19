@@ -31,7 +31,7 @@ $flash_map = @(
     @{ Offset = "0x550000"; File = "prosystem_app.bin";    Desc = "ProSystem (ota_5)" },
     @{ Offset = "0x5F0000"; File = "handy_app.bin";        Desc = "Handy (ota_6)" },
     @{ Offset = "0x690000"; File = "pce_app.bin";          Desc = "PC Engine (ota_7)" },
-    @{ Offset = "0x730000"; File = "atari800_app.bin";     Desc = "Atari 800 (ota_8)" },
+    @{ Offset = "0x740000"; File = "atari800_app.bin";     Desc = "Atari 800 (ota_8)" },
     @{ Offset = "0x8C0000"; File = "snes_app.bin";         Desc = "SNES (ota_10)" },
     @{ Offset = "0x9B0000"; File = "genesis_app.bin";      Desc = "Genesis (ota_11)" }
 )

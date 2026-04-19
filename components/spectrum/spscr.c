@@ -84,25 +84,27 @@ byte *update_screen_line(byte *scrp, int coli, int scri, int border,
   int addr,attr,i,y,paper=0,ink=0,tmp;
   byte a=0;
   qbyte *scrptr;
-  // 8 Spectrum colours as 565...  (565 is BRG, but spectrum is GRB...)
+  // ZX Spectrum colours as native RGB565 (R5G6B5)
+  // Normal: component 0x00 or 0xCD → R5=25, G6=51, B5=25
+  // Bright: component 0x00 or 0xFF → R5=31, G6=63, B5=31
   static uint16_t colours[16]={
-      0b0000000000000000, // ___ black
-      0b1111000000000000, // B__ blue
-      0b0000011111000000, // _R__ red
-      0b1111011111000000, // BR_ magenta
-      0b0000000000011110, // __G green
-      0b1111000000011110, // B_G cyan
-      0b0000011111011110, // _RG_ yellow
-      0b1111011111011110,  // RBG white
-      // BRIGHT versions...
-      0b0000000000000000, // ___ black
-      0b1111100000000000, // B__ blue
-      0b0000011111100000, // _R__ red
-      0b1111111111100000, // BR_ magenta
-      0b0000000000011111, // __G green
-      0b1111100000011111, // B_G cyan
-      0b0000011111111111, // _RG_ yellow
-      0b1111111111111111  // RBG white
+      0x0000, // 0: black
+      0x0019, // 1: blue     (0,0,0xCD)
+      0xC800, // 2: red      (0xCD,0,0)
+      0xC819, // 3: magenta  (0xCD,0,0xCD)
+      0x0660, // 4: green    (0,0xCD,0)
+      0x0679, // 5: cyan     (0,0xCD,0xCD)
+      0xCE60, // 6: yellow   (0xCD,0xCD,0)
+      0xCE79, // 7: white    (0xCD,0xCD,0xCD)
+      // BRIGHT versions
+      0x0000, // 8:  black
+      0x001F, // 9:  blue    (0,0,0xFF)
+      0xF800, // 10: red     (0xFF,0,0)
+      0xF81F, // 11: magenta (0xFF,0,0xFF)
+      0x07E0, // 12: green   (0,0xFF,0)
+      0x07FF, // 13: cyan    (0,0xFF,0xFF)
+      0xFFE0, // 14: yellow  (0xFF,0xFF,0)
+      0xFFFF  // 15: white   (0xFF,0xFF,0xFF)
   };
 
   if (!sp_framebuffer) return (byte *)scrp;

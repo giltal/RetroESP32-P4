@@ -7,6 +7,7 @@
 #include "hal/ppa_types.h"
 #include "esp_log.h"
 #include "esp_heap_caps.h"
+#include "esp_cache.h"
 #include <string.h>
 
 static const char *TAG = "ppa_engine";
@@ -685,8 +686,8 @@ esp_err_t ppa_rotate_scale_rgb565_to(const void *in_buf, uint32_t in_w, uint32_t
     }
 
     /* Compute final output dimensions (after S→R) */
-    uint32_t scaled_w = (uint32_t)(in_w * ppa_sx);
-    uint32_t scaled_h = (uint32_t)(in_h * ppa_sy);
+    uint32_t scaled_w = (uint32_t)(in_w * ppa_sx + 0.5f);
+    uint32_t scaled_h = (uint32_t)(in_h * ppa_sy + 0.5f);
     uint32_t result_w, result_h;
     if (angle_deg == 90 || angle_deg == 270) {
         result_w = scaled_h;
@@ -736,6 +737,87 @@ esp_err_t ppa_rotate_scale_rgb565_to(const void *in_buf, uint32_t in_w, uint32_t
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "PPA SRM rotate+scale failed: %s", esp_err_to_name(ret));
         return ret;
+    }
+
+    /* PPA hardware may truncate float scale, leaving bottom rows unfilled.
+     * Clear the bottom 4 rows to avoid stale/garbage pixels. */
+    {
+        size_t row_bytes = result_w * sizeof(uint16_t);
+        int clear_rows = result_h < 4 ? result_h : 4;
+        void *start = (uint8_t *)out_buf + (result_h - clear_rows) * row_bytes;
+        size_t clear_size = clear_rows * row_bytes;
+        memset(start, 0, clear_size);
+        esp_cache_msync(start, clear_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+    }
+
+    if (out_w) *out_w = result_w;
+    if (out_h) *out_h = result_h;
+    return ESP_OK;
+}
+
+/* ─── Scale RGB565 → RGB888 (single PPA SRM operation) ────────── */
+esp_err_t ppa_scale_rgb565_to_rgb888(const void *in_buf, uint32_t in_w, uint32_t in_h,
+                                      float scale_x, float scale_y,
+                                      void *out_buf, size_t out_buf_size,
+                                      uint32_t *out_w, uint32_t *out_h,
+                                      bool rgb_swap)
+{
+    if (!s_ppa_srm_client || !in_buf || !out_buf) return ESP_ERR_INVALID_ARG;
+
+    uint32_t result_w = (uint32_t)(in_w * scale_x + 0.5f);
+    uint32_t result_h = (uint32_t)(in_h * scale_y + 0.5f);
+
+    size_t needed = result_w * result_h * 3;  /* RGB888 = 3 bytes/pixel */
+    if (out_buf_size < needed) {
+        ESP_LOGE(TAG, "Output buffer too small: %u < %u", (unsigned)out_buf_size, (unsigned)needed);
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    ppa_srm_oper_config_t srm_cfg = {
+        .in = {
+            .buffer = in_buf,
+            .pic_w = in_w,
+            .pic_h = in_h,
+            .block_w = in_w,
+            .block_h = in_h,
+            .block_offset_x = 0,
+            .block_offset_y = 0,
+            .srm_cm = PPA_SRM_COLOR_MODE_RGB565,
+        },
+        .out = {
+            .buffer = out_buf,
+            .buffer_size = out_buf_size,
+            .pic_w = result_w,
+            .pic_h = result_h,
+            .block_offset_x = 0,
+            .block_offset_y = 0,
+            .srm_cm = PPA_SRM_COLOR_MODE_RGB888,
+        },
+        .rotation_angle = PPA_SRM_ROTATION_ANGLE_0,
+        .scale_x = scale_x,
+        .scale_y = scale_y,
+        .mirror_x = false,
+        .mirror_y = false,
+        .rgb_swap = rgb_swap,
+        .byte_swap = false,
+        .mode = PPA_TRANS_MODE_BLOCKING,
+    };
+
+    esp_err_t ret = ppa_do_scale_rotate_mirror(s_ppa_srm_client, &srm_cfg);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "PPA SRM scale RGB565→RGB888 failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    /* PPA hardware may truncate float scale, leaving bottom rows unfilled.
+     * Clear the bottom 4 rows to avoid stale/garbage pixels. */
+    {
+        size_t row_bytes = result_w * 3;  /* RGB888 */
+        int clear_rows = result_h < 4 ? result_h : 4;
+        void *start = (uint8_t *)out_buf + (result_h - clear_rows) * row_bytes;
+        size_t clear_size = clear_rows * row_bytes;
+        memset(start, 0, clear_size);
+        /* Caller handles full FB cache sync */
     }
 
     if (out_w) *out_w = result_w;

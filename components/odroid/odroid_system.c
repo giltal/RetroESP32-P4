@@ -9,8 +9,10 @@
 
 #include "odroid_system.h"
 #include "pins_config.h"
+#ifndef CONFIG_HDMI_OUTPUT
 #include "st7701_lcd.h"
 #include "gt911_touch.h"
+#endif
 #include "ppa_engine.h"
 #include "gamepad.h"
 #include "audio.h"
@@ -80,7 +82,8 @@ void odroid_system_init(void)
         ESP_LOGW(TAG, "Audio init failed (0x%x), continuing without audio", audio_ret);
     }
 
-    /* 5. LCD (ST7701 MIPI DSI) */
+    /* 5. LCD / HDMI display */
+#ifndef CONFIG_HDMI_OUTPUT
     ESP_LOGI(TAG, "Initializing LCD (ST7701 MIPI DSI)...");
     ESP_ERROR_CHECK(st7701_lcd_init());
 
@@ -91,6 +94,10 @@ void odroid_system_init(void)
     /* 7. Clear physical LCD to black */
     st7701_lcd_fill_screen(0x0000);
     vTaskDelay(pdMS_TO_TICKS(100));
+#else
+    /* HDMI: display init happens in ili9341_init() via hdmi_display_init() */
+    ESP_LOGI(TAG, "HDMI mode — LCD and touch skipped (HDMI init in ili9341_init)");
+#endif
 
     s_initialized = true;
     ESP_LOGI(TAG, "=== System Init Complete ===");

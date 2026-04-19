@@ -5,7 +5,7 @@ typedef struct{
   int w;
   int h;
 } SCR;
-SCR SCREEN = {0,0,800,480};
+SCR SCREEN = {0, 0, WIDTH, HEIGHT};
 
 // OFFSET
 typedef struct{

@@ -172,8 +172,10 @@
     // Joystick
     odroid_input_gamepad_init();
 
+#ifndef CONFIG_HDMI_OUTPUT
     // Touch panel
     gt911_touch_init(7, 8, -1, -1);
+#endif
 
     // === SAFE MODE: Hold button A during boot ===
     // On ESP32-P4 there is no OTA partition table, so we just
@@ -282,7 +284,7 @@
           draw_browser_header();
           char msg[64];
           sprintf(msg, "no %s roms found", DIRECTORIES[STEP]);
-          int cx = (800 - strlen(msg) * 20) / 2;
+          int cx = (WIDTH - strlen(msg) * 20) / 2;
           draw_text(cx, 224, msg, false, false, false);
           display_flush();
         }
@@ -603,7 +605,7 @@
   void draw_text(short x, short y, char *string, bool ext, bool current, bool remove) {
     int length = !ext ? strlen(string) : strlen(string)-(strlen(EXTENSIONS[STEP])+1);
     /* Clamp to visible area: each char is 20px wide (16+4 gap) at 2x scale */
-    int max_chars = (790 - x) / 20;
+    int max_chars = (WIDTH - 10 - x) / 20;
     if (max_chars < 1) max_chars = 1;
     if (max_chars > 40) max_chars = 40;
     if(length > max_chars){length = max_chars;}
@@ -670,7 +672,7 @@
   }
 
   void draw_background() {
-    int w = 800;
+    int w = WIDTH;
     int h = 60;
     for (int i = 0; i < 8; i++) draw_mask(0, i*h, w, h);
     draw_battery();
@@ -681,7 +683,7 @@
 
   /* Clear the full screen safely in strips (buffer is 64000 elements!) */
   void clear_screen() {
-    int w = 800;
+    int w = WIDTH;
     int h = 60;
     for (int i = 0; i < 8; i++) draw_mask(0, i*h, w, h);
   }
@@ -1186,9 +1188,9 @@
     GUI = THEMES[USER];
     set_theme(USER);
     draw_background();
-    draw_mask(0, 0, 800, 60);
-    draw_mask(0, 60, 800, 60);
-    draw_mask(0, 120, 800, 40);
+    draw_mask(0, 0, WIDTH, 60);
+    draw_mask(0, 60, WIDTH, 60);
+    draw_mask(0, 120, WIDTH, 40);
     draw_systems();
     draw_text(16,4,EMULATORS[STEP], false, true, false);
     draw_themes();
@@ -1266,7 +1268,7 @@
     int scale = 6;
     int w = 32 * scale; /* 192 */
     int h = 32 * scale; /* 192 */
-    int x = (800 - w) / 2; /* 304 */
+    int x = (WIDTH - w) / 2; /* 304 */
     int y = 144;
     uint16_t red = 0xF800; /* intense red in RGB565 */
     int i = 0;
@@ -1314,24 +1316,23 @@
 
     uint16_t *src = (uint16_t *)png.data;
     int pw = png.w, ph = png.h;
-    int dst_w = pw * 2, dst_h = ph * 2;
-    if (dst_w > 800) dst_w = 800;
-    if (dst_h > 450) dst_h = 450;
+    /* Stretch to fill exactly WIDTH x (HEIGHT-30) */
+    int dst_w = WIDTH;
+    int dst_h = HEIGHT - 30;
 
     uint16_t *art = (uint16_t *)heap_caps_malloc(dst_w * dst_h * 2, MALLOC_CAP_SPIRAM);
     if (!art) { free(src); return NULL; }
 
-    /* 2x upscale with byte-swap + Râ†”B swap */
-    for (int r = 0; r < ph && r * 2 < dst_h; r++) {
-      uint16_t *srow = &src[r * pw];
-      uint16_t *d0 = &art[(r * 2) * dst_w];
-      uint16_t *d1 = &art[(r * 2 + 1) * dst_w];
-      for (int c = 0; c < pw && c * 2 < dst_w; c++) {
-        uint16_t p = srow[c];
+    /* Nearest-neighbor scale with byte-swap + R<->B swap */
+    for (int r = 0; r < dst_h; r++) {
+      int sr = r * ph / dst_h;
+      uint16_t *srow = &src[sr * pw];
+      uint16_t *drow = &art[r * dst_w];
+      for (int c = 0; c < dst_w; c++) {
+        int sc = c * pw / dst_w;
+        uint16_t p = srow[sc];
         uint16_t bs = (p >> 8) | (p << 8);
-        uint16_t fixed = ((bs & 0x1F) << 11) | (bs & 0x07E0) | ((bs >> 11) & 0x1F);
-        d0[c * 2] = fixed; d0[c * 2 + 1] = fixed;
-        d1[c * 2] = fixed; d1[c * 2 + 1] = fixed;
+        drow[c] = ((bs & 0x1F) << 11) | (bs & 0x07E0) | ((bs >> 11) & 0x1F);
       }
     }
     free(src);
@@ -1362,43 +1363,39 @@
     if (png.w == 0 || png.h == 0 || !png.data) return 0;
 
     uint16_t *src = (uint16_t *)png.data;
-    int pw = png.w;   /* expected 400 */
-    int ph = png.h;   /* expected 225 */
-    int dst_w = pw * 2;
-    int dst_h = ph * 2;
-    if (dst_w > 800) dst_w = 800;
-    if (dst_h > 450) dst_h = 450;
+    int pw = png.w;
+    int ph = png.h;
+    /* Stretch to fill exactly WIDTH x (HEIGHT-30) */
+    int dst_w = WIDTH;
+    int dst_h = HEIGHT - 30;
 
-    int blit_x = (800 - dst_w) / 2;
+    int blit_x = 0;
     int blit_y = 30;
 
-    /* 2x software upscale in strips that fit buffer[64000]
-       Byte-swap + Râ†”B swap: PNGdec outputs big-endian RGB565 on RISC-V,
-       and the MIPI DSI panel expects BGR channel order. */
-    int max_src_rows = 64000 / dst_w / 2;
-    if (max_src_rows < 1) max_src_rows = 1;
-    for (int sr = 0; sr < ph; sr += max_src_rows) {
-      int rows = (sr + max_src_rows <= ph) ? max_src_rows : (ph - sr);
+    /* NN upscale in strips that fit buffer[64000]
+       Byte-swap + R<->B swap for PNGdec big-endian RGB565 */
+    int max_dst_rows = 64000 / dst_w;
+    if (max_dst_rows < 1) max_dst_rows = 1;
+    for (int dr = 0; dr < dst_h; dr += max_dst_rows) {
+      int rows = (dr + max_dst_rows <= dst_h) ? max_dst_rows : (dst_h - dr);
       int bi = 0;
       for (int r = 0; r < rows; r++) {
-        uint16_t *row = &src[(sr + r) * pw];
-        for (int pass = 0; pass < 2; pass++) {
-          for (int c = 0; c < pw; c++) {
-            uint16_t p = row[c];
-            uint16_t bs = (p >> 8) | (p << 8);
-            uint16_t fixed = ((bs & 0x1F) << 11) | (bs & 0x07E0) | ((bs >> 11) & 0x1F);
-            buffer[bi++] = fixed;
-            buffer[bi++] = fixed;
-          }
+        int sr = (dr + r) * ph / dst_h;
+        uint16_t *srow = &src[sr * pw];
+        for (int c = 0; c < dst_w; c++) {
+          int sc = c * pw / dst_w;
+          uint16_t p = srow[sc];
+          uint16_t bs = (p >> 8) | (p << 8);
+          buffer[bi++] = ((bs & 0x1F) << 11) | (bs & 0x07E0) | ((bs >> 11) & 0x1F);
         }
       }
-      ili9341_write_frame_rectangleLE(blit_x, blit_y + sr * 2, dst_w, rows * 2, buffer);
+      ili9341_write_frame_rectangleLE(blit_x, blit_y + dr, dst_w, rows, buffer);
     }
     free(src);
 
     /* 30px black header stripe */
-    for (int i = 0; i < 800 * 30; i++) buffer[i] = 0x0000;
-    ili9341_write_frame_rectangleLE(0, 0, 800, 30, buffer);
+    for (int i = 0; i < WIDTH * 30; i++) buffer[i] = 0x0000;
+    ili9341_write_frame_rectangleLE(0, 0, WIDTH, 30, buffer);
 
     /* File count in yellow on the left */
     {
@@ -1729,7 +1726,7 @@
   }
 
   void draw_numbers() {
-    int x = 780;
+    int x = WIDTH - 20;
     int y = POS.y + 96;
     int w = 0;
     char count[10];
@@ -1740,7 +1737,7 @@
   }
 
   void delete_numbers() {
-    int x = 780;
+    int x = WIDTH - 20;
     int y = POS.y + 96;
     int w = 0;
     char count[10];
@@ -1940,7 +1937,7 @@
     ROMS.total = 0;
     char message[100];
     sprintf(message, "searching %s roms", DIRECTORIES[STEP]);
-    int center = (800 - strlen(message) * 20) / 2;
+    int center = (WIDTH - strlen(message) * 20) / 2;
     draw_text(center,268,message,false,false, false);
 
     char path[256] = "/sd/roms/";
@@ -1958,16 +1955,16 @@
 
     directory = opendir(path);
     if(!directory) {
-      draw_mask(0,264,800,36);
+      draw_mask(0, 264, WIDTH,36);
       sprintf(message, "unable to open %s directory", DIRECTORIES[STEP]);
-      int center = (800 - strlen(message) * 20) / 2;
+      int center = (WIDTH - strlen(message) * 20) / 2;
       draw_text(center,268,message,false,false, false);
       return;
     } else {
       if(directory == NULL) {
-        draw_mask(0,264,800,36);
+        draw_mask(0, 264, WIDTH,36);
         sprintf(message, "%s directory not found", DIRECTORIES[STEP]);
-        int center = (800 - strlen(message) * 20) / 2;
+        int center = (WIDTH - strlen(message) * 20) / 2;
         draw_text(center,268,message,false,false, false);
       } else {
         /* First pass: count files */
@@ -2077,9 +2074,9 @@
     FILES = (char**)malloc(ROMS.limit * sizeof(void*));
 
     if (!SORTED_FILES || SORTED_COUNT == 0) {
-      draw_mask(0,264,800,36);
+      draw_mask(0, 264, WIDTH,36);
       sprintf(message, "no %s roms available", DIRECTORIES[STEP]);
-      int center = (800 - strlen(message) * 20) / 2;
+      int center = (WIDTH - strlen(message) * 20) / 2;
       draw_text(center,268,message,false,false, false);
       return;
     }
@@ -2099,9 +2096,9 @@
       draw_files();
     } else {
       sprintf(message, "no %s roms available", DIRECTORIES[STEP]);
-      int center = (800 - strlen(message) * 20) / 2;
-      draw_mask(0,POS.y + 94,800,36);
-      draw_mask(0,264,800,36);
+      int center = (WIDTH - strlen(message) * 20) / 2;
+      draw_mask(0, POS.y + 94, WIDTH,36);
+      draw_mask(0, 264, WIDTH,36);
       draw_text(center,268,message,false,false, false);
     }
   }
@@ -2118,7 +2115,7 @@
     int y = POS.y + 96;
     ROMS.page = ROMS.offset/ROMS.limit;
 
-    for (int i = 0; i < 5; i++) draw_mask(0, y+(i*80)-12, 800, 80);
+    for (int i = 0; i < 5; i++) draw_mask(0, y+(i*80)-12, WIDTH, 80);
     //int limit = ROMS.total < ROMS.limit ? ROMS.total : ROMS.limit;
     int limit = (ROMS.total - ROMS.offset) <  ROMS.limit ?
       (ROMS.total - ROMS.offset) :
@@ -2247,7 +2244,7 @@
     //  printf("\n----- %s START -----", __func__);
     char message[100];
     sprintf(message, "loading favorites");
-    int center = ceil((800/2)-((strlen(message)*20)/2));
+    int center = ceil((WIDTH/2)-((strlen(message)*20)/2));
     draw_text(center,268,message,false,false, false);
 
     read_favorites();
@@ -2268,9 +2265,9 @@
       draw_favorites();
     } else {
       sprintf(message, "no favorites available");
-      int center = ceil((800/2)-((strlen(message)*20)/2));
-      draw_mask(0, 40, 800, 36);
-      draw_mask(0, 240, 800, 36);
+      int center = ceil((WIDTH/2)-((strlen(message)*20)/2));
+      draw_mask(0, 40, WIDTH, 36);
+      draw_mask(0, 240, WIDTH, 36);
       draw_text(center, 240, message, false, false, false);
     }
 
@@ -2286,9 +2283,9 @@
 
     /* Clear all browser rows */
     for (int s = 0; s < BROWSER_LIMIT; s++) {
-      draw_mask(0, y_start + s * row_h, 800, row_h);
+      draw_mask(0, y_start + s * row_h, WIDTH, row_h);
     }
-    draw_mask(0, y_start + BROWSER_LIMIT * row_h, 800, 8);
+    draw_mask(0, y_start + BROWSER_LIMIT * row_h, WIDTH, 8);
 
     int limit = (ROMS.total - ROMS.offset) < ROMS.limit ?
       (ROMS.total - ROMS.offset) : ROMS.limit;
@@ -2382,7 +2379,7 @@
     int y = y_start + row * row_h;
     bool selected = (row == BROWSER_SEL);
 
-    draw_mask(0, y, 800, row_h);
+    draw_mask(0, y, WIDTH, row_h);
 
     char full[512];
     char trimmed[512];
@@ -2600,6 +2597,7 @@
 //}#pragma endregion Favorites
 
 //{#pragma region Search
+#ifndef CONFIG_HDMI_OUTPUT
   /*
    * Touch-based visual keyboard search for the ROM browser.
    * X button toggles open/closed. Touch keys to type.
@@ -2683,7 +2681,7 @@
   static void kb_draw(const char *search_str) {
     /* Search bar at top of keyboard area */
     int bar_y = KB_Y_START - 44;
-    draw_mask(0, bar_y, 800, 44);
+    draw_mask(0, bar_y, WIDTH, 44);
 
     /* Draw "SEARCH:" label + current text */
     char display_str[SEARCH_MAX + 12];
@@ -2691,14 +2689,14 @@
     draw_text(KB_X_PAD, bar_y + 6, display_str, false, true, false);
 
     /* Clear keyboard area */
-    draw_mask(0, KB_Y_START, 800, KB_ROWS * (KB_KEY_H + KB_GAP) + KB_GAP);
+    draw_mask(0, KB_Y_START, WIDTH, KB_ROWS * (KB_KEY_H + KB_GAP) + KB_GAP);
 
     /* Draw letter rows */
     for (int r = 0; r < 3; r++) {
       const char *row = kb_rows[r];
       int row_len = kb_row_len[r];
       int row_width = row_len * (KB_KEY_W + KB_GAP) - KB_GAP;
-      int x_start = (800 - row_width) / 2;
+      int x_start = (WIDTH - row_width) / 2;
       int ky = KB_Y_START + r * (KB_KEY_H + KB_GAP);
 
       for (int k = 0; k < row_len; k++) {
@@ -2712,7 +2710,7 @@
     int r3_y = KB_Y_START + 3 * (KB_KEY_H + KB_GAP);
     int space_w = 200, del_w = 120, close_w = 120;
     int total_w = space_w + KB_GAP + del_w + KB_GAP + close_w;
-    int r3_x = (800 - total_w) / 2;
+    int r3_x = (WIDTH - total_w) / 2;
     kb_draw_key(r3_x, r3_y, space_w, KB_KEY_H, "SPACE", false);
     kb_draw_key(r3_x + space_w + KB_GAP, r3_y, del_w, KB_KEY_H, "DEL", false);
     kb_draw_key(r3_x + space_w + KB_GAP + del_w + KB_GAP, r3_y, close_w, KB_KEY_H, "SEARCH", false);
@@ -2725,7 +2723,7 @@
     for (int r = 0; r < 3; r++) {
       int row_len = kb_row_len[r];
       int row_width = row_len * (KB_KEY_W + KB_GAP) - KB_GAP;
-      int x_start = (800 - row_width) / 2;
+      int x_start = (WIDTH - row_width) / 2;
       int ky = KB_Y_START + r * (KB_KEY_H + KB_GAP);
 
       if (ui_y >= ky && ui_y < ky + KB_KEY_H) {
@@ -2743,7 +2741,7 @@
     if (ui_y >= r3_y && ui_y < r3_y + KB_KEY_H) {
       int space_w = 200, del_w = 120, close_w = 120;
       int total_w = space_w + KB_GAP + del_w + KB_GAP + close_w;
-      int r3_x = (800 - total_w) / 2;
+      int r3_x = (WIDTH - total_w) / 2;
       if (ui_x >= r3_x && ui_x < r3_x + space_w) return ' ';
       if (ui_x >= r3_x + space_w + KB_GAP && ui_x < r3_x + space_w + KB_GAP + del_w) return '\b';
       if (ui_x >= r3_x + space_w + KB_GAP + del_w + KB_GAP &&
@@ -2860,6 +2858,239 @@
       draw_browser_screen();
     }
   }
+#endif /* !CONFIG_HDMI_OUTPUT */
+
+#ifdef CONFIG_HDMI_OUTPUT
+  /*
+   * Gamepad-driven visual keyboard search for the ROM browser (HDMI variant).
+   * X button toggles open/closed. D-pad navigates, A selects key, B deletes.
+   *
+   * Keyboard layout (4 rows):
+   *   Row 0: Q W E R T Y U I O P
+   *   Row 1: A S D F G H J K L
+   *   Row 2: Z X C V B N M
+   *   Row 3: [SPACE] [DEL] [SEARCH]
+   */
+
+  #define KB_ROWS      4
+  #define KB_KEY_W     54   /* key width  (fits 10 keys in 640px) */
+  #define KB_KEY_H     38   /* key height */
+  #define KB_GAP       4    /* gap between keys */
+  #define KB_Y_START   290  /* Y offset for top of keyboard area */
+  #define KB_X_PAD     16   /* left padding */
+  #define SEARCH_MAX   20   /* max search string length */
+
+  static const char *kb_rows[KB_ROWS] = {
+    "QWERTYUIOP",
+    "ASDFGHJKL",
+    "ZXCVBNM",
+    NULL  /* special row: SPACE, DEL, SEARCH */
+  };
+  static const int kb_row_len[KB_ROWS] = { 10, 9, 7, 3 };
+
+  /* Draw a single key */
+  static void kb_draw_key(int kx, int ky, int kw, int kh,
+                           const char *label, bool highlight) {
+    uint16_t bg = highlight ? 0x4208 : 0x2104;  /* lighter/darker gray */
+    uint16_t fg = 0xFFFF;  /* white text */
+    uint16_t border = highlight ? 0xFFE0 : 0x6B4D;  /* yellow highlight / gray */
+
+    int total = kw * kh;
+    if (total > 64000) total = 64000;
+    for (int i = 0; i < total; i++) buffer[i] = bg;
+    for (int i = 0; i < kw; i++) buffer[i] = border;
+    for (int i = (kh - 1) * kw; i < kh * kw; i++) buffer[i] = border;
+    for (int r = 0; r < kh; r++) {
+      buffer[r * kw] = border;
+      buffer[r * kw + kw - 1] = border;
+    }
+    ili9341_write_frame_rectangleLE(kx, ky, kw, kh, buffer);
+
+    int len = strlen(label);
+    int tx = kx + (kw - len * 16) / 2;
+    int ty = ky + (kh - 32) / 2;
+    for (int c = 0; c < len; c++) {
+      char ch = label[c];
+      if (ch == ' ') { tx += 16; continue; }
+      int glyph = (ch >= 32 && ch <= 126) ? ch - 32 : '?' - 32;
+      int idx = 0;
+      for (int row = 0; row < 16; row++) {
+        uint8_t bits = FONT_8x16[glyph][row];
+        for (int sr = 0; sr < 2; sr++) {
+          for (int col = 7; col >= 0; col--) {
+            buffer[idx++] = (bits & (1 << col)) ? fg : bg;
+            buffer[idx++] = (bits & (1 << col)) ? fg : bg;
+          }
+        }
+      }
+      ili9341_write_frame_rectangleLE(tx, ty, 16, 32, buffer);
+      tx += 16;
+    }
+  }
+
+  /* Draw the full keyboard overlay with cursor highlight */
+  static void kb_draw_hdmi(const char *search_str, int cur_row, int cur_col) {
+    /* Search bar */
+    int bar_y = KB_Y_START - 44;
+    draw_mask(0, bar_y, WIDTH, 44);
+    char display_str[SEARCH_MAX + 12];
+    snprintf(display_str, sizeof(display_str), "SEARCH: %s_", search_str);
+    draw_text(KB_X_PAD, bar_y + 6, display_str, false, true, false);
+
+    /* Clear keyboard area */
+    draw_mask(0, KB_Y_START, WIDTH, KB_ROWS * (KB_KEY_H + KB_GAP) + KB_GAP);
+
+    /* Draw letter rows */
+    for (int r = 0; r < 3; r++) {
+      const char *row = kb_rows[r];
+      int row_len = kb_row_len[r];
+      int row_width = row_len * (KB_KEY_W + KB_GAP) - KB_GAP;
+      int x_start = (WIDTH - row_width) / 2;
+      int ky = KB_Y_START + r * (KB_KEY_H + KB_GAP);
+
+      for (int k = 0; k < row_len; k++) {
+        int kx = x_start + k * (KB_KEY_W + KB_GAP);
+        char label[2] = { row[k], '\0' };
+        bool hl = (r == cur_row && k == cur_col);
+        kb_draw_key(kx, ky, KB_KEY_W, KB_KEY_H, label, hl);
+      }
+    }
+
+    /* Special row 3: SPACE, DEL, SEARCH */
+    int r3_y = KB_Y_START + 3 * (KB_KEY_H + KB_GAP);
+    int space_w = 160, del_w = 100, search_w = 100;
+    int total_w = space_w + KB_GAP + del_w + KB_GAP + search_w;
+    int r3_x = (WIDTH - total_w) / 2;
+    kb_draw_key(r3_x, r3_y, space_w, KB_KEY_H, "SPACE",
+                cur_row == 3 && cur_col == 0);
+    kb_draw_key(r3_x + space_w + KB_GAP, r3_y, del_w, KB_KEY_H, "DEL",
+                cur_row == 3 && cur_col == 1);
+    kb_draw_key(r3_x + space_w + KB_GAP + del_w + KB_GAP, r3_y, search_w, KB_KEY_H, "SEARCH",
+                cur_row == 3 && cur_col == 2);
+  }
+
+  /* Search: find the first SORTED_FILES entry matching prefix (case-insensitive). */
+  static int search_find_match(const char *prefix) {
+    if (!SORTED_FILES || SORTED_COUNT == 0 || prefix[0] == '\0') return -1;
+    int plen = strlen(prefix);
+    for (int i = 0; i < SORTED_COUNT; i++) {
+      if (strncasecmp(SORTED_FILES[i], prefix, plen) == 0) return i;
+    }
+    for (int i = 0; i < SORTED_COUNT; i++) {
+      const char *name = SORTED_FILES[i];
+      int nlen = strlen(name);
+      for (int j = 0; j <= nlen - plen; j++) {
+        if (strncasecmp(&name[j], prefix, plen) == 0) return i;
+      }
+    }
+    return -1;
+  }
+
+  void show_search_keyboard(void) {
+    char search_str[SEARCH_MAX + 1] = "";
+    int search_len = 0;
+    int cur_row = 0, cur_col = 0;
+
+    /* Wait for button release */
+    do { vTaskDelay(pdMS_TO_TICKS(30)); odroid_input_gamepad_read(&gamepad); }
+    while (gamepad.values[ODROID_INPUT_MENU] || gamepad.values[ODROID_INPUT_A] ||
+           gamepad.values[ODROID_INPUT_B]);
+
+    kb_draw_hdmi(search_str, cur_row, cur_col);
+    display_flush();
+
+    while (true) {
+      vTaskDelay(pdMS_TO_TICKS(120));
+      odroid_input_gamepad_read(&gamepad);
+
+      bool redraw = false;
+
+      /* Navigation */
+      if (gamepad.values[ODROID_INPUT_UP]) {
+        cur_row = (cur_row + KB_ROWS - 1) % KB_ROWS;
+        if (cur_col >= kb_row_len[cur_row]) cur_col = kb_row_len[cur_row] - 1;
+        redraw = true;
+      }
+      if (gamepad.values[ODROID_INPUT_DOWN]) {
+        cur_row = (cur_row + 1) % KB_ROWS;
+        if (cur_col >= kb_row_len[cur_row]) cur_col = kb_row_len[cur_row] - 1;
+        redraw = true;
+      }
+      if (gamepad.values[ODROID_INPUT_LEFT]) {
+        cur_col = (cur_col + kb_row_len[cur_row] - 1) % kb_row_len[cur_row];
+        redraw = true;
+      }
+      if (gamepad.values[ODROID_INPUT_RIGHT]) {
+        cur_col = (cur_col + 1) % kb_row_len[cur_row];
+        redraw = true;
+      }
+
+      /* A = select key */
+      if (gamepad.values[ODROID_INPUT_A]) {
+        char key = '\0';
+        if (cur_row < 3) {
+          key = kb_rows[cur_row][cur_col];
+        } else {
+          if (cur_col == 0) key = ' ';       /* SPACE */
+          else if (cur_col == 1) key = '\b';  /* DEL */
+          else key = '\x1b';                  /* SEARCH (close) */
+        }
+
+        if (key == '\x1b') break;
+        else if (key == '\b') {
+          if (search_len > 0) search_str[--search_len] = '\0';
+        } else if (key != '\0' && search_len < SEARCH_MAX) {
+          search_str[search_len++] = key;
+          search_str[search_len] = '\0';
+        }
+
+        /* Update match */
+        int match = search_find_match(search_str);
+        if (match >= 0) {
+          ROMS.offset = match;
+          if (ROMS.offset + BROWSER_LIMIT > ROMS.total)
+            ROMS.offset = ROMS.total > BROWSER_LIMIT ? ROMS.total - BROWSER_LIMIT : 0;
+          BROWSER_SEL = match - ROMS.offset;
+        }
+        redraw = true;
+        vTaskDelay(pdMS_TO_TICKS(80));  /* brief delay after key press */
+      }
+
+      /* B = delete last char */
+      if (gamepad.values[ODROID_INPUT_B]) {
+        if (search_len > 0) {
+          search_str[--search_len] = '\0';
+          int match = search_find_match(search_str);
+          if (match >= 0) {
+            ROMS.offset = match;
+            if (ROMS.offset + BROWSER_LIMIT > ROMS.total)
+              ROMS.offset = ROMS.total > BROWSER_LIMIT ? ROMS.total - BROWSER_LIMIT : 0;
+            BROWSER_SEL = match - ROMS.offset;
+          }
+          redraw = true;
+        } else {
+          /* Empty search + B = close */
+          break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(80));
+      }
+
+      /* START / Y = close (confirm search) */
+      if (gamepad.values[ODROID_INPUT_START] || gamepad.values[ODROID_INPUT_Y]) break;
+
+      if (redraw) {
+        kb_draw_hdmi(search_str, cur_row, cur_col);
+        display_flush();
+      }
+    }
+
+    /* Redraw browser (clear keyboard overlay) */
+    if (ROMS.total > 0) {
+      seek_files();
+      draw_browser_screen();
+    }
+  }
+#endif /* CONFIG_HDMI_OUTPUT */
 
 //}#pragma endregion Search
 
@@ -3007,7 +3238,7 @@
     //  printf("\n----- %s START -----", __func__);
     char message[100];
     sprintf(message, "loading recents");
-    int center = ceil((800/2)-((strlen(message)*20)/2));
+    int center = ceil((WIDTH/2)-((strlen(message)*20)/2));
     draw_text(center,268,message,false,false, false);
 
     read_recents();
@@ -3028,9 +3259,9 @@
       draw_recents();
     } else {
       sprintf(message, "no recents available");
-      int center = ceil((800/2)-((strlen(message)*20)/2));
-      draw_mask(0, 40, 800, 36);
-      draw_mask(0, 240, 800, 36);
+      int center = ceil((WIDTH/2)-((strlen(message)*20)/2));
+      draw_mask(0, 40, WIDTH, 36);
+      draw_mask(0, 240, WIDTH, 36);
       draw_text(center, 240, message, false, false, false);
     }
 
@@ -3046,9 +3277,9 @@
 
     /* Clear all browser rows */
     for (int s = 0; s < BROWSER_LIMIT; s++) {
-      draw_mask(0, y_start + s * row_h, 800, row_h);
+      draw_mask(0, y_start + s * row_h, WIDTH, row_h);
     }
-    draw_mask(0, y_start + BROWSER_LIMIT * row_h, 800, 8);
+    draw_mask(0, y_start + BROWSER_LIMIT * row_h, WIDTH, 8);
 
     int limit = (ROMS.total - ROMS.offset) < ROMS.limit ?
       (ROMS.total - ROMS.offset) : ROMS.limit;
@@ -3141,7 +3372,7 @@
     draw_background();
     char message[100] = "deleting...";
     int w = strlen(message) * 20;
-    int x_del = (800 - w) / 2;
+    int x_del = (WIDTH - w) / 2;
     int y = (480 - 32) / 2;
     draw_text(x_del, y, message, false, false, false);
 
@@ -3237,7 +3468,7 @@
       int x = SCREEN.w-48-dst_w;
       int y = POS.y+16;
 
-      if (width<=800 && height<=480) {
+      if (width<=WIDTH && height<=480) {
         /* Read source row-by-row and 2x upscale into buffer, render in strips */
         uint16_t *row_buf = (uint16_t*)heap_caps_malloc(width*2, MALLOC_CAP_SPIRAM);
         if (row_buf) {
@@ -3299,14 +3530,14 @@
        * strips over the old content.  Nothing is drawn underneath the
        * artwork â€” every pixel is written exactly once.
        */
-      int art_w = 800, art_h = 450, art_y = 30;
+      int art_w = WIDTH, art_h = HEIGHT - 30, art_y = 30;
       int steps = 10;
-      int strip_w = art_w / steps;  /* 80px per step */
+      int strip_w = art_w / steps;
 
       /* Draw the 30px black header with file count and status icons
          BEFORE the wipe so it's visible immediately. */
-      for (int i = 0; i < 800 * 30; i++) buffer[i] = 0x0000;
-      ili9341_write_frame_rectangleLE(0, 0, 800, 30, buffer);
+      for (int i = 0; i < WIDTH * 30; i++) buffer[i] = 0x0000;
+      ili9341_write_frame_rectangleLE(0, 0, WIDTH, 30, buffer);
 
       {
         uint16_t saved_bg = GUI.bg, saved_fg = GUI.fg;
@@ -3507,7 +3738,7 @@
       draw_contrast();
 
       int y = POS.y + 92;
-      for (int i = 0; i < 4; i++) draw_mask(0, y+(i*80)-12, 800, 80);
+      for (int i = 0; i < 4; i++) draw_mask(0, y+(i*80)-12, WIDTH, 80);
       int sx[4][13] = {
         {20,20,10,10,10,8,8,7,7,5,5,5,5},
         {75,65,50,50,45,45,40,40,30,30,20,20,10}
@@ -3524,15 +3755,15 @@
             SYSTEMS[e].x -= STEP == e ? sx[1][i] : sx[0][i];
           }
         }
-        draw_mask(0, 64, 800, 80);
-        draw_mask(0, 144, 800, 24);
+        draw_mask(0, 64, WIDTH, 80);
+        draw_mask(0, 144, WIDTH, 24);
         draw_systems();
         display_flush();
         usleep(20000);
       }
 
       if (STEP == 0) {
-        for (int s = 0; s < 6; s++) draw_mask(0, s * 80, 800, 80);
+        for (int s = 0; s < 6; s++) draw_mask(0, s * 80, WIDTH, 80);
         draw_battery();
         draw_speaker();
         draw_contrast();
@@ -3542,7 +3773,7 @@
       } else {
         draw_system_logo();
         char hint[] = "press a to browse";
-        int cx = (800 - strlen(hint) * 28) / 2;
+        int cx = (WIDTH - strlen(hint) * 28) / 2;
         draw_text_scaled(cx, 440, hint, GUI.fg);
       }
     }
@@ -3611,7 +3842,7 @@
         if (!show_system_artwork()) {
           draw_system_logo();
           const char *hint = "press a to browse";
-          int cx = (800 - strlen(hint) * 28) / 2;
+          int cx = (WIDTH - strlen(hint) * 28) / 2;
           draw_text_scaled(cx, 440, hint, GUI.fg);
         }
       }
@@ -3643,6 +3874,38 @@
   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€*/
   static int show_png_logo_native(void)
   {
+#ifdef CONFIG_HDMI_OUTPUT
+    /* HDMI: load PNG and NN-scale to fill WIDTH×HEIGHT into framebuffer */
+    pngObject png = {0};
+    if (!loadPngFromFileRaw("/sd/boot_logo.png", &png, true, true)) return 0;
+    if (png.w == 0 || png.h == 0 || !png.data) return 0;
+
+    uint16_t *src = (uint16_t *)png.data;
+    int pw = png.w, ph = png.h;
+    int dst_w = WIDTH, dst_h = HEIGHT;
+
+    /* NN scale in strips that fit buffer[64000], byte-swap + R<->B swap */
+    int max_rows = 64000 / dst_w;
+    if (max_rows < 1) max_rows = 1;
+    for (int dr = 0; dr < dst_h; dr += max_rows) {
+      int rows = (dr + max_rows <= dst_h) ? max_rows : (dst_h - dr);
+      int bi = 0;
+      for (int r = 0; r < rows; r++) {
+        int sr = (dr + r) * ph / dst_h;
+        uint16_t *srow = &src[sr * pw];
+        for (int c = 0; c < dst_w; c++) {
+          int sc = c * pw / dst_w;
+          uint16_t p = srow[sc];
+          uint16_t bs = (p >> 8) | (p << 8);
+          buffer[bi++] = ((bs & 0x1F) << 11) | (bs & 0x07E0) | ((bs >> 11) & 0x1F);
+        }
+      }
+      ili9341_write_frame_rectangleLE(0, dr, dst_w, rows, buffer);
+    }
+    free(src);
+    display_flush();
+    return 1;
+#else
     pngObject png = {0};
     if (!loadPngFromFile("/sd/boot_logo.png", &png, true, false)) return 0;
     if (png.w == 0 || png.h == 0 || !png.data) return 0;
@@ -3705,6 +3968,7 @@
     vTaskDelay(pdMS_TO_TICKS(50));
     heap_caps_free(frame);
     return 1;
+#endif /* !CONFIG_HDMI_OUTPUT */
   }
 
   /*â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -3736,7 +4000,7 @@
     if (bmp_h < 0) { abs_h = -bmp_h; flip = 0; }  /* top-down BMP */
 
     if (bpp != 24 || compr != 0)                 { fclose(f); return 0; }
-    if (bmp_w <= 0 || bmp_w > 800)               { fclose(f); return 0; }
+    if (bmp_w <= 0 || bmp_w > WIDTH)               { fclose(f); return 0; }
     if (abs_h <= 0 || abs_h > 480)               { fclose(f); return 0; }
     if ((int)bmp_w * abs_h > 64000)              { fclose(f); return 0; }
 
@@ -3749,7 +4013,7 @@
     fseek(f, data_offset, SEEK_SET);
 
     /* Read row-by-row, converting BGR888 â†’ RGB565 into buffer[] */
-    uint8_t row_buf[2400 + 4];  /* max 800*3 = 2400 bytes per row */
+    uint8_t row_buf[WIDTH*3 + 4];  /* max WIDTH*3 = 2400 bytes per row */
     for (int r = 0; r < abs_h; r++) {
       int dest_row = flip ? (abs_h - 1 - r) : r;
       if (fread(row_buf, 1, row_total, f) != (size_t)row_total) {
@@ -3768,7 +4032,7 @@
 
     *out_w = bmp_w;
     *out_h = abs_h;
-    *out_x = (800 - bmp_w) / 2;   /* center on 800Ã—480 screen */
+    *out_x = (WIDTH - bmp_w) / 2;
     *out_y = (480 - abs_h) / 2;
     return 1;
   }
@@ -3857,7 +4121,7 @@
       /* BUILD string at bottom */
       char message[100] = BUILD;
       int width = strlen(message)*20;
-      int center = ceil((800)-(width))-96;
+      int center = ceil((WIDTH)-(width))-96;
       int y = 440;
       draw_text(center,y,message,false,false, false);
       display_flush();
@@ -3867,6 +4131,7 @@
 
     /* Clear full LCD so no leftovers from native PNG remain in the
        80-pixel bands that display_flush() does not cover. */
+#ifndef CONFIG_HDMI_OUTPUT
     if (png_native) {
       uint16_t lw = st7701_lcd_width();
       uint16_t lh = st7701_lcd_height();
@@ -3883,6 +4148,7 @@
       display_flush();
       return;
     }
+#endif /* !CONFIG_HDMI_OUTPUT */
 
     /* â”€â”€ Phase 2: built-in logo + credit, 2 seconds â”€â”€ */
     draw_background();
@@ -3892,7 +4158,7 @@
     {
       char credit[] = "Done by Claude Opus 4.6";
       int cw = strlen(credit) * 20;
-      int cx = (800 - cw) / 2;
+      int cx = (WIDTH - cw) / 2;
       draw_text(cx, 280, credit, false, false, false);
     }
     display_flush();
@@ -3906,7 +4172,7 @@
     draw_background();
     char message[100] = "retro esp32";
     int w = strlen(message)*20;
-    int x = (800 - w) / 2;
+    int x = (WIDTH - w) / 2;
     int y = (480 - 32) / 2;
     draw_text(x, y, message, false, false, false);
 
@@ -3927,7 +4193,7 @@
 
     char message[100] = "restarting";
     int w = strlen(message) * 20;
-    int x = (800 - w) / 2;
+    int x = (WIDTH - w) / 2;
     int y = (480 - 32) / 2;
     draw_text(x, y, message, false, false, false);
 
@@ -3956,7 +4222,7 @@
     char *message = !resume ? (char *)"loading..." : (char *)"hold start";
 
     int w = strlen(message) * 20;
-    int x = (800 - w) / 2;
+    int x = (WIDTH - w) / 2;
     int y = (480 - 32) / 2;
     draw_text(x, y, message, false, false, false);
 
@@ -4076,7 +4342,7 @@
     draw_background();
     char *message = (char *)"loading...";
     int w = strlen(message) * 20;
-    int x = (800 - w) / 2;
+    int x = (WIDTH - w) / 2;
     int y = (480 - 32) / 2;
     draw_text(x, y, message, false, false, false);
 
@@ -4116,7 +4382,7 @@
     draw_background();
     char message[100] = "deleting...";
     int w = strlen(message) * 20;
-    int x = (800 - w) / 2;
+    int x = (WIDTH - w) / 2;
     int y = (480 - 32) / 2;
     draw_text(x, y, message, false, false, false);
 
@@ -4179,7 +4445,7 @@
    * draw_browser_header - Draw the top bar of the ROM browser
    */
   void draw_browser_header() {
-    draw_mask(0, 0, 800, 48);
+    draw_mask(0, 0, WIDTH, 48);
     draw_text(8, 4, EMULATORS[STEP], false, true, false);
 
     /* Page info on the right */
@@ -4187,7 +4453,7 @@
     sprintf(info, "(%d/%d)", ROMS.offset + BROWSER_SEL + 1, ROMS.total);
     int w = 0;
     for (const char *p = info; *p; p++) w += (*p == ' ') ? 10 : 20;
-    draw_text(780 - w, 4, info, false, false, false);
+    draw_text(WIDTH - 20 - w, 4, info, false, false, false);
   }
 
   /*
@@ -4257,14 +4523,14 @@
     }
 
     /* Blit: right side, vertically centered in browser area */
-    int preview_x = 800 - papp_preview_w - 16;
+    int preview_x = WIDTH - papp_preview_w - 16;
     int browser_y_start = 44;
     int browser_h = BROWSER_LIMIT * 44;
     int preview_y = browser_y_start + (browser_h - papp_preview_h) / 2;
     if (preview_y < browser_y_start) preview_y = browser_y_start;
 
     /* Clear the preview zone first (removes old preview residue) */
-    int clear_x = 800 - 300 - 16;
+    int clear_x = WIDTH - 300 - 16;
     int clear_y = browser_y_start + (browser_h - 300) / 2;
     if (clear_y < browser_y_start) clear_y = browser_y_start;
     int clear_h = 300;
@@ -4296,10 +4562,10 @@
 
     /* Clear the list area in safe strips */
     for (int s = 0; s < BROWSER_LIMIT; s++) {
-      draw_mask(0, y_start + s * row_h, 800, row_h);
+      draw_mask(0, y_start + s * row_h, WIDTH, row_h);
     }
     /* Clear any remaining pixels below last row */
-    draw_mask(0, y_start + BROWSER_LIMIT * row_h, 800, 8);
+    draw_mask(0, y_start + BROWSER_LIMIT * row_h, WIDTH, 8);
 
     int limit = (ROMS.total - ROMS.offset) < BROWSER_LIMIT ?
       (ROMS.total - ROMS.offset) : BROWSER_LIMIT;
@@ -4382,7 +4648,7 @@
     bool selected = (n == BROWSER_SEL);
 
     /* Clear this row */
-    draw_mask(0, y, 800, row_h);
+    draw_mask(0, y, WIDTH, row_h);
 
     /* Draw icon */
     bool is_dir = strcmp(&FILES[n][strlen(FILES[n]) - 3], "dir") == 0;
@@ -4488,7 +4754,7 @@
       draw_browser_header();
       char msg[64];
       sprintf(msg, "no %s roms found", DIRECTORIES[STEP]);
-      int cx = (800 - strlen(msg) * 20) / 2;
+      int cx = (WIDTH - strlen(msg) * 20) / 2;
       draw_text(cx, 224, msg, false, false, false);
       display_flush();
     }
@@ -4777,7 +5043,7 @@
               } else {
                 draw_browser_header();
                 char msg[] = "empty folder";
-                int cx = (800 - strlen(msg) * 20) / 2;
+                int cx = (WIDTH - strlen(msg) * 20) / 2;
                 draw_text(cx, 224, msg, false, false, false);
                 display_flush();
               }
@@ -4813,10 +5079,11 @@
           debounce(ODROID_INPUT_B);
         }
 
-        /* --- X: search keyboard (emulator browser only, STEP >= 3) --- */
-        if (gamepad.values[ODROID_INPUT_MENU] && STEP >= 3 && ROMS.total > 0) {
+        /* --- X/Y: search keyboard (emulator browser only, STEP >= 3) --- */
+        if ((gamepad.values[ODROID_INPUT_MENU] || gamepad.values[ODROID_INPUT_Y]) && STEP >= 3 && ROMS.total > 0) {
           show_search_keyboard();
-          debounce(ODROID_INPUT_MENU);
+          if (gamepad.values[ODROID_INPUT_MENU]) debounce(ODROID_INPUT_MENU);
+          if (gamepad.values[ODROID_INPUT_Y]) debounce(ODROID_INPUT_Y);
         }
 
       /* ============================================================

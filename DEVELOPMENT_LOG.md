@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** April 2026 — **Phase 42.1: Battery ADC calibration & charging detection fix** (ESP32-P4 ADC reads ~15% low — empirical Vref 3861mV correction, battery range 3.3–3.9V under load, charging detection when bat_mv > 3900, curve-fitting calibration crashed device so reverted to empirical), **Phase 42: Battery level monitoring via GPIO 53** (real ADC2_CH4 battery voltage, 68K/100K divider, 4-sample averaging, charging bool in battery_state), **Phase 41: Gamepad status icons** (USB + GPIO gamepad 16×16 icons in launcher header), **Phase 40: Custom GPIO gamepad support** (analog joystick + buttons on ADC2, X/Y button mapping fix), **Phase 39: Atari 800 save/load state fix** (LIBATARI800 in-memory buffer was never flushed to SD card — SaveState/LoadState now use LIBATARI800_StateSave/StateLoad API with explicit fwrite/fread to SD), **Phase 38: PAPP performance optimization — AXI-GDMA & dual-core benchmarking** (two new PPA hardware blend functions with foreground color-key transparency — `ppa_blend_colorkey_rgb565()` and `ppa_blend_colorkey_rgb565_to()` with RGB565→RGB888 threshold expansion; two new PAPP services — `png_load_rgb565` loads PNG from SD with byte-swap+R↔B for MIPI, `sprite_blit` does PPA hardware color-keyed blend with lazy-allocated DMA-aligned output buffer to avoid in-place DMA conflict, software fallback on failure; `svc_mem_caps_alloc` now uses 64-byte cache-line-aligned allocation when DMA requested; template demo upgraded to sprite demo — loads background.png+spaceship.png from SD, PPA composites spaceship with black colorkey, D-pad movement; `build_template.ps1` fixed for PS 5.1 Join-Path 2-arg limit), **Phase 36: PAPP Template project & launcher PAPP preview** (created `ESP32_P4_PAPP_Template/` — complete template project for building PAPP applications with 400×240 RGB565 framebuffer, PPA rotate 270° + scale 2× to fill 480×800 LCD, ball demo app with gamepad input, CONTEXT.md with full API reference, self-contained `build_template.ps1` build script; launcher PAPP preview — when browsing the PAPP folder, loads and displays a 300×300 PNG preview image alongside highlighted `.papp` files, cached to avoid reload, right-aligned vertically centered in browser area, full list redraw in PAPP mode to prevent filename overlap; launcher version bumped to v3.1), **Phase 35: Stella paddle fixes, launcher favorites, touch search keyboard, carousel short names & settings cleanup** (Atari 2600 paddle full-range fix — `<=` TRIGMAX with else snap, ADC clamp calibrated 5–3340 from measured GPIO 52 range, EMA alpha 0.6/dead zone 50 for snappy response; NES-style interactive volume overlay for Stella — bordered box, colored bar with segments, L/R adjust, Y cycle, auto-dismiss; launcher favorite star icons — yellow 16×16 bitmap at right edge of browser rows with fav_cache system; launcher touch search keyboard — full QWERTY overlay with GT911 touch input, incremental prefix search, DEL/SPACE/CLOSE keys, `odroid_input_touch_buttons_disable` flag to prevent touch-zone phantom button presses during keyboard use; carousel short names — `SHORT_NAMES[]` array with `NES`, `GB`, `GBC`, etc. shown under icons at 1× font scale as `NES (43)` and in header bar as `NES (43 files)` in yellow across all carousel views; settings page simplified to 3 options — Clear Recents/Volume/Brightness, themes/colored icons/cover art removed, volume and brightness bars repositioned inline with text), **Phase 34: Release prep & script fixes** (removed `SDcard/` from `.gitignore` so SD card content is tracked in git; fixed `generate_merged_bin.ps1` — hashtable `+=` and em-dash encoding broke argument list in PowerShell 5.1, rewrote with parallel string arrays and `ArrayList.Add()`; regenerated merged firmware `RetroESP32_P4_v1.bin` 10.87 MB), **Phase 33: Duke3D gamepad, save/load, exit fixes** (full gamepad remapping: A=fire, B=open, X=jump, Y=crouch, L/R=weapon cycle via number key injection with held-key duration, AutoRun enabled; save/load fully working — buffer overflow fix, `access()` now probes SD for absolute paths, `numplayers` forced to 1, save name auto-fill + B button confirms; exit fix — `gameexit()` calls `_exit(0)` directly skipping heavy cleanup), **Phase 32: Duke Nukem 3D PSRAM app** (Chocolate Duke3D BUILD engine ported as fourth .papp, 320×200 8bpp→RGB565 via lcdpal[] LUT, 2.4× display scale, GRP archive from SD, multiple hang fixes: blocking getchar→return, sound precache skip, demo playback skip, menu MODE_MENU clear after skill selection, newgame() spin-wait timeout, cinematics skip; menu system working with New Game/Episode/Skill selection and in-game restart), **Phase 31: Quake audio & brightness fix** (audio task moved core 0→1, sample rate 11025→22050 Hz, mixer volume shift >>20→>>16 for proper levels, volume default 0.7→1.0, direct gamma 0.5 brightness boost in palette LUT via sqrtf curve), **Phase 30: Full rebuild & OpenTyrian cleanup** (removed OpenTyrian from `SYSTEMS[]` array, `get_ota_slot()`, `build_all.ps1`, `flash_all.ps1`, `generate_merged_bin.ps1`; fixed OTA slot mapping — SNES→ota_10, Genesis→ota_11; fixed Python env py3.11→py3.12; fixed `$ROOT` paths to `RetroESP32_P4_PSRAM`; full rebuild of launcher + 11 emulators; merged firmware binary 10.87 MB; single-shot flash at 0x0), **Phase 29: Quake PSRAM app** (WinQuake engine ported as third .papp, 320×240 software renderer, 8bpp→RGB565 native LE, 11025 Hz stereo audio, 256KB PSRAM-backed task stack via `xTaskCreateStaticPinnedToCore`, heap_caps_malloc redirect ≥1KB→PSRAM, stack overflow fix with static precache arrays, scale 2.0× for 480px LCD, gamma 0.7 for brightness, demo playback confirmed working), **Phase 28: PSRAM app stability, launcher cleanup, Atari 800 virtual keyboard** (I2S mutex deadlock fix for multi-app launches, FreeRTOS task exit crash fix, `_fstat` bug fix improving OpenTyrian load time, OpenTyrian removed from launcher carousel as standalone PSRAM app, NVS STEP bounds check prevents launcher reboot loop, Atari 800 virtual keyboard overlay with L1 toggle + Shift/Ctrl modifiers, prboom CMakeLists.txt fixed to not break other emulator builds), **Phase 27: Genesis H32 display fix, audio quality, boot logo scaling** (VDP framebuffer stride-aware conversion fixes H32 games like Rockman Mega World, audio sample rate corrected from half to full native 53 kHz, mixing improved with clamping, boot logo PNG scaled to fill 480×800 LCD), **Phase 26: Sega Genesis (Gwenesis) emulator port** (M68K+Z80+VDP+YM2612+SN76489, ROM bounds checking for SVP carts, internal RAM optimization ~10% FPS gain, X/Y button mapping, sidebar labels, launcher integration), **Phase 25: SNES sidebar buttons & input fix** (visual MENU/VOL touch-zone labels in SNES side bars, direct DPI framebuffer writes bypassing DMA2D contention, X/Y gamepad buttons restored to native SNES mapping), **Phase 24: Display pipeline & menu rendering fix** (all Pipeline A emulators now use direct PPA 2× + 270° path via `s_emu_scaled` 320×240 buffer, in-game menus draw into emu buffer not 800×480 framebuffer), **Phase 23: Exit hang fix** (all emulators), **Atari 5200 support** (.a52 extension, 5200 cart mode, direct PPA 480×640 display pipeline, X/Y button fix), **SNES save/load state** (full emulator snapshot to SD card, menu integration), **SNES DKC crash fix** (NO_ZERO_LUT — COLOR_SUB1_2 NULL dereference), SNES (snes9x) integration & optimization (42→50 FPS, dual-core audio offload, direct 2× PPA scaling, DSP tuning), ZX Spectrum full optimization (PPA direct 320×240→480→640 pipeline, Kempston joystick, -O3, 41→50 FPS), launcher native 800×480 UI overhaul (PNG artwork, VGA font, icon fixes), PCE save/load state (v4 format), Atari 800 async audio (52→60 FPS), PCE 60 FPS optimization, ZX Spectrum crash fixes, Atari 7800 exit fix, PPA S→R→M fix, OpenTyrian integration, in-game menus for all emulators, launcher browser fixes.
+> **Last Updated:** April 2026 — **Phase 45.4: PCE 60 FPS restore (internal SRAM for PPA intermediate buffer) & GB/GBC/GG bottom garbage fix (software NN upscale for fractional scales on HDMI)**, **Phase 45.3: ZX Spectrum color fix & HDMI search keyboard**,
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -141,6 +141,38 @@ python -m esptool --chip esp32p4 -p COM30 -b 460800 --before default_reset --aft
 python serial_capture.py   # outputs to monitor_*.txt, COM30 @ 115200
 # OR
 idf.py -p COM30 monitor
+```
+
+### HDMI Build (640×480 via LT8912 bridge)
+
+The HDMI build uses the same source code with `CONFIG_HDMI_OUTPUT=y` enabled via an sdkconfig overlay. All display differences are handled at compile time with `#ifdef CONFIG_HDMI_OUTPUT`.
+
+```powershell
+# Build HDMI launcher
+cd launcher
+& "C:\Users\97254\esp\v5.5.2\esp-idf\export.ps1" 2>$null
+idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.hdmi.defaults" build
+
+# Flash to device (COM8 for HDMI board)
+idf.py -p COM8 flash
+```
+
+**IMPORTANT:** When switching between LCD and HDMI builds, you must delete the cached sdkconfig and build directory to avoid stale config:
+```powershell
+Remove-Item -Force sdkconfig -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+```
+
+### LCD Build (standard 800×480 ST7701 panel)
+
+```powershell
+# Build LCD launcher (default — no overlay needed)
+cd launcher
+& "C:\Users\97254\esp\v5.5.2\esp-idf\export.ps1" 2>$null
+idf.py build
+
+# Flash to device (COM30 for LCD board)
+idf.py -p COM30 flash
 ```
 
 ### Key sdkconfig Setting
@@ -2456,3 +2488,348 @@ Extended the USB map from 8 to 12 entries, adding mappable d-pad directions:
 | `components/odroid/include/odroid_input.h` | `ODROID_USB_MAP_COUNT` 8→12, updated `odroid_usb_map_t` docs |
 | `components/odroid/odroid_input.c` | Extended `usb_map_set_defaults()` to 12 entries, added d-pad button mapping in gamepad read, made loader tolerate old 8-entry files |
 | `launcher/main/main.c` | Wizard prompts for 12 inputs, d-pad entries accept button/hat/axis input |
+
+---
+
+## Phase 45 — HDMI Output via LT8912 Bridge (640×480)
+
+### Overview
+
+Full HDMI 640×480 @60Hz output port using the Lontium LT8912B MIPI-DSI to HDMI bridge chip. The entire display pipeline is conditionally compiled via `CONFIG_HDMI_OUTPUT`, allowing the same codebase to target either the 800×480 ST7701 LCD panel or a 640×480 HDMI monitor.
+
+### Architecture
+
+```
+Internal FB (RGB565)  ──►  PPA SRM (RGB565→RGB888)  ──►  DPI Panel (RGB888)
+    640×480                   rgb_swap=false                  via MIPI DSI
+                                                                  │
+                                                            LT8912B bridge
+                                                                  │
+                                                            HDMI/TMDS out
+                                                            640×480 @60Hz
+```
+
+- **Pixel clock:** 40 MHz (minimum for ESP32-P4 DSI bridge)
+- **DSI:** 2 data lanes, 1000 Mbps lane bit rate
+- **Pixel format:** RGB888 (3 bytes/pixel), no R↔B swap needed (DSI outputs native RGB order)
+- **Framebuffer:** 900 KB in PSRAM (640 × 480 × 3)
+- **I2C:** 100 kHz, addresses 0x48 (MAIN), 0x49 (CEC/DSI), 0x4A (AVI)
+
+### Kconfig — `CONFIG_HDMI_OUTPUT`
+
+Defined in `components/odroid/Kconfig.projbuild` (must be in a component dir, NOT project root, so all sub-projects see it):
+
+```
+config HDMI_OUTPUT
+    bool "Use HDMI output (LT8912) instead of LCD"
+    default n
+
+config LT8912_I2C_SDA
+    int "LT8912 I2C SDA GPIO"
+    default 7
+    depends on HDMI_OUTPUT
+
+config LT8912_I2C_SCL
+    int "LT8912 I2C SCL GPIO"
+    default 8
+    depends on HDMI_OUTPUT
+
+config LT8912_RESET_GPIO
+    int "LT8912 Reset GPIO"
+    default 38
+    depends on HDMI_OUTPUT
+```
+
+### Build Commands
+
+| Target | Command |
+|--------|---------|
+| **HDMI launcher** | `cd launcher && idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.hdmi.defaults" build` |
+| **LCD launcher** | `cd launcher && idf.py build` |
+| **Clean switch** | Delete `sdkconfig` and `build/` when switching between LCD ↔ HDMI |
+| **Flash HDMI** | `idf.py -p COM8 flash` |
+| **Flash LCD** | `idf.py -p COM30 flash` |
+
+### Key Build System Discovery
+
+**ESP-IDF resolves component `REQUIRES` lists BEFORE Kconfig symbols exist.** This means `if(CONFIG_HDMI_OUTPUT)` in CMakeLists.txt does NOT work for conditional dependency lists. Both `st7701_lcd`/`gt911_touch` AND `hdmi_display` must always be listed unconditionally in REQUIRES. Code selection happens at compile time via `#ifdef CONFIG_HDMI_OUTPUT` in C source.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `components/hdmi_display/hdmi_display.c` | HDMI DPI panel init — LDO, I2C, DSI bus, LT8912 config, DPI streaming |
+| `components/hdmi_display/include/hdmi_display.h` | `hdmi_display_t` struct, `hdmi_display_init()` API |
+| `components/hdmi_display/CMakeLists.txt` | Component registration, depends on `lt8912`, `esp_lcd_mipi_dsi` |
+| `components/lt8912/lt8912.c` | LT8912B I2C driver — register sequences matched to OLIMEX BSP |
+| `components/lt8912/include/lt8912.h` | LT8912 config/timing structs, public API |
+| `components/lt8912/CMakeLists.txt` | Component registration |
+| `components/odroid/Kconfig.projbuild` | `CONFIG_HDMI_OUTPUT` + GPIO configs (moved from project root) |
+| `launcher/sdkconfig.hdmi.defaults` | `CONFIG_HDMI_OUTPUT=y` + GPIO pin assignments |
+
+### Files Modified
+
+| File | Change |
+|------|---------|
+| `components/odroid/odroid_display.c` | HDMI init path (`hdmi_display_init`), PPA RGB565→RGB888 flush for launcher (1:1) and emulator (2× scale) framebuffers, `rgb_swap=false`, `esp_cache_msync` after each frame, backlight/LCD calls guarded with `#ifndef CONFIG_HDMI_OUTPUT` |
+| `components/odroid/odroid_system.c` | Backlight init skipped for HDMI |
+| `components/odroid/odroid_input.c` | Touch init skipped for HDMI |
+| `components/odroid/CMakeLists.txt` | Unconditional REQUIRES for both LCD and HDMI components |
+| `launcher/main/CMakeLists.txt` | Same unconditional REQUIRES |
+| `launcher/main/includes/definitions.h` | `WIDTH` = 640 (HDMI) / 800 (LCD), `HEIGHT` = 480 |
+| `launcher/main/main.c` | 64 hardcoded `800` → `WIDTH`, 4 hardcoded `780`/`790` → `WIDTH-20`/`WIDTH-10`, artwork PNG NN-scaled to fill `WIDTH×(HEIGHT-30)`, boot logo PNG loaded via `loadPngFromFileRaw` + NN scale for HDMI, sidebar guards for SNES/Genesis touch zones |
+| `components/ppa_engine/ppa_engine.c` | `ppa_scale_rgb565_to_rgb888()` function with configurable `rgb_swap` parameter |
+| `components/ppa_engine/include/ppa_engine.h` | Function declaration for RGB565→RGB888 PPA conversion |
+
+### Issues Fixed During Implementation
+
+1. **Kconfig not found by sub-projects** — `Kconfig.projbuild` at project root is invisible to apps building from `launcher/`. Moved to `components/odroid/Kconfig.projbuild`.
+2. **CMake dependency timing** — `CONFIG_HDMI_OUTPUT` not available during cmake first pass. Changed from conditional to unconditional REQUIRES.
+3. **Color mapping (R↔B swapped)** — PPA `rgb_swap=true` was incorrect. ESP32-P4 DSI sends native RGB byte order, so `rgb_swap=false` is correct.
+4. **Hardcoded 800px widths** — 64 occurrences in launcher main.c replaced with `WIDTH` macro.
+5. **Artwork twisting on scroll** — Fixed 2× upscale produced off-by-one stride mismatch. Changed to stretch-fill exactly `WIDTH × (HEIGHT-30)`.
+6. **Boot logo PNG skipped** — HDMI path returned 0 (LCD-only PPA rotate path). Added HDMI-specific PNG decode + NN scale + framebuffer blit.
+7. **File count text clipping** — Hardcoded `780`/`790` right-margin values changed to `WIDTH-20`/`WIDTH-10`.
+
+### Display Mode Comparison
+
+| Property | LCD (ST7701) | HDMI (LT8912) |
+|----------|-------------|----------------|
+| Resolution | 800×480 | 640×480 |
+| Pixel format | RGB565 (16-bit) | RGB888 (24-bit) |
+| Orientation | Portrait 480×800, rotated 270° | Landscape native |
+| Touch | GT911 capacitive | None (gamepad only) |
+| Framebuffer | DPI double-buffer RGB565 | Single DPI FB RGB888 in PSRAM |
+| PPA path | Rotate 270° + scale | Scale only (RGB565→RGB888) |
+| Backlight | LEDC PWM GPIO 23 | N/A |
+| `WIDTH` macro | 800 | 640 |
+
+### Remaining Work
+
+- ~~**Emulator apps with HDMI:** Each app in `apps/` needs HDMI build with overlay~~ → Done in Phase 45.1
+- **Button-based search:** Touch keyboard disabled for HDMI — no gamepad alternative yet
+
+---
+
+## Phase 45.1 — HDMI Hardware Testing & PPA Scaling Fixes
+
+### Overview
+
+All 11 emulator apps and PAPP games built with `CONFIG_HDMI_OUTPUT=y` overlay, flashed, and tested on real HDMI hardware. Found and fixed a PPA stride mismatch that caused visual glitches for emulators with non-320×240 native resolutions.
+
+### Emulators Built & Flashed
+
+All 11 apps built with: `idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;../../launcher/sdkconfig.hdmi.defaults" build`
+
+| App | OTA Partition | Flash Offset | Native Res | Status |
+|-----|---------------|-------------|------------|--------|
+| NES | ota_0 | 0x0D0000 | 256×240 | Working |
+| GB | ota_1 | 0x160000 | 160×144 | Working |
+| SMS | ota_2 | 0x200000 | 256×192 | Working |
+| Spectrum | ota_3 | 0x350000 | 256×192 | Working |
+| Stella | ota_4 | 0x410000 | 160×210 | Working |
+| ProSystem | ota_5 | 0x550000 | 320×210 | Working |
+| Handy | ota_6 | 0x5F0000 | 160×102 | Working |
+| PCE | ota_7 | 0x690000 | 256×240 | Working |
+| Atari800 | ota_8 | 0x730000 | 336×240 | Working |
+| SNES | ota_10 | 0x8C0000 | 256×224 | Fixed (was twisted) |
+| Genesis | ota_11 | 0x9B0000 | 320×224 | Working |
+
+### Bug Fixed: PPA Uniform-Scale Stride Mismatch
+
+**Symptom:** SNES picture appeared "twisted" (diagonal shearing). PAPPs (Doom, Duke3D, OpenTyrian at 320×200) didn't fill the full 640×480 screen.
+
+**Root cause:** The HDMI path in `ili9341_write_frame_rgb565_custom()` used uniform scaling:
+```c
+float s = (sx < sy) ? sx : sy;  // min(640/256, 480/224) = 2.0 for SNES
+ppa_scale_rgb565_to_rgb888(buffer, in_w, in_h, s, s, ...);
+```
+This produced output dimensions that didn't match the 640-pixel framebuffer stride:
+- **SNES 256×224 × 2.0** = 512×448 — PPA wrote 512-pixel rows into a 640-pixel-stride FB → diagonal shear
+- **PAPP 320×200 × 2.0** = 640×400 — correct stride but 80 rows of black bars at bottom
+
+**Fix:** Use separate `sx` and `sy` to stretch-fill exactly 640×480:
+```c
+float sx = (float)HDMI_OUT_W / in_w;  // 640/256 = 2.5 for SNES
+float sy = (float)HDMI_OUT_H / in_h;  // 480/224 = 2.14 for SNES
+ppa_scale_rgb565_to_rgb888(buffer, in_w, in_h, sx, sy, ...);
+```
+Output is now always exactly 640×480, matching the HDMI FB stride perfectly.
+
+**File changed:** `components/odroid/odroid_display.c` line ~880 — removed `float s = min(sx,sy)`, pass `sx, sy` directly to PPA.
+
+**Why 320×240 emulators were unaffected:** `min(640/320, 480/240) = min(2.0, 2.0) = 2.0` — uniform scale happened to produce exactly 640×480.
+
+### Testing Status
+
+- All 11 emulators boot and run on HDMI
+- SNES picture fixed (no more diagonal shear)
+- PAPPs fill full 640×480 screen
+- FPS testing and minor fixes pending
+
+---
+
+## Phase 45.2 — Handy (Atari Lynx) Performance Fix: 28 → 60 FPS
+
+**Date:** 2026-04-19
+
+### Problem
+
+Lynx emulator running at ~28 FPS (target: 60+ FPS) on both LCD and HDMI builds. Sound was choppy due to the low frame rate causing audio underruns.
+
+### Diagnosis
+
+Added per-frame timing instrumentation to `handy_run.cpp`:
+
+```
+LYNX FPS=27.7  emu=18.3ms  audio=0.1ms  abytes=41264
+```
+
+- **CPU emulation:** 18.3ms/frame — high but not enough alone to explain 36ms/frame
+- **Audio submit:** 0.1ms — negligible (not the bottleneck)
+- **Missing ~18ms:** Unaccounted time between measured emu + audio and actual frame period
+
+### Root Cause: `hn_process_input()` Called Per-Opcode
+
+The Handy `CSystem::Update()` method runs only **a few CPU opcodes** per call (3 opcodes per inner loop iteration until the next timer event). It is called **thousands of times per frame** (~105 scanlines × multiple timer intervals).
+
+The main loop was:
+```cpp
+while (!hn_exitRequested) {
+    hn_lynx->Update();        // runs ~3 opcodes
+    hn_process_input();       // reads gamepad — CALLED THOUSANDS OF TIMES PER FRAME
+}
+```
+
+`hn_process_input()` calls `odroid_input_gamepad_read()` which involves I2C/GPIO reads — lightweight individually but devastating at thousands of calls per frame. This consumed ~18ms/frame of pure overhead.
+
+### Fix
+
+Added a `hn_frameDone` flag set by the display callback (fires once per complete frame via Mikie's `DisplayEndOfFrame()`). Restructured the main loop to match the proven `retro_run()` pattern from `handy-go.cpp`:
+
+```cpp
+static volatile bool hn_frameDone = false;
+
+// In display callback:
+hn_frameDone = true;
+
+// Main loop:
+while (!hn_exitRequested) {
+    hn_frameDone = false;
+    while (!hn_frameDone && !hn_exitRequested) {
+        hn_lynx->Update();    // tight inner loop — no input polling
+    }
+    hn_process_input();       // once per frame only
+}
+```
+
+### Result
+
+| Metric | Before | After |
+|--------|--------|-------|
+| FPS | 27.7 | 60 |
+| Sound | Choppy (underruns) | Clean |
+| Input poll | ~3000×/frame | 1×/frame |
+
+### Files Modified
+
+- `components/handy/handy_run.cpp` — frame-done flag, restructured main loop, timing instrumentation
+
+### Pattern Reference
+
+This is the same class of bug fixed in other emulators:
+- **Phase 15 (Atari 800):** Audio blocking was 68% of frame time → async audio task on Core 1
+- **Phase 19 (SNES):** Audio offloaded to Core 1 via task notification
+- **Handy:** Input polling overhead (not audio) — fixed by polling once per frame
+
+---
+
+## Phase 45.3 — ZX Spectrum Color Fix & HDMI Search Keyboard
+
+**Date:** 2026-04-19
+
+### ZX Spectrum Color Fix
+
+**Problem:** All colors were wrong — blue appeared as red, red as green, etc.
+
+**Root Cause:** The `colours[16]` palette table in `components/spectrum/spscr.c` used B5R6G5 channel order (author's comment: *"565 is BRG"*) but the PPA hardware and display pipeline use standard R5G6B5.
+
+**Fix:** Rewrote the palette with correct RGB565 values:
+- Normal colors: component intensity 0xCD → R5=25, G6=51, B5=25
+- Bright colors: component intensity 0xFF → R5=31, G6=63, B5=31
+- Changed `byte_swap` from `true` to `false` in video task (native uint16_t values, no swap needed)
+
+**Files Modified:**
+- `components/spectrum/spscr.c` — corrected `colours[16]` table
+- `components/spectrum/spectrum_run.c` — `byte_swap=false`
+
+### HDMI Gamepad Search Keyboard
+
+**Problem:** The ROM search feature was touch-only (`#ifndef CONFIG_HDMI_OUTPUT`), completely disabled on HDMI builds which have no touch panel.
+
+**Solution:** Implemented a gamepad-driven on-screen keyboard for HDMI:
+
+| Control | Action |
+|---------|--------|
+| X or Y | Open search from ROM browser |
+| D-pad | Navigate keyboard grid |
+| A | Select highlighted key |
+| B | Delete last character (or close if empty) |
+| Y / START | Confirm search and close |
+
+**Implementation Details:**
+- 4-row QWERTY layout sized for 640px width (54px keys vs 68px on LCD)
+- Yellow border highlights the currently selected key
+- Live prefix/substring matching scrolls ROM list as you type
+- Reuses existing `search_find_match()` logic (prefix first, then substring)
+- `kb_draw_hdmi()` accepts cursor position for highlight rendering
+
+**Files Modified:**
+- `launcher/main/main.c` — added `#ifdef CONFIG_HDMI_OUTPUT` gamepad keyboard block alongside existing touch keyboard, enabled X/Y button triggers
+
+## Phase 45.4 — PCE 60 FPS Restore & GB/GBC/GG Bottom Garbage Fix
+
+**Date:** 2026-04-19
+
+### PCE HDMI Performance Regression (54 → 60 FPS)
+
+**Problem:** PC Engine ran at 54.5 FPS on HDMI (dropping to 50.2), down from rock-solid 60 FPS on LCD (Phase 14). EMU=18.3ms (pure CPU emulation) vs 14.4ms on LCD — a 4ms regression despite WAIT=0.0ms (display task not blocking emulation).
+
+**Root Cause:** PSRAM bus bandwidth contention. The HDMI PPA operation writes a 921 KB RGB888 framebuffer to PSRAM via DMA, while Core 0 simultaneously reads game data (VRAM, ROM) from PSRAM. On LCD, PPA output was 614 KB (RGB565) and routed to MIPI-DSI — less PSRAM pressure. The shared `s_emu_scaled` intermediate buffer (320×240 RGB565 = 150 KB) was also in PSRAM, meaning PPA reads *and* writes competed with Core 0.
+
+**Fix:** Changed `s_emu_scaled` allocation to prefer internal SRAM (`MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA`) with PSRAM fallback. ESP32-P4 has ~768 KB internal SRAM; the 150 KB buffer fits. Now PPA reads from fast internal SRAM (zero PSRAM contention) and only writes to PSRAM (the HDMI FB).
+
+**Result:** EMU dropped from 18.3ms to 16.6ms (exactly 1/60s). PCE back to **60.0 FPS** on HDMI. PPA=4.1ms.
+
+**Files Modified:**
+- `components/odroid/odroid_display.c` — all `s_emu_scaled` allocation sites updated to try `MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA` first, fallback to `MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA`. Applies to: `display_get_emu_buffer()`, `ili9341_write_frame_gb()`, `ili9341_write_frame_nes()`, `ili9341_write_frame_sms()`, `ili9341_write_frame_c64()`, `ili9341_write_frame_prosystem()`.
+
+### GB/GBC/Game Gear Bottom 8 Lines Garbage
+
+**Problem:** Game Boy, Game Boy Color, and Game Gear displayed 8 lines of garbage pixels at the bottom of the HDMI output.
+
+**Root Cause:** PPA hardware fractional scale truncation. GB/GBC and GG are 160×144, scaled to 320×240 with sy=1.6667. The PPA hardware truncates this fractional scale factor, leaving bottom rows unfilled with stale PSRAM data. On LCD (with 270° rotation), this manifested differently. On HDMI the unfilled rows get doubled by the second PPA step (320×240 → 640×480), producing 8 visible garbage lines.
+
+**Fix:** Replaced PPA fractional scale with **software nearest-neighbor upscale** for the first step (160×144 → 320×240) on HDMI builds. Every pixel is computed exactly — no unfilled rows. The second PPA step (exact 2× scale + RGB565→RGB888 to 640×480) remains unchanged.
+
+```c
+#ifdef CONFIG_HDMI_OUTPUT
+    /* Software NN upscale — exact, no PPA fractional truncation */
+    for (int y = 0; y < EMU_H; y++) {
+        int src_y = y * GAMEBOY_HEIGHT / EMU_H;
+        const uint16_t *src_row = &s_gb_temp[src_y * GAMEBOY_WIDTH];
+        uint16_t *dst_row = &s_emu_scaled[y * EMU_W];
+        for (int x = 0; x < EMU_W; x++)
+            dst_row[x] = src_row[x * GAMEBOY_WIDTH / EMU_W];
+    }
+    esp_cache_msync(s_emu_scaled, EMU_SIZE, ESP_CACHE_MSYNC_FLAG_DIR_C2M);
+#else
+    /* LCD: PPA scale (fractional truncation hidden by rotation) */
+    ppa_rotate_scale_rgb565_to(...);
+#endif
+```
+
+**SMS (256×192)** continues to use PPA scale — its factors (1.25×) are exact and produce no truncation.
+
+**Files Modified:**
+- `components/odroid/odroid_display.c` — added `#ifdef CONFIG_HDMI_OUTPUT` software NN paths for GB and GG in `ili9341_write_frame_gb()` and `ili9341_write_frame_sms()` (GG branch only)

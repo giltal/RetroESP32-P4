@@ -1,0 +1,11 @@
+# HDMI output variant — layer on top of sdkconfig.defaults
+# Usage: copy this over sdkconfig.defaults (or merge) before building
+#        idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.hdmi.defaults" build
+
+# Enable HDMI output (LT8912 MIPI-to-HDMI bridge)
+CONFIG_HDMI_OUTPUT=y
+
+# LT8912 GPIO configuration
+CONFIG_LT8912_I2C_SDA=7
+CONFIG_LT8912_I2C_SCL=8
+CONFIG_LT8912_RESET_GPIO=23
