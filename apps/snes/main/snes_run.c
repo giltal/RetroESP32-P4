@@ -191,16 +191,8 @@ static void snes_video_task(void *arg)
 
         if (frame == (uint16_t *)1) break;  /* Quit sentinel */
 
-        /* In-place green expansion on the displayed framebuffer.
-         * snes9x:  RRRRR GGGGG 0 BBBBB  (GREEN_SHIFT=6, 5-bit green)
-         * target:  RRRRR GGGGGG BBBBB    (standard RGB565, 6-bit green)
-         * Safe because snes9x is now rendering to the OTHER double-buffer.
-         */
-        int total = SNES_FB_W * SNES_FB_H;
-        for (int i = 0; i < total; i++) {
-            uint16_t px = frame[i];
-            frame[i] = px | ((px >> 5) & 0x0020);
-        }
+        /* BUILD_PIXEL_RGB565 now produces true 6-bit green at render time,
+         * so no post-render green expansion loop is needed. */
 
         /* Direct 2× scale + 270° rotate — no 320×240 staging buffer */
         ili9341_write_frame_rgb565_custom(frame, SNES_FB_W, SNES_FB_H,
@@ -830,7 +822,7 @@ void snes_run(const char *rom_path)
     snes_quit_flag = false;
 
     /* ── Allocate buffers ── */
-    /* SNES double-buffer framebuffers — allocate in PSRAM */
+    /* SNES double-buffer framebuffers */
     for (int i = 0; i < 2; i++) {
         snes_fb[i] = (uint16_t *)heap_caps_calloc(1,
             SNES_FB_W * SNES_FB_H_EXT * sizeof(uint16_t),

@@ -3,8 +3,10 @@
 #ifndef _PIXFORM_H_
 #define _PIXFORM_H_
 
-/* RGB565 format */
-#define BUILD_PIXEL_RGB565(R,G,B) (((int32_t) (R) << 11) | ((int32_t) (G) << 6) | (int32_t) (B))
+/* RGB565 format — BUILD_PIXEL produces true 6-bit green by duplicating MSB
+ * of the 5-bit input green into the spare bit (bit 5).  This eliminates the
+ * need for a post-render green-expansion loop. */
+#define BUILD_PIXEL_RGB565(R,G,B) (((int32_t) (R) << 11) | ((int32_t) (G) << 6) | (((int32_t)(G) >> 4) << 5) | (int32_t) (B))
 #define BUILD_PIXEL2_RGB565(R,G,B) (((int32_t) (R) << 11) | ((int32_t) (G) << 5) | (int32_t) (B))
 #define DECOMPOSE_PIXEL_RGB565(PIX,R,G,B) {(R) = (PIX) >> 11; (G) = ((PIX) >> 6) & 0x1f; (B) = (PIX) & 0x1f; }
 #define SPARE_RGB_BIT_MASK_RGB565 (1 << 5)

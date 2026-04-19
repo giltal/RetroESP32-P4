@@ -4,7 +4,7 @@ RetroESP32-P4 is a retro gaming and application platform based on the powerful E
 
 Built from my recent revival of the original RetroESP32, this project brings modern UI, **HDMI** support, touchscreen support, 14 emulators, and native apps running from SRAM.
 
-![image-20260419092805506](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419092805506.png)
+![Banner](images\image-20260419092805506.png)
 
 ---
 
@@ -40,7 +40,7 @@ Built from my recent revival of the original RetroESP32, this project brings mod
 
 Plug **any** USB controller and automatic button mapping starts on first use (**For the HDMI version you need L2 and R2 for Menu and Volume buttons in SNES and Genesis, a PS3 controller is best, cheap clones  are available on AliExpress**)
 
-![image-20260419093753500](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419093753500.png)
+![Banner](images\image-20260419093753500.png)
 
 ---
 
@@ -54,7 +54,7 @@ Plug **any** USB controller and automatic button mapping starts on first use (**
 
 - Can be purchased on AliExpress or from Guition site:
 
-  ![image-20260419091837418](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419091837418.png)
+  ![Banner](images\image-20260419091837418.png)
 
 ## 2. HDMI Version
 
@@ -62,13 +62,11 @@ Plug **any** USB controller and automatic button mapping starts on first use (**
 
 - Olimex LT8912 CSI-to-HDMI bridge (https://www.olimex.com/Products/IoT/ESP32-P4/MIPI-HDMI/open-source-hardware) (**Be very careful to use the correct CSI flat cable**, better to buy it from Olimex - https://www.olimex.com/Products/IoT/ESP32-P4/FPC-15-1.0-150/)
 
-  ![image-20260419091605829](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419091605829.png)
+  ![Banner](images\image-20260419091605829.png)
 
-  ![image-20260419091951743](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419091951743.png)
+  ![Banner](images\image-20260419091951743.png)
 
-  ![image-20260419093151284](C:\Users\97254\AppData\Roaming\Typora\typora-user-images\image-20260419093151284.png)
-
-  
+  ![Banner](images\image-20260419093151284.png)
 
   
 

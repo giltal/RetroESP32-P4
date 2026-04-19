@@ -1,3 +1,5 @@
+#include "sdkconfig.h"
+#ifdef CONFIG_HDMI_OUTPUT
 #include <string.h>
 #include "hdmi_display.h"
 #include "lt8912.h"
@@ -146,3 +148,4 @@ esp_err_t hdmi_display_init(hdmi_mode_t mode, hdmi_display_t *out)
 
     return ESP_OK;
 }
+#endif /* CONFIG_HDMI_OUTPUT */

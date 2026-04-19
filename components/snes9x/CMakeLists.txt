@@ -23,8 +23,7 @@ set(SNES9X_SRCS
     c4.c
     dsp1.c
     getset.c
-    fxemu.c
-    fxinst.c
+    fxstub.c
 )
 
 idf_component_register(

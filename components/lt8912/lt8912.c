@@ -1,3 +1,5 @@
+#include "sdkconfig.h"
+#ifdef CONFIG_HDMI_OUTPUT
 /*
  * LT8912B MIPI DSI to HDMI Bridge Driver
  *
@@ -577,3 +579,4 @@ void lt8912_dump_debug(lt8912_dev_t *dev)
 
     ESP_LOGI(TAG, "=========================");
 }
+#endif /* CONFIG_HDMI_OUTPUT */
