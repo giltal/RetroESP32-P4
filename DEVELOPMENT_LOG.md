@@ -1,6 +1,6 @@
 # RetroESP32-P4 — Development Log & Session Continuity Guide
 
-> **Last Updated:** April 2026 — **Phase 45.4: PCE 60 FPS restore (internal SRAM for PPA intermediate buffer) & GB/GBC/GG bottom garbage fix (software NN upscale for fractional scales on HDMI)**, **Phase 45.3: ZX Spectrum color fix & HDMI search keyboard**,
+> **Last Updated:** April 2026 — **Phase 45.5: SNES performance optimization (SuperFX removal + green expansion elimination, 10–25% FPS gain), HDMI/LCD build system fix, launcher WIDTH refactor, full firmware rebuild**, **Phase 45.4: PCE 60 FPS restore (internal SRAM for PPA intermediate buffer) & GB/GBC/GG bottom garbage fix (software NN upscale for fractional scales on HDMI)**, **Phase 45.3: ZX Spectrum color fix & HDMI search keyboard**,
 > **Read this file at the start of every new session to pick up where we left off.**
 
 ---
@@ -2833,3 +2833,56 @@ This is the same class of bug fixed in other emulators:
 
 **Files Modified:**
 - `components/odroid/odroid_display.c` — added `#ifdef CONFIG_HDMI_OUTPUT` software NN paths for GB and GG in `ili9341_write_frame_gb()` and `ili9341_write_frame_sms()` (GG branch only)
+
+## Phase 45.5 — SNES Performance Optimization & Build System Fixes
+
+**Date:** 2026-04-19
+
+### SNES Performance: SuperFX Removal + Green Expansion Elimination
+
+**Problem:** SNES emulation had two sources of unnecessary overhead:
+1. Full SuperFX/GSU coprocessor emulation code (~63 KB) compiled in, despite no SuperFX game support on ESP32-P4
+2. A 57,344-pixel green expansion loop running every frame on Core 1's video task
+
+**Root Cause Analysis:**
+- **SuperFX:** `fxemu.c` and `fxinst.c` contained the complete Super FX GSU coprocessor emulator. No SuperFX ROMs (Star Fox, Yoshi's Island) are viable on ESP32-P4, making this dead code that polluted the instruction cache.
+- **Green expansion:** The SNES9x `BUILD_PIXEL_RGB565` macro produced `RRRRR_GGGGG_0_BBBBB` (bit 5 intentionally zero as an overflow guard for color math). The video task then iterated all 57K pixels post-render to fill bit 5 from bit 10: `px | ((px & 0x0400) >> 5)`. This was safe but wasteful — color math (`COLOR_ADD`/`COLOR_SUB` in `gfx.h`) already handles the 6-bit green case with `#if GREEN_SHIFT_BITS == 6` guards.
+
+**Fix 1 — SuperFX Stub:**
+- Removed `fxemu.c` and `fxinst.c` from `components/snes9x/CMakeLists.txt`
+- Created `fxstub.c` with empty stub functions (`S9xInitSuperFX`, `S9xResetSuperFX`, `S9xSuperFXExec`, `S9xSetSuperFX`, `S9xGetSuperFX`, `fx_flushCache`, `fx_computeScreenPointers`, `fx_run`) and zero-initialized globals (`GSU`, `SuperFX`, `fx_OpcodeTable[1024]`, `fx_PlotTable[16]`)
+
+**Fix 2 — Green Expansion in BUILD_PIXEL:**
+- Changed `BUILD_PIXEL_RGB565` macro in `pixform.h` from `(R<<11)|(G<<6)|B` to `(R<<11)|(G<<6)|((G>>4)<<5)|B` — produces true 6-bit green at render time
+- Removed the 57K-pixel green expansion loop from `snes_video_task` in `snes_run.c`
+
+**Result:** One game gained ~25% FPS improvement, another ~10%. SNES binary size reduced from 870 KB to 807 KB (LCD) / 783 KB (HDMI) — 63 KB savings from SuperFX removal.
+
+**Files Modified:**
+- `components/snes9x/CMakeLists.txt` — removed `fxemu.c`, `fxinst.c`; added `fxstub.c`
+- `components/snes9x/fxstub.c` — **new file**, empty SuperFX stubs
+- `components/snes9x/pixform.h` — `BUILD_PIXEL_RGB565` macro updated for true 6-bit green
+- `apps/snes/main/snes_run.c` — removed green expansion loop from video task
+
+### HDMI/LCD Build System Fix
+
+**Problem:** HDMI builds failed with `lt8912.h: No such file or directory` and `undefined reference to hdmi_display_init` when building from a clean state. The CMakeLists `if(CONFIG_HDMI_OUTPUT)` guards evaluated before Kconfig was processed, leaving `hdmi_display` and `lt8912` as empty components that couldn't satisfy dependency resolution.
+
+**Fix:** Changed approach from CMake-level guards to source-level guards:
+- `hdmi_display/CMakeLists.txt` and `lt8912/CMakeLists.txt` — removed `if(CONFIG_HDMI_OUTPUT)` conditional; always register SRCS and REQUIRES unconditionally
+- `hdmi_display/hdmi_display.c` and `lt8912/lt8912.c` — wrapped entire file contents with `#include "sdkconfig.h"` + `#ifdef CONFIG_HDMI_OUTPUT` / `#endif`
+- `components/odroid/CMakeLists.txt` — added `esp_hw_support esp_mm` to REQUIRES (needed for `esp_cache.h` in HDMI path)
+
+**Result:** Both LCD and HDMI builds work cleanly from a fresh `build/` directory. LCD builds compile empty `.c.obj` files (no code size impact). HDMI builds get full component code.
+
+### Launcher WIDTH Macro Refactor
+
+**Problem:** Launcher `main.c` had ~30 hardcoded `800` literals for screen width, preventing correct rendering on HDMI (640×480).
+
+**Fix:** Replaced all screen-width `800` references with the `WIDTH` macro (defined as 640 for HDMI, 800 for LCD in `definitions.h`). Verified both LCD and HDMI launcher builds succeed.
+
+### Full Firmware Rebuild
+
+Both firmware images regenerated with all Phase 45.0–45.5 changes:
+- **`RetroESP32_P4_v1.bin`** — LCD variant, 10.87 MB (SNES: 807 KB)
+- **`RetroESP32_P4_v1_HDMI.bin`** — HDMI variant, 10.85 MB (SNES: 783 KB)

@@ -48,7 +48,10 @@ tmp_factory.bin
 snes_icon_data.txt
 sprite_papp.txt
 todo.txt
-story.md
+
+# === Markdown docs (only README tracked) ===
+*.md
+!README.md
 
 # === Backup directories ===
 backup_pre_superfx/
