@@ -61,6 +61,7 @@ SYSTEM SYSTEMS[COUNT] = {
   /* ATARI 800 */{0, &a800 ,&a800_color},
   /* SUPER NINTENDO */{0, &snes ,&snes_color},
   /* SEGA GENESIS */{0, &genesis ,&genesis_color},
+  /* NEO GEO */{0, &neogeo ,&neogeo_color},
   /* PSRAM APPS */{0, &papp ,&papp_color},
 };
 

@@ -36,7 +36,8 @@ $apps = @(
     @{ Name = "pce";        Dir = "apps\pce";       Bin = "pce_app.bin" },
     @{ Name = "atari800"; Dir = "apps\atari800"; Bin = "atari800_app.bin" },
     @{ Name = "snes";       Dir = "apps\snes";       Bin = "snes_app.bin" },
-    @{ Name = "genesis";    Dir = "apps\genesis";    Bin = "genesis_app.bin" }
+    @{ Name = "genesis";    Dir = "apps\genesis";    Bin = "genesis_app.bin" },
+    @{ Name = "neogeo";     Dir = "apps\neogeo";     Bin = "neogeo_app.bin" }
 )
 
 foreach ($app in $apps) {

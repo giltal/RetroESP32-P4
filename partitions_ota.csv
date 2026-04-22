@@ -4,6 +4,7 @@
 #   launcher=706KB  nes=567KB  gb=539KB  sms=1231KB  spectrum=665KB
 #   stella=1184KB  prosystem=575KB  handy=535KB  pce=575KB
 #   atari800=734KB  opentyrian=662KB  snes=869KB  genesis=1212KB
+#   neogeo=1177KB
 #
 # Name,     Type, SubType, Offset,    Size,    Flags
 nvs,        data, nvs,     0x9000,    0x4000,
@@ -21,3 +22,4 @@ ota_8,      app,  ota_8,   0x740000,  0x0C0000,
 ota_9,      app,  ota_9,   0x800000,  0x0C0000,
 ota_10,     app,  ota_10,  0x8C0000,  0x0F0000,
 ota_11,     app,  ota_11,  0x9B0000,  0x150000,
+ota_12,     app,  ota_12,  0xB00000,  0x180000,

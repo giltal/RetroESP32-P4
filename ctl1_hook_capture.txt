@@ -1,0 +1,161 @@
+I (98) boot:  6 ota_3            OTA app          00 13 00350000Load file 019-v12.bin       in region 3: OK
+ZIP entry: '000-lo.lo' (looking for '019-v21.bin')
+ZIP entry: '019-c1.c1' (looking for '019-v21.bin')
+ZIP entry: '019-c2.c2' (looking for '019-v21.bin')
+ZIP entry: '019-m1.m1' (looking for '019-v21.bin')
+ZIP entry: '019-p1.p1' (looking for '019-v21.bin')
+ZIP entry: '019-s1.s1' (looking for '019-v21.bin')
+ZIP entry: '019-v11.v11' (looking for '019-v21.bin')
+ZIP entry: '019-v12.v12' (looking for '019-v21.bin')
+ZIP entry: '019-v21.v21' (looking for '019-v21.bin')
+Trying to load file 019-v21.bin       in region 4
+I (12529) app_common: crash_guard: boot counter cleared
+Load file 019-v21.bin       in region 4: OK
+ZIP entry: '000-lo.lo' (looking for '019-c1.bin')
+ZIP entry: '019-c1.c1' (looking for '019-c1.bin')
+Trying to load file 019-c1.bin        in region 9
+Load file 019-c1.bin        in region 9: OK
+ZIP entry: '000-lo.lo' (looking for '019-c2.bin')
+ZIP entry: '019-c1.c1' (looking for '019-c2.bin')
+ZIP entry: '019-c2.c2' (looking for '019-c2.bin')
+Trying to load file 019-c2.bin        in region 9
+Load file 019-c2.bin        in region 9: OK
+I (16886) gngeo_esp32: Loading complete
+Default roms init
+Allocating 0x00000800 byte for Region 10
+BIOS: Opening /sd/roms/neogeo/neogeo.zip
+ZIP entry: 'ng-lo.rom' (looking for '000-lo.lo')
+ZIP entry: 'neo-geo.rom' (looking for '000-lo.lo')
+ZIP entry: 'ng-sfix.rom' (looking for '000-lo.lo')
+ZIP entry: 'ng-sm1.rom' (looking for '000-lo.lo')
+BIOS: 000-lo.lo not found, trying ng-lo.rom
+ZIP entry: 'ng-lo.rom' (looking for 'ng-lo.rom')
+BIOS: lo loaded (131072 bytes)
+Load Sfix
+ZIP entry: 'ng-lo.rom' (looking for 'sfix.sfx')
+ZIP entry: 'neo-geo.rom' (looking for 'sfix.sfx')
+ZIP entry: 'ng-sfix.rom' (looking for 'sfix.sfx')
+ZIP entry: 'ng-sm1.rom' (looking for 'sfix.sfx')
+Couldn't find sfix.sfx, try sfix.sfix
+ZIP entry: 'ng-lo.rom' (looking for 'sfix.sfix')
+ZIP entry: 'neo-geo.rom' (looking for 'sfix.sfix')
+ZIP entry: 'ng-sfix.rom' (looking for 'sfix.sfix')
+ZIP entry: 'ng-sm1.rom' (looking for 'sfix.sfix')
+Trying ng-sfix.rom
+ZIP entry: 'ng-lo.rom' (looking for 'ng-sfix.rom')
+ZIP entry: 'neo-geo.rom' (looking for 'ng-sfix.rom')
+ZIP entry: 'ng-sfix.rom' (looking for 'ng-sfix.rom')
+BIOS: sfix loaded (131072 bytes)
+BIOS: Loading CPU BIOS (system=0, country=2)
+BIOS: Loading usa_2slt.bin
+ZIP entry: 'ng-lo.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'neo-geo.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'ng-sfix.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'ng-sm1.rom' (looking for 'usa_2slt.bin')
+BIOS: usa_2slt.bin not found, trying neo-geo.rom
+ZIP entry: 'ng-lo.rom' (looking for 'neo-geo.rom')
+ZIP entry: 'neo-geo.rom' (looking for 'neo-geo.rom')
+MUSASHI 68K CPU INIT
+Game ROM already LE (gv[0]=0x10), skip swap
+BIOS already LE (byte0=0x10)
+ROM[0..7] vectors: 0010 f300 00c0 0402
+SSP=0010f300  PC=00c00402
+After reset: PC=00c00402 SP=0010f300
+I (17589) gngeo_esp32: init_sdl_audio: initializing ES8311 at 22050 Hz
+I (17596) audio: Reconfiguring I2S sample rate: 16000 -> 22050
+I (17601) audio: I2S sample rate set to 22050 Hz
+I (17606) odroid_audio: Audio init (compat): sample_rate=22050, vol=4
+I (17612) audio: Volume set to 50
+I (17614) odroid_audio: Volume set: 2/4 → 50%
+I (17619) gngeo_esp32: Audio ready: 22050 Hz, 367 samples/frame, Z80 on core 1
+I (17679) neogeo_run: Game loaded successfully!
+I (17680) neogeo_run: After init_game — Free PSRAM: 25450 KB
+I (17680) neogeo_run: P ROM: 1024 KB
+I (17681) neogeo_run: S ROM: 128 KB
+I (17685) neogeo_run: Tiles: 1024 KB
+I (17688) neogeo_run: ADPCM-A: 1024 KB
+I (17691) neogeo_run: M ROM (Z80): 128 KB
+I (17695) neogeo_run: Nb tiles: 8192
+I (17698) neogeo_run: Starting main loop...
+Selecting Bios Vector
+Z80task: z80=2604 us, ym=2182 us (n=1)
+E (17764) lcd.dsi: dpi_panel_draw_bitmap(547): previous draw operation is not finished
+detail: 68Kcpu=8364 us, video=51542 us (n=1)
+68K: 60324 us/frame, Z80wait: 10 us/frame (n=1)
+GAME_ROM raw[100..13F]:
+4e45 4f2d 4745 4f00 0019 0008 0000 0010 2ca8 0301 0000 0000 0186 0000 043a 0000
+043a 4ef9 0000 3766 4ef9 0000 3b50 4ef9 0000 3bf6 4ef9 0000 3bee ffff ffff ffff
+FETCH16 bank[200100..20013E]:
+4e45 4f2d 4745 4f00 0019 0008 0000 0010 2ca8 0301 0000 0000 0186 0000 043a 0000
+043a 4ef9 0000 3766 4ef9 0000 3b50 4ef9 0000 3bf6 4ef9 0000 3bee ffff ffff ffff
+game_vector[00..0F]: 10 00 00 f3 c0 00 02 04 c0 00 08 04 c0 00 0e 04
+User vectors: startup=00000000 eyecatch=01860000 demo=043a0000 title=043a4ef9
+Game VBL vector (ROM[0x64]): 00c00438
+FPS: 60
+FRAME 60: PC=00c13178 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=0 scr=aa/aa fp=170 ur=253 um=174 sf=fd pm=253
+BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6   Z80task: z80=2360 us, ym=9667 us (n=59)
+fd b8 fd ba fd bc fd be fd
+SRAM[30..50]: aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa
+CTL3: r8=0 r16=0 last8=ff last16=ffff
+detail: 68Kcpu=8656 us, video=5327 us (n=61)
+68K: 14005 us/frame, Z80wait: 1958 us/frame (n=61)
+FRAME 120: PC=00c1310c vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=0 scr=00/00 fp=0 ur=253 um=174 sf=fd pm=253
+BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd
+SRAM[30..50]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 00 00 00 00 00 00 00 00 00
+CTL3: r8=0 r16=0 last8=ff last16=ffff
+Z80task: z80=2238 us, ym=11863 us (n=60)
+FPS: 61
+detail: 68Kcpu=8912 us, video=4008 us (n=61)
+68K: 12938 us/frame, Z80wait: 2980 us/frame (n=61)
+FRAME 180: PC=00c11da2 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=18 scr=00/00 fp=0 ur=253 um=174 sf=fd pm=253
+BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd
+SRAM[30..50]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 00 00 00 00 00 00 00 00 00
+CTL3: r8=0 r16=0 last8=ff last16=ffff
+Z80task: z80=2163 us, ym=9747 us (n=60)
+FPS: 60
+detail: 68Kcpu=8065 us, video=5337 us (n=60)
+68K: 13414 us/frame, Z80wait: 2766 us/frame (n=60)
+FRAME 240: PC=00c11c54 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=61 scr=00/00 fp=0 ur=253 um=174 sf=fd pm=253
+BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd
+SRAM[30..50]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 00 00 00 00 00 00 00 00 00
+CTL3: r8=0 r16=0 last8=ff last16=ffff
+Z80task: z80=2148 us, ym=9554 us (n=61)
+FPS: 63
+detail: 68Kcpu=7296 us, video=5120 us (n=62)
+68K: 12432 us/frame, Z80wait: 3697 us/frame (n=62)
+Selecting Bios Vector
+Selecting Game Vector
+Selecting Game Vector
+Selecting Bios Vector
+Selecting Game Vector
+Selecting Bios Vector
+Selecting Game Vector
+FRAME 300: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=108 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+BIOS[FDB0..FDC0]: 00 04 00 00 00 00 00 00 00 00 00 00 00 00 10 00
+SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00
+CTL3: r8=109 r16=0 last8=7f last16=ffff
+Game main loop active at PC=000037b0
+ROM vectors $100-$140:
+$0100: 45 4e 2d 4f  (BE=454e2d4f LE=4f2d4e45)
+$0104: 45 47 00 4f  (BE=4547004f LE=4f004745)
+$0108: 19 00 08 00  (BE=19000800 LE=00080019)
+$010c: 00 00 10 00  (BE=00001000 LE=00100000)
+$0110: a8 2c 01 03  (BE=a82c0103 LE=03012ca8)
+$0114: 00 00 00 00  (BE=00000000 LE=00000000)
+$0118: 86 01 00 00  (BE=86010000 LE=00000186)
+$011c: 3a 04 00 00  (BE=3a040000 LE=0000043a)
+$0120: 3a 04 f9 4e  (BE=3a04f94e LE=4ef9043a)
+$0124: 00 00 66 37  (BE=00006637 LE=37660000)
+$0128: f9 4e 00 00  (BE=f94e0000 LE=00004ef9)
+$012c: 50 3b f9 4e  (BE=503bf94e LE=4ef93b50)
+$0130: 00 00 f6 3b  (BE=0000f63b LE=3bf60000)
+$0134: f9 4e 00 00  (BE=f94e0000 LE=00004ef9)
+$0138: ee 3b ff ff  (BE=ee3bffff LE=ffff3bee)
+$013c: ff ff ff ff  (BE=ffffffff LE=ffffffff)
+FPS: 58
+Z80task: z80=2324 us, ym=12070 us (n=61)
+detail: 68Kcpu=7669 us, video=2219 us (n=57)
+68K: 9912 us/frame, Z80wait: 7098 us/frame (n=57)
+FRAME 360: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=168 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+BIOS[FDB0..FDC0]: 00 04 00 00 00 00 00 00 00 00 00 00 00 00 10 00
+SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00

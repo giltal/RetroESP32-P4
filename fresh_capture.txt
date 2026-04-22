@@ -1,0 +1,433 @@
+I (442) MSPI Timing: Enter psram timing tuning
+I (614) esp_psram: Found 32MB PSRAM device
+I (615) esp_psram: Speed: 200MHz
+I (616) hex_psram: psram CS IO is dedicated
+I (616) cpu_start: Multicore app
+I (1523) esp_psram: SPI SRAM memory test OK
+I (1537) cpu_start: GPIO 38 and 37 are used as console UART I/O pins
+I (1537) cpu_start: Pro cpu start user code
+I (1537) cpu_start: cpu freq: 360000000 Hz
+I (1539) app_init: Application information:
+I (1543) app_init: Project name:     neogeo_app
+I (1547) app_init: App version:      6292760-dirty
+I (1552) app_init: Compile time:     Apr 21 2026 13:37:45
+I (1557) app_init: ELF file SHA256:  f0ead2e72...
+I (1561) app_init: ESP-IDF:          v5.5.2
+I (1565) efuse_init: Min chip rev:     v0.1
+I (1569) efuse_init: Max chip rev:     v1.99 
+I (1573) efuse_init: Chip rev:         v1.3
+I (1577) heap_init: Initializing. RAM available for dynamic allocation:
+I (1584) heap_init: At 4FF274B0 len 00013B10 (78 KiB): RETENT_RAM
+I (1589) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1595) heap_init: At 4FF6DE00 len 00032200 (200 KiB): RAM
+I (1600) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1605) heap_init: At 30100068 len 00001F98 (7 KiB): TCM
+I (1611) esp_psram: Adding pool of 32455K of PSRAM memory to heap allocator
+W (1618) spi_flash: Detected boya flash chip but using generic driver. For optimal functionality, enable `SPI_FLASH_SUPPORT_BOYA_CHIP` in menuconfig
+I (1630) spi_flash: detected chip: generic
+I (1634) spi_flash: flash io: dio
+I (1638) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1643) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1651) main_task: Started on CPU0
+I (1654) main_task: Calling app_main()
+I (1657) app_common: === Emulator App Init ===
+I (1667) app_common: crash_guard: boot_count = 0 (max 3)
+I (1668) odroid_system: === RetroESP32-P4 System Init ===
+I (1672) odroid_system: I2C master bus initialized (SDA=7, SCL=8)
+I (1678) odroid_system: Initializing PPA 2D engine...
+I (1682) ppa_engine: PPA buffer alignment: 64 bytes
+I (1687) ppa_engine: PPA 2D engine initialized (SRM + Blend + Fill)
+I (1693) odroid_system: Initializing USB HID gamepad host...
+I (1729) gamepad: USB host library installed
+I (1729) gamepad: USB HID gamepad host initialized — plug in a USB gamepad!
+I (1729) gamepad: Waiting for USB HID gamepad...
+I (1729) odroid_system: Initializing audio (ES8311 codec)...
+I (1739) audio: I2S0 initialized: SR=16000, MCLK=13, BCLK=12, WS=10, DOUT=9, DIN=48
+I (1752) ES8311: Work in Slave mode
+I (1755) I2S_IF: STD mode, dir: TX, data_bit: 16, slot_bit: 16 active_channel: 2, slot_mask: 0x3
+I (1757) I2S_IF: STD mode, dir: RX, data_bit: 16, slot_bit: 16 active_channel: 2, slot_mask: 0x3
+I (1782) Adev_Codec: Open codec device OK
+I (1782) audio: ES8311 codec initialized (I2C addr=0x30, vol=60)
+I (1782) audio: Audio subsystem ready
+I (1783) odroid_system: Initializing LCD (ST7701 MIPI DSI)...
+I (1789) st7701_lcd: MIPI DSI PHY Powered on
+I (1794) st7701_lcd: Install MIPI DSI LCD control panel
+I (1938) st7701_mipi: LCD ID: FF FF FF
+I (1938) st7701_mipi: st7701->madctl_val: 0x0, st7701->colmod_val: 0x55
+I (2091) st7701_lcd: LCD initialized successfully (480x800, RGB565)
+I (2092) odroid_system: Initializing touch (GT911)...
+I (2092) gt911_touch: Initialize touch IO (I2C)
+I (2096) gt911_touch: Initialize touch controller GT911
+I (2102) GT911: TouchPad_ID:0x39,0x31,0x31
+I (2105) GT911: TouchPad_Config_Version:250
+I (2221) odroid_system: === System Init Complete ===
+I (2230) odroid_display: Virtual framebuffer allocated in PSRAM: 800x480 (768000 bytes)
+I (2232) odroid_display: Backlight LEDC initialized on GPIO 23
+I (2234) odroid_audio: Audio init (compat): sample_rate=16000, vol=4
+I (2244) odroid_input: GPIO gamepad DETECTED (GPIO 29 reads LOW)
+I (2245) odroid_input: GPIO gamepad initialized: analog(49,50,52) digital(28,29,30,32,34,35)
+I (2253) odroid_input: Input subsystem ready (USB HID gamepad + GPIO gamepad)
+I (2260) odroid_sdcard: Initializing SD card (SDMMC mode with on-chip LDO)
+W (2266) ldo: The voltage value 0 is out of the recommended range [500, 2700]
+I (2273) odroid_sdcard: SD mount attempt 1/3
+I (2518) odroid_sdcard: SD Card mounted at /sd (attempt 1)
+Name: SD32G
+Type: SDHC
+Speed: 20.00 MHz (limit: 20.00 MHz)
+Size: 29520MB
+CSD: ver=2, sector_size=512, capacity=60456960 read_bl_len=9
+SSR: bus_width=4
+I (2526) app_common: === Emulator App Init Complete ===
+I (2531) app_common: Safe-boot check: touch screen to return to launcher...
+I (3039) app_common: Safe-boot check passed (no touch detected).
+I (3039) app_common: ROM path: /sd/roms/neogeo/lbowling.zip
+I (3040) neogeo: ROM: /sd/roms/neogeo/lbowling.zip
+I (3044) neogeo: Starting Neo Geo emulation: /sd/roms/neogeo/lbowling.zip
+I (3050) neogeo_run: Neo Geo emulator starting...
+I (3054) neogeo_run: ROM path: /sd/roms/neogeo/lbowling.zip
+W (3059) odroid_sdcard: SD card already mounted
+I (3074) neogeo_run: Free PSRAM: 30849 KB
+I (3074) neogeo_run: Free internal: 255 KB
+I (3075) neogeo_run: Game: lbowling, ROM dir: /sd/roms/neogeo
+I (3077) gngeo_esp32: screen_init: 352x256 RGB565
+I (3090) neogeo_run: After screen_init — Free PSRAM: 30185 KB
+I (3090) neogeo_run: Loading game: lbowling
+BBB Blitter soft effect none
+Can't open 
+Loading /sd/roms/neogeo/lbowling.zip
+ZIP entry: 'rom/' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/mslug4.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/lans2004.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/nitdbl.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/neodrift.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/nitd.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/shocktra.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/zedblade.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/ct2k3sp.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/fatfursp.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/ms5plus.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/garouo.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/neogeo.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/whp.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/aof2.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/janshin.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/ncombat.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/svcplus.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/mslug2.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof96h.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof2002b.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof98k.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof2003.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof2000n.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/wakuwak7.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/savagere.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof95h.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kf2k3pcb.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/rbff2h.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/pbobbl2n.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof99.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/overtop.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/lbowling.drv' (looking for 'rom/lbowling.drv')
+Allocating 0x00100000 byte for Region 8
+Allocating 0x00020000 byte for Region 1
+Allocating 0x00100000 byte for Region 9
+Allocating 0x00020000 byte for Region 6
+Allocating 0x00001000 byte for Region 11
+Allocating 0x00100000 byte for Region 3
+Allocating 0x00080000 byte for Region 4
+BIOS SIZE 00000000 00000000 00000000
+I (3358) gngeo_esp32: Loading: Loading... (size=3407872)
+ZIP entry: '000-lo.lo' (looking for '019-p1.bin')
+ZIP entry: '019-c1.c1' (looking for '019-p1.bin')
+ZIP entry: '019-c2.c2' (looking for '019-p1.bin')
+ZIP entry: '019-m1.m1' (looking for '019-p1.bin')
+ZIP entry: '019-p1.p1' (looking for '019-p1.bin')
+Trying to load file 019-p1.bin        in region 8
+Load file 019-p1.bin        in region 8: OK 
+ZIP entry: '000-lo.lo' (looking for '019-s1.bin')
+ZIP entry: '019-c1.c1' (looking for '019-s1.bin')
+ZIP entry: '019-c2.c2' (looking for '019-s1.bin')
+ZIP entry: '019-m1.m1' (looking for '019-s1.bin')
+ZIP entry: '019-p1.p1' (looking for '019-s1.bin')
+ZIP entry: '019-s1.s1' (looking for '019-s1.bin')
+Trying to load file 019-s1.bin        in region 6
+Load file 019-s1.bin        in region 6: OK 
+ZIP entry: '000-lo.lo' (looking for '019-m1.bin')
+ZIP entry: '019-c1.c1' (looking for '019-m1.bin')
+ZIP entry: '019-c2.c2' (looking for '019-m1.bin')
+ZIP entry: '019-m1.m1' (looking for '019-m1.bin')
+Trying to load file 019-m1.bin        in region 1
+Load file 019-m1.bin        in region 1: OK 
+ZIP entry: '000-lo.lo' (looking for '019-v11.bin')
+ZIP entry: '019-c1.c1' (looking for '019-v11.bin')
+ZIP entry: '019-c2.c2' (looking for '019-v11.bin')
+ZIP entry: '019-m1.m1' (looking for '019-v11.bin')
+ZIP entry: '019-p1.p1' (looking for '019-v11.bin')
+ZIP entry: '019-s1.s1' (looking for '019-v11.bin')
+ZIP entry: '019-v11.v11' (looking for '019-v11.bin')
+Trying to load file 019-v11.bin       in region 3
+Load file 019-v11.bin       in region 3: OK 
+ZIP entry: '000-lo.lo' (looking for '019-v12.bin')
+ZIP entry: '019-c1.c1' (looking for '019-v12.bin')
+ZIP entry: '019-c2.c2' (looking for '019-v12.bin')
+ZIP entry: '019-m1.m1' (looking for '019-v12.bin')
+ZIP entry: '019-p1.p1' (looking for '019-v12.bin')
+ZIP entry: '019-s1.s1' (looking for '019-v12.bin')
+ZIP entry: '019-v11.v11' (looking for '019-v12.bin')
+ZIP entry: '019-v12.v12' (looking for '019-v12.bin')
+Trying to load file 019-v12.bin       in region 3
+Load file 019-v12.bin       in region 3: OK 
+ZIP entry: '000-lo.lo' (looking for '019-v21.bin')
+ZIP entry: '019-c1.c1' (looking for '019-v21.bin')
+ZIP entry: '019-c2.c2' (looking for '019-v21.bin')
+ZIP entry: '019-m1.m1' (looking for '019-v21.bin')
+ZIP entry: '019-p1.p1' (looking for '019-v21.bin')
+ZIP entry: '019-s1.s1' (looking for '019-v21.bin')
+ZIP entry: '019-v11.v11' (looking for '019-v21.bin')
+ZIP entry: '019-v12.v12' (looking for '019-v21.bin')
+ZIP entry: '019-v21.v21' (looking for '019-v21.bin')
+Trying to load file 019-v21.bin       in region 4
+I (12528) app_common: crash_guard: boot counter cleared
+Load file 019-v21.bin       in region 4: OK 
+ZIP entry: '000-lo.lo' (looking for '019-c1.bin')
+ZIP entry: '019-c1.c1' (looking for '019-c1.bin')
+Trying to load file 019-c1.bin        in region 9
+Load file 019-c1.bin        in region 9: OK 
+ZIP entry: '000-lo.lo' (looking for '019-c2.bin')
+ZIP entry: '019-c1.c1' (looking for '019-c2.bin')
+ZIP entry: '019-c2.c2' (looking for '019-c2.bin')
+Trying to load file 019-c2.bin        in region 9
+Load file 019-c2.bin        in region 9: OK 
+I (16788) gngeo_esp32: Loading complete
+Default roms init
+Allocating 0x00000800 byte for Region 10
+BIOS: Opening /sd/roms/neogeo/neogeo.zip
+ZIP entry: 'ng-lo.rom' (looking for '000-lo.lo')
+ZIP entry: 'neo-geo.rom' (looking for '000-lo.lo')
+ZIP entry: 'ng-sfix.rom' (looking for '000-lo.lo')
+ZIP entry: 'ng-sm1.rom' (looking for '000-lo.lo')
+BIOS: 000-lo.lo not found, trying ng-lo.rom
+ZIP entry: 'ng-lo.rom' (looking for 'ng-lo.rom')
+BIOS: lo loaded (131072 bytes)
+Load Sfix
+ZIP entry: 'ng-lo.rom' (looking for 'sfix.sfx')
+ZIP entry: 'neo-geo.rom' (looking for 'sfix.sfx')
+ZIP entry: 'ng-sfix.rom' (looking for 'sfix.sfx')
+ZIP entry: 'ng-sm1.rom' (looking for 'sfix.sfx')
+Couldn't find sfix.sfx, try sfix.sfix
+ZIP entry: 'ng-lo.rom' (looking for 'sfix.sfix')
+ZIP entry: 'neo-geo.rom' (looking for 'sfix.sfix')
+ZIP entry: 'ng-sfix.rom' (looking for 'sfix.sfix')
+ZIP entry: 'ng-sm1.rom' (looking for 'sfix.sfix')
+Trying ng-sfix.rom
+ZIP entry: 'ng-lo.rom' (looking for 'ng-sfix.rom')
+ZIP entry: 'neo-geo.rom' (looking for 'ng-sfix.rom')
+ZIP entry: 'ng-sfix.rom' (looking for 'ng-sfix.rom')
+BIOS: sfix loaded (131072 bytes)
+BIOS: Loading CPU BIOS (system=0, country=2)
+BIOS: Loading usa_2slt.bin
+ZIP entry: 'ng-lo.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'neo-geo.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'ng-sfix.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'ng-sm1.rom' (looking for 'usa_2slt.bin')
+BIOS: usa_2slt.bin not found, trying neo-geo.rom
+ZIP entry: 'ng-lo.rom' (looking for 'neo-geo.rom')
+ZIP entry: 'neo-geo.rom' (looking for 'neo-geo.rom')
+MUSASHI 68K CPU INIT
+Game ROM already LE (gv[0]=0x10), skip swap
+BIOS already LE (byte0=0x10)
+ROM[0..7] vectors: 0010 f300 00c0 0402
+  SSP=0010f300  PC=00c00402
+After reset: PC=00c00402 SP=0010f300
+I (17490) gngeo_esp32: init_sdl_audio: initializing ES8311 at 22050 Hz
+I (17497) audio: Reconfiguring I2S sample rate: 16000 -> 22050
+I (17502) audio: I2S sample rate set to 22050 Hz
+I (17507) odroid_audio: Audio init (compat): sample_rate=22050, vol=4
+I (17513) audio: Volume set to 50
+I (17516) odroid_audio: Volume set: 2/4 → 50%
+I (17520) gngeo_esp32: Audio ready: 22050 Hz, 367 samples/frame, Z80 on core 1
+I (17580) neogeo_run: Game loaded successfully!
+I (17581) neogeo_run: After init_game — Free PSRAM: 25450 KB
+I (17581) neogeo_run: P ROM: 1024 KB
+I (17583) neogeo_run: S ROM: 128 KB
+I (17586) neogeo_run: Tiles: 1024 KB
+I (17589) neogeo_run: ADPCM-A: 1024 KB
+I (17592) neogeo_run: M ROM (Z80): 128 KB
+I (17596) neogeo_run: Nb tiles: 8192
+I (17600) neogeo_run: Starting main loop...
+Selecting Bios Vector
+  Z80task: z80=2674 us, ym=2178 us (n=1)
+E (17665) lcd.dsi: dpi_panel_draw_bitmap(547): previous draw operation is not finished
+  detail: 68Kcpu=8218 us, video=51609 us (n=1)
+68K: 60260 us/frame, Z80wait: 10 us/frame (n=1)
+GAME_ROM raw[100..13F]:
+4e45 4f2d 4745 4f00 0019 0008 0000 0010 2ca8 0301 0000 0000 0186 0000 043a 0000 
+043a 4ef9 0000 3766 4ef9 0000 3b50 4ef9 0000 3bf6 4ef9 0000 3bee ffff ffff ffff 
+FETCH16 bank[200100..20013E]:
+4e45 4f2d 4745 4f00 0019 0008 0000 0010 2ca8 0301 0000 0000 0186 0000 043a 0000 
+043a 4ef9 0000 3766 4ef9 0000 3b50 4ef9 0000 3bf6 4ef9 0000 3bee ffff ffff ffff 
+game_vector[00..0F]: 10 00 00 f3 c0 00 02 04 c0 00 08 04 c0 00 0e 04 
+User vectors: startup=00000000 eyecatch=01860000 demo=043a0000 title=043a4ef9
+Game VBL vector (ROM[0x64]): 00c00438
+FPS: 60
+FRAME 60: PC=00c13178 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=0 scr=aa/aa fp=170 ur=253 um=174 sf=fd pm=253
+  BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc   Z80task: z80=2287 us, ym=9768 us (n=59)
+fd be fd 
+  SRAM[30..50]: aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa 
+  CTL3: r8=0 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=8556 us, video=5330 us (n=61)
+68K: 13907 us/frame, Z80wait: 2039 us/frame (n=61)
+FRAME 120: PC=00c1310c vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=0 scr=00/00 fp=0 ur=253 um=174 sf=fd pm=253
+  BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd 
+  SRAM[30..50]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 00 00 00 00 00 00 00 00 00 
+  CTL3: r8=0 r16=0 last8=ff last16=ffff
+  Z80task: z80=2167 us, ym=11987 us (n=60)
+FPS: 61
+  detail: 68Kcpu=8832 us, video=4005 us (n=61)
+68K: 12855 us/frame, Z80wait: 3055 us/frame (n=61)
+FRAME 180: PC=00c11da2 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=18 scr=00/00 fp=0 ur=253 um=174 sf=fd pm=253
+  BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd 
+  SRAM[30..50]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 00 00 00 00 00 00 00 00 00 
+  CTL3: r8=0 r16=0 last8=ff last16=ffff
+  Z80task: z80=2090 us, ym=9886 us (n=60)
+FPS: 60
+  detail: 68Kcpu=8030 us, video=5279 us (n=60)
+68K: 13320 us/frame, Z80wait: 2851 us/frame (n=60)
+FRAME 240: PC=00c11c54 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=61 scr=00/00 fp=0 ur=253 um=174 sf=fd pm=253
+  BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd 
+  SRAM[30..50]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 00 00 00 00 00 00 00 00 00 
+  CTL3: r8=0 r16=0 last8=ff last16=ffff
+  Z80task: z80=2070 us, ym=9681 us (n=61)
+FPS: 63
+68K: 12068 us/frame, Z80wait: 3818 us/frame (n=61)
+  detail: 68Kcpu=7275 us, video=5079 us (n=62)
+Selecting Bios Vector
+Selecting Game Vector
+Selecting Game Vector
+Selecting Bios Vector
+Selecting Game Vector
+Selecting Bios Vector
+Selecting Game Vector
+FRAME 300: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=108 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 04 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=109 r16=0 last8=7f last16=ffff
+Game main loop active at PC=000037b0
+ROM vectors $100-$140:
+  $0100: 45 4e 2d 4f  (BE=454e2d4f LE=4f2d4e45)
+  $0104: 45 47 00 4f  (BE=4547004f LE=4f004745)
+  $0108: 19 00 08 00  (BE=19000800 LE=00080019)
+  $010c: 00 00 10 00  (BE=00001000 LE=00100000)
+  $0110: a8 2c 01 03  (BE=a82c0103 LE=03012ca8)
+  $0114: 00 00 00 00  (BE=00000000 LE=00000000)
+  $0118: 86 01 00 00  (BE=86010000 LE=00000186)
+  $011c: 3a 04 00 00  (BE=3a040000 LE=0000043a)
+  $0120: 3a 04 f9 4e  (BE=3a04f94e LE=4ef9043a)
+  $0124: 00 00 66 37  (BE=00006637 LE=37660000)
+  $0128: f9 4e 00 00  (BE=f94e0000 LE=00004ef9)
+  $012c: 50 3b f9 4e  (BE=503bf94e LE=4ef93b50)
+  $0130: 00 00 f6 3b  (BE=0000f63b LE=3bf60000)
+  $0134: f9 4e 00 00  (BE=f94e0000 LE=00004ef9)
+  $0138: ee 3b ff ff  (BE=ee3bffff LE=ffff3bee)
+  $013c: ff ff ff ff  (BE=ffffffff LE=ffffffff)
+68K: 10329 us/frame, Z80wait: 7113 us/frame (n=57)
+FPS: 58
+  Z80task: z80=2249 us, ym=12151 us (n=61)
+  detail: 68Kcpu=7661 us, video=2218 us (n=57)
+FRAME 360: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=168 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 04 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 05 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+>>> AUTO-START: COIN done, START pressed (gmode=5)
+68K: 7588 us/frame, Z80wait: 7678 us/frame (n=63)
+FPS: 64
+  detail: 68Kcpu=5851 us, video=1688 us (n=64)
+  Z80task: z80=2707 us, ym=12023 us (n=64)
+FRAME 420: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=228 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 04 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 09 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+68K: 7357 us/frame, Z80wait: 8792 us/frame (n=60)
+FPS: 60
+  detail: 68Kcpu=5826 us, video=1568 us (n=60)
+  Z80task: z80=2667 us, ym=12927 us (n=60)
+FRAME 480: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=288 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 04 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+68K: 7076 us/frame, Z80wait: 8977 us/frame (n=61)
+FPS: 60
+  detail: 68Kcpu=5693 us, video=1347 us (n=60)
+  Z80task: z80=2501 us, ym=12947 us (n=61)
+FRAME 540: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=348 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 04 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+68K: 6765 us/frame, Z80wait: 9398 us/frame (n=60)
+FPS: 60
+  detail: 68Kcpu=5626 us, video=1355 us (n=60)
+  Z80task: z80=2501 us, ym=13044 us (n=60)
+FRAME 600: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=408 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 04 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+68K: 10535 us/frame, Z80wait: 5485 us/frame (n=61)
+FPS: 61
+  detail: 68Kcpu=6367 us, video=4146 us (n=61)
+  Z80task: z80=2997 us, ym=9983 us (n=61)
+FRAME 660: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=468 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 04 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+68K: 13591 us/frame, Z80wait: 2460 us/frame (n=60)
+FPS: 60
+  Z80task: z80=3346 us, ym=10833 us (n=60)
+  detail: 68Kcpu=6867 us, video=6475 us (n=62)
+FRAME 720: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=528 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 04 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+68K: 11122 us/frame, Z80wait: 4866 us/frame (n=61)
+FPS: 61
+  Z80task: z80=3076 us, ym=11174 us (n=61)
+  detail: 68Kcpu=6461 us, video=4753 us (n=62)
+FRAME 780: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=588 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 04 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+68K: 10294 us/frame, Z80wait: 5817 us/frame (n=60)
+FPS: 60
+  Z80task: z80=2915 us, ym=12028 us (n=60)
+  detail: 68Kcpu=6233 us, video=3805 us (n=60)
+FRAME 840: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=648 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+68K: 9101 us/frame, Z80wait: 6928 us/frame (n=61)
+FPS: 61
+  Z80task: z80=2838 us, ym=12301 us (n=61)
+  detail: 68Kcpu=6014 us, video=2990 us (n=62)
+FRAME 900: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=708 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+68K: 8215 us/frame, Z80wait: 7925 us/frame (n=60)
+FPS: 60
+  Z80task: z80=2741 us, ym=12660 us (n=60)
+  detail: 68Kcpu=5776 us, video=2443 us (n=60)
+FRAME 960: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=768 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+68K: 7915 us/frame, Z80wait: 8136 us/frame (n=61)
+FPS: 61
+  Z80task: z80=2641 us, ym=12781 us (n=61)
+  detail: 68Kcpu=5737 us, video=2209 us (n=60)
+FRAME 1020: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=828 scr=09/09 fp=1 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 09 09 00 00 00 00 01 01 01 02 01 01 01 03 01 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=7f last16=ffff
+68K: 7679 us/frame, Z80wait: 8483 us/frame (n=60)
+FPS: 60
+  Z80task: z80=2611 us, ym=12916 us (n=60)
+  detail: 68Kcpu=5612 us, video=1754 us (n=61)

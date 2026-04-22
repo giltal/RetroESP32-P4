@@ -33,7 +33,8 @@ $flash_map = @(
     @{ Offset = "0x690000"; File = "pce_app.bin";          Desc = "PC Engine (ota_7)" },
     @{ Offset = "0x740000"; File = "atari800_app.bin";     Desc = "Atari 800 (ota_8)" },
     @{ Offset = "0x8C0000"; File = "snes_app.bin";         Desc = "SNES (ota_10)" },
-    @{ Offset = "0x9B0000"; File = "genesis_app.bin";      Desc = "Genesis (ota_11)" }
+    @{ Offset = "0x9B0000"; File = "genesis_app.bin";      Desc = "Genesis (ota_11)" },
+    @{ Offset = "0xB00000"; File = "neogeo_app.bin";       Desc = "Neo Geo (ota_12)" }
 )
 
 # Build the esptool command arguments

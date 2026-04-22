@@ -78,6 +78,7 @@
     "ATARI 800",
     "SUPER NINTENDO",
     "SEGA GENESIS",
+    "NEO GEO",
     "PSRAM APPS"
   };
 
@@ -99,6 +100,7 @@
     "a800",     // atari800
     "snes",     // snes9x
     "gen",      // gwenesis
+    "neogeo",   // gngeo
     "papp"      // psram apps
   };
 
@@ -106,7 +108,7 @@
     "", "", "",
     "NES", "GB", "GBC", "SMS", "GG", "COL",
     "A78", "ZX", "A26", "LYNX", "PCE",
-    "A800", "SNES", "GEN", "PAPP"
+    "A800", "SNES", "GEN", "NEOGEO", "PAPP"
   };
 
   char EXTENSIONS[COUNT][10] = {
@@ -127,6 +129,7 @@
     "xex",      // atari800
     "smc",      // snes9x
     "md",       // gwenesis
+    "zip",      // gngeo (neo geo)
     "papp"      // psram apps
   };
 
@@ -418,6 +421,7 @@
    *  8    ota_8     atari800 (A800) .xex .atr .a52
    * 10    ota_10    snes9x (SNES)   .smc .sfc
    * 11    ota_11    gwenesis (GEN)  .md .gen
+   * 12    ota_12    gngeo (NEOGEO)  .zip
    */
   int get_ota_slot(char* ext) {
     if(ext_eq(ext, "nes")) return 0;   /* ota_0: nofrendo */
@@ -440,6 +444,7 @@
     if(ext_eq(ext, "sfc")) return 10;  /* ota_10: snes9x */
     if(ext_eq(ext, "md"))  return 11;  /* ota_11: gwenesis */
     if(ext_eq(ext, "gen")) return 11;  /* ota_11: gwenesis */
+    if(ext_eq(ext, "zip")) return 12;  /* ota_12: gngeo (neo geo) */
     return -1;
   }
 
