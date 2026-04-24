@@ -280,6 +280,12 @@ void cpu_68k_init(void)
     else
 	cpu68k_romlen = 0x100000;
     mem68k_init();
+
+    /* Verify dispatch table for CTL1 (page 0x300) and COIN (page 0x320) */
+    printf("DISPATCH TABLE: page 0x300 fetch_byte=%p (expected=%p), page 0x320 fetch_byte=%p (expected=%p)\n",
+           (void*)mem68k_fetch_byte[0x300], (void*)mem68k_fetch_ctl1_byte,
+           (void*)mem68k_fetch_byte[0x320], (void*)mem68k_fetch_coin_byte);
+
     cpu68k_init();
     if (memory.rom.cpu_m68k.size > 0x100000) {
 	cpu_68k_bankswitch(0);
@@ -287,18 +293,10 @@ void cpu_68k_init(void)
     //cpu_68k_init_save_state();
 }
 
-
 int cpu_68k_run(Uint32 nb_cycle)
 {
     static int n;
     n = reg68k_external_execute(nb_cycle);
-    //printf("pc=%x\n",regs.pc);
-    /*
-    pc=regs.pc;
-    sr=regs.sr.sr_int;
-    asp=regs.sp;
-    memcpy(mregs,regs.regs,16*sizeof(Uint32));
-    */
     cpu68k_endfield();
     return n;
 }
@@ -521,7 +519,11 @@ int cpu_68k_debuger(void (*execstep)(void),void (*dump)(void)) {
 
 void cpu_68k_interrupt(int a)
 {
-    //  printf("Interrupt %d\n",a);
+    static int irq_count = 0;
+    irq_count++;
+    if (irq_count <= 3) {
+        printf("cpu_68k_interrupt(%d) #%d\n", a, irq_count);
+    }
     reg68k_external_autovector(a);
 }
 

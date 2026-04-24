@@ -351,6 +351,8 @@ LONG_FETCH(mem68k_fetch_video)
 
 /**** CONTROLLER ****/
 
+#include "esp_timer.h"
+
 Uint8 mem68k_fetch_ctl1_byte(Uint32 addr) {
     addr &= 0xFFFF;
     if (addr == 0x00)
@@ -359,19 +361,17 @@ Uint8 mem68k_fetch_ctl1_byte(Uint32 addr) {
         return (conf.test_switch ? 0xFE : 0xFF);
 
     if (addr == 0x81) {
-        return (conf.test_switch ? 0x00 : 0x80);
+        return (conf.test_switch ? 0x00 : 0x00);  /* MVS hardware mode */
     }
 
     return 0;
 }
 
 Uint16 mem68k_fetch_ctl1_word(Uint32 addr) {
-    //  printf("mem68k_fetch_ctl1_word\n");
     return 0;
 }
 
 Uint32 mem68k_fetch_ctl1_long(Uint32 addr) {
-    //  printf("mem68k_fetch_ctl1_long\n");
     return 0;
 }
 
@@ -392,18 +392,12 @@ Uint32 mem68k_fetch_ctl2_long(Uint32 addr) {
 }
 
 Uint8 mem68k_fetch_ctl3_byte(Uint32 addr) {
-    //printf("Fetch ctl3 byte %x\n",addr);
     if ((addr & 0xFFFF) == 0x0)
         return memory.intern_start;
     return 0;
 }
 
 Uint16 mem68k_fetch_ctl3_word(Uint32 addr) {
-    /*
-      printf("Fetch ctl3 word %x\n",addr);
-      if ((addr & 0xFFFF) == 0x0)
-      return memory.intern_start | 0xFF00;
-    */
     return 0;
 }
 
@@ -722,15 +716,22 @@ void mem68k_store_z80_long(Uint32 addr, Uint32 data) {
 
 /**** SETTINGS ****/
 void mem68k_store_setting_byte(Uint32 addr, Uint8 data) {
+    static int bios_vec_logged = 0, game_vec_logged = 0;
     addr &= 0xFFFF;
     if (addr == 0x0003) {
-        printf("Selecting Bios Vector\n");
+        if (!bios_vec_logged) {
+            printf("Selecting Bios Vector\n");
+            bios_vec_logged = 1;
+        }
         memcpy(memory.rom.cpu_m68k.p, memory.rom.bios_m68k.p, 0x80);
         memory.current_vector=0;
     }
 
     if (addr == 0x0013) {
-        printf("Selecting Game Vector\n");
+        if (!game_vec_logged) {
+            printf("Selecting Game Vector\n");
+            game_vec_logged = 1;
+        }
         memcpy(memory.rom.cpu_m68k.p, memory.game_vector, 0x80);
         memory.current_vector=1;
     }

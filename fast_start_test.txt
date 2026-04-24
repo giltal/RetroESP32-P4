@@ -1,0 +1,778 @@
+I (98) boot:  6 ota_3            OTA app          00 13 00350000Load file 019-v11.bin       in region 3: OK 
+ZIP entry: '000-lo.lo' (looking for '019-v12.bin')
+ZIP entry: '019-c1.c1' (looking for '019-v12.bin')
+ZIP entry: '019-c2.c2' (looking for '019-v12.bin')
+ZIP entry: '019-m1.m1' (looking for '019-v12.bin')
+ZIP entry: '019-p1.p1' (looking for '019-v12.bin')
+ZIP entry: '019-s1.s1' (looking for '019-v12.bin')
+ZIP entry: '019-v11.v11' (looking for '019-v12.bin')
+ZIP entry: '019-v12.v12' (looking for '019-v12.bin')
+Trying to load file 019-v12.bin       in region 3
+Load file 019-v12.bin       in region 3: OK 
+ZIP entry: '000-lo.lo' (looking for '019-v21.bin')
+ZIP entry: '019-c1.c1' (looking for '019-v21.bin')
+ZIP entry: '019-c2.c2' (looking for '019-v21.bin')
+ZIP entry: '019-m1.m1' (looking for '019-v21.bin')
+ZIP entry: '019-p1.p1' (looking for '019-v21.bin')
+ZIP entry: '019-s1.s1' (looking for '019-v21.bin')
+ZIP entry: '019-v11.v11' (looking for '019-v21.bin')
+ZIP entry: '019-v12.v12' (looking for '019-v21.bin')
+ZIP entry: '019-v21.v21' (looking for '019-v21.bin')
+Trying to load file 019-v21.bin       in region 4
+I (12537) app_common: crash_guard: boot counter cleared
+Load file 019-v21.bin       in region 4: OK 
+ZIP entry: '000-lo.lo' (looking for '019-c1.bin')
+ZIP entry: '019-c1.c1' (looking for '019-c1.bin')
+Trying to load file 019-c1.bin        in region 9
+Load file 019-c1.bin        in region 9: OK 
+ZIP entry: '000-lo.lo' (looking for '019-c2.bin')
+ZIP entry: '019-c1.c1' (looking for '019-c2.bin')
+ZIP entry: '019-c2.c2' (looking for '019-c2.bin')
+Trying to load file 019-c2.bin        in region 9
+Load file 019-c2.bin        in region 9: OK 
+I (16865) gngeo_esp32: Loading complete
+Default roms init
+Allocating 0x00000800 byte for Region 10
+BIOS: Opening /sd/roms/neogeo/neogeo.zip
+ZIP entry: 'ng-lo.rom' (looking for '000-lo.lo')
+ZIP entry: 'neo-geo.rom' (looking for '000-lo.lo')
+ZIP entry: 'ng-sfix.rom' (looking for '000-lo.lo')
+ZIP entry: 'ng-sm1.rom' (looking for '000-lo.lo')
+BIOS: 000-lo.lo not found, trying ng-lo.rom
+ZIP entry: 'ng-lo.rom' (looking for 'ng-lo.rom')
+BIOS: lo loaded (131072 bytes)
+Load Sfix
+ZIP entry: 'ng-lo.rom' (looking for 'sfix.sfx')
+ZIP entry: 'neo-geo.rom' (looking for 'sfix.sfx')
+ZIP entry: 'ng-sfix.rom' (looking for 'sfix.sfx')
+ZIP entry: 'ng-sm1.rom' (looking for 'sfix.sfx')
+Couldn't find sfix.sfx, try sfix.sfix
+ZIP entry: 'ng-lo.rom' (looking for 'sfix.sfix')
+ZIP entry: 'neo-geo.rom' (looking for 'sfix.sfix')
+ZIP entry: 'ng-sfix.rom' (looking for 'sfix.sfix')
+ZIP entry: 'ng-sm1.rom' (looking for 'sfix.sfix')
+Trying ng-sfix.rom
+ZIP entry: 'ng-lo.rom' (looking for 'ng-sfix.rom')
+ZIP entry: 'neo-geo.rom' (looking for 'ng-sfix.rom')
+ZIP entry: 'ng-sfix.rom' (looking for 'ng-sfix.rom')
+BIOS: sfix loaded (131072 bytes)
+BIOS: Loading CPU BIOS (system=0, country=2)
+BIOS: Loading usa_2slt.bin
+ZIP entry: 'ng-lo.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'neo-geo.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'ng-sfix.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'ng-sm1.rom' (looking for 'usa_2slt.bin')
+BIOS: usa_2slt.bin not found, trying neo-geo.rom
+ZIP entry: 'ng-lo.rom' (looking for 'neo-geo.rom')
+ZIP entry: 'neo-geo.rom' (looking for 'neo-geo.rom')
+MUSASHI 68K CPU INIT
+Game ROM already LE (gv[0]=0x10), skip swap
+BIOS already LE (byte0=0x10)
+ROM[0..7] vectors: 0010 f300 00c0 0402
+  SSP=0010f300  PC=00c00402
+After reset: PC=00c00402 SP=0010f300
+I (17568) gngeo_esp32: init_sdl_audio: initializing ES8311 at 22050 Hz
+I (17575) audio: Reconfiguring I2S sample rate: 16000 -> 22050
+I (17579) audio: I2S sample rate set to 22050 Hz
+I (17584) odroid_audio: Audio init (compat): sample_rate=22050, vol=4
+I (17590) audio: Volume set to 50
+I (17593) odroid_audio: Volume set: 2/4 → 50%
+I (17597) gngeo_esp32: Audio ready: 22050 Hz, 367 samples/frame, Z80 on core 1
+I (17657) neogeo_run: Game loaded successfully!
+I (17658) neogeo_run: After init_game — Free PSRAM: 25450 KB
+I (17658) neogeo_run: P ROM: 1024 KB
+I (17660) neogeo_run: S ROM: 128 KB
+I (17663) neogeo_run: Tiles: 1024 KB
+I (17666) neogeo_run: ADPCM-A: 1024 KB
+I (17670) neogeo_run: M ROM (Z80): 128 KB
+I (17673) neogeo_run: Nb tiles: 8192
+I (17677) neogeo_run: Starting main loop...
+INPUT p1=00 start=00 gmode=0 vec=0 pc=c00402
+INPUT start=00 p1=00 gmode=0 vec=0 pc=c00402
+BTN_PRESS p1=00 — BIOS input RAM:
+  FD80[^1]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+  FD80[raw]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+Selecting Bios Vector
+  Z80task: z80=2600 us, ym=2157 us (n=1)
+E (17772) lcd.dsi: dpi_panel_draw_bitmap(547): previous draw operation is not finished
+  detail: 68Kcpu=8509 us, video=51597 us (n=1)
+68K: 60551 us/frame, Z80wait: 13 us/frame (n=1)
+INPUT p1=ff start=ff gmode=85 vec=0 pc=c13144
+INPUT start=ff p1=ff gmode=85 vec=0 pc=c13144
+GAME_ROM raw[100..13F]:
+4e45 4f2d 4745 4f00 0019 0008 0000 0010 2ca8 0301 0000 0000 0186 0000 043a 0000 
+043a 4ef9 0000 3766 4ef9 0000 3b50 4ef9 0000 3bf6 4ef9 0000 3bee ffff ffff ffff 
+FETCH16 bank[200100..20013E]:
+4e45 4f2d 4745 4f00 0019 0008 0000 0010 2ca8 0301 0000 0000 0186 0000 043a 0000 
+043a 4ef9 0000 3766 4ef9 0000 3b50 4ef9 0000 3bf6 4ef9 0000 3bee ffff ffff ffff 
+game_vector[00..0F]: 10 00 00 f3 c0 00 02 04 c0 00 08 04 c0 00 0e 04 
+User vectors: startup=00000000 eyecatch=01860000 demo=043a0000 title=043a4ef9
+Game VBL vector (ROM[0x64]): 00c00438
+FPS: 58
+  Z80task: z80=2268 us, ym=10513 us (n=58)
+DIAG 60: pc=c13178 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 ur=253 um=174 sc=fd sch=ac sf=fd pm=253 cd1=253 wdog=1
+  IO: ctl1_r8=0 ctl1_r16=0 ctl3_r8=0 ctl3_r16=0 coin_r8=0 wdog_kicks=309339 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=ff
+  SRAM[30..45]: aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa 
+  BIOS[FDB0..BF]: fd b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be 
+FRAME 60: PC=00c13178 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=0 scr=aa/aa fp=170 ur=253 um=174 sf=fd pm=253
+  BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd 
+  SRAM[30..50]: aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa 
+  CTL3: r8=0 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=8657 us, video=4143 us (n=59)
+68K: 12881 us/frame, Z80wait: 3044 us/frame (n=59)
+FPS: 60
+  Z80task: z80=2165 us, ym=10892 us (n=60)
+DIAG 120: pc=c13110 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 ur=253 um=174 sc=fd sch=ac sf=fd pm=253 cd1=253 wdog=1
+  IO: ctl1_r8=0 ctl1_r16=0 ctl3_r8=0 ctl3_r16=0 coin_r8=0 wdog_kicks=288455 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=ff
+  SRAM[30..45]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: fd b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be 
+FRAME 120: PC=00c1310c vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=0 scr=00/00 fp=0 ur=253 um=174 sf=fd pm=253
+  BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd 
+  SRAM[30..50]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 00 00 00 00 00 00 00 00 00 
+  CTL3: r8=0 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=8913 us, video=3397 us (n=60)
+68K: 12389 us/frame, Z80wait: 3455 us/frame (n=60)
+FPS: 60
+  Z80task: z80=2119 us, ym=8847 us (n=60)
+DIAG 180: pc=c11dac vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 ur=253 um=174 sc=fd sch=ac sf=fd pm=253 cd1=253 wdog=1
+  IO: ctl1_r8=0 ctl1_r16=0 ctl3_r8=0 ctl3_r16=0 coin_r8=140631 wdog_kicks=192071 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: fd b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be 
+FRAME 180: PC=00c11da2 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=18 scr=00/00 fp=0 ur=253 um=174 sf=fd pm=253
+  BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd 
+  SRAM[30..50]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 00 00 00 00 00 00 00 00 00 
+  CTL3: r8=0 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=8209 us, video=4529 us (n=60)
+68K: 12755 us/frame, Z80wait: 3058 us/frame (n=60)
+FPS: 61
+  Z80task: z80=2086 us, ym=9704 us (n=60)
+DIAG 240: pc=c11c54 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 ur=253 um=174 sc=fd sch=ac sf=fd pm=253 cd1=253 wdog=1
+  IO: ctl1_r8=0 ctl1_r16=0 ctl3_r8=0 ctl3_r16=0 coin_r8=130195 wdog_kicks=211183 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: fd b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be 
+FRAME 240: PC=00c11c54 vec=0 gmode=0 fd80=fd p1=ff start=ff coin=07 irq=61 scr=00/00 fp=0 ur=253 um=174 sf=fd pm=253
+  BIOS[FDB0..FDC0]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd 
+  SRAM[30..50]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 00 00 00 00 00 00 00 00 00 
+  CTL3: r8=0 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=7497 us, video=3990 us (n=61)
+68K: 11502 us/frame, Z80wait: 4056 us/frame (n=61)
+Selecting Bios Vector
+Selecting Game Vector
+Selecting Game Vector
+Selecting Bios Vector
+Selecting Game Vector
+Selecting Bios Vector
+Selecting Game Vector
+INPUT start=fe p1=ff gmode=1 vec=1 pc=0037aa
+INPUT start=ff p1=ff gmode=1 vec=1 pc=c1871a
+Selecting Bios Vector
+Selecting Game Vector
+INPUT start=fe p1=ff gmode=0 vec=1 pc=003d34
+INPUT start=ff p1=ff gmode=0 vec=1 pc=004970
+  Z80task: z80=2248 us, ym=11980 us (n=60)
+FPS: 61
+DIAG 300: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=92 ctl1_r16=0 ctl3_r8=112 ctl3_r16=0 coin_r8=2886 wdog_kicks=60394 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 18 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 300: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=108 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 17 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=114 r16=0 last8=ff last16=ffff
+Game main loop active at PC=000037aa
+ROM vectors $100-$140:
+  $0100: 45 4e 2d 4f  (BE=454e2d4f LE=4f2d4e45)
+  $0104: 45 47 00 4f  (BE=4547004f LE=4f004745)
+  $0108: 19 00 08 00  (BE=19000800 LE=00080019)
+  $010c: 00 00 10 00  (BE=00001000 LE=00100000)
+  $0110: a8 2c 01 03  (BE=a82c0103 LE=03012ca8)
+  $0114: 00 00 00 00  (BE=00000000 LE=00000000)
+  $0118: 86 01 00 00  (BE=86010000 LE=00000186)
+  $011c: 3a 04 00 00  (BE=3a040000 LE=0000043a)
+  $0120: 3a 04 f9 4e  (BE=3a04f94e LE=4ef9043a)
+  $0124: 00 00 66 37  (BE=00006637 LE=37660000)
+  $0128: f9 4e 00 00  (BE=f94e0000 LE=00004ef9)
+  $012c: 50 3b f9 4e  (BE=503bf94e LE=4ef93b50)
+  $0130: 00 00 f6 3b  (BE=0000f63b LE=3bf60000)
+  $0134: f9 4e 00 00  (BE=f94e0000 LE=00004ef9)
+  $0138: ee 3b ff ff  (BE=ee3bffff LE=ffff3bee)
+  $013c: ff ff ff ff  (BE=ffffffff LE=ffffffff)
+  detail: 68Kcpu=7731 us, video=1884 us (n=60)
+68K: 9694 us/frame, Z80wait: 6726 us/frame (n=60)
+FPS: 57
+  Z80task: z80=3636 us, ym=3322 us (n=58)
+DIAG 360: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=171 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 360: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=168 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=172 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=6644 us, video=7653 us (n=60)
+68K: 14326 us/frame, Z80wait: 1284 us/frame (n=60)
+FPS: 60
+  Z80task: z80=3534 us, ym=9636 us (n=60)
+DIAG 420: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 420: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=228 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=6475 us, video=6486 us (n=61)
+68K: 12986 us/frame, Z80wait: 2426 us/frame (n=61)
+FPS: 61
+  Z80task: z80=3207 us, ym=10370 us (n=61)
+DIAG 480: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 480: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=288 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=6008 us, video=4973 us (n=63)
+68K: 11006 us/frame, Z80wait: 4170 us/frame (n=63)
+FPS: 60
+  Z80task: z80=3014 us, ym=11616 us (n=60)
+DIAG 540: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 540: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=348 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=5792 us, video=3761 us (n=60)
+68K: 9491 us/frame, Z80wait: 6136 us/frame (n=61)
+FPS: 61
+  Z80task: z80=2902 us, ym=11341 us (n=61)
+DIAG 600: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 600: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=408 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=5636 us, video=3322 us (n=60)
+68K: 8980 us/frame, Z80wait: 6684 us/frame (n=60)
+FPS: 60
+  Z80task: z80=2832 us, ym=12014 us (n=60)
+DIAG 660: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 660: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=468 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=5523 us, video=2590 us (n=60)
+68K: 8071 us/frame, Z80wait: 7520 us/frame (n=61)
+FPS: 61
+DIAG 720: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+  Z80task: z80=2735 us, ym=11555 us (n=61)
+FRAME 720: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=528 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+  detail: 68Kcpu=5454 us, video=2337 us (n=61)
+68K: 7866 us/frame, Z80wait: 7868 us/frame (n=60)
+DIAG 780: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 780: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=588 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=2641 us, ym=11944 us (n=61)
+  detail: 68Kcpu=5344 us, video=1864 us (n=61)
+68K: 7225 us/frame, Z80wait: 8431 us/frame (n=61)
+DIAG 840: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 840: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=648 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2707 us, ym=11927 us (n=60)
+  detail: 68Kcpu=5360 us, video=1917 us (n=60)
+68K: 7297 us/frame, Z80wait: 8445 us/frame (n=60)
+DIAG 900: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 900: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=708 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2611 us, ym=12468 us (n=60)
+  detail: 68Kcpu=5169 us, video=1410 us (n=61)
+68K: 6815 us/frame, Z80wait: 8853 us/frame (n=61)
+DIAG 960: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 960: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=768 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 62
+  Z80task: z80=2553 us, ym=12160 us (n=62)
+  detail: 68Kcpu=5229 us, video=1665 us (n=60)
+68K: 6740 us/frame, Z80wait: 9008 us/frame (n=60)
+DIAG 1020: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1020: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=828 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 59
+  Z80task: z80=2569 us, ym=12503 us (n=59)
+  detail: 68Kcpu=5278 us, video=1376 us (n=62)
+68K: 6648 us/frame, Z80wait: 9019 us/frame (n=61)
+DIAG 1080: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1080: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=888 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 59
+  Z80task: z80=3734 us, ym=3245 us (n=59)
+  detail: 68Kcpu=6964 us, video=8979 us (n=57)
+68K: 15829 us/frame, Z80wait: 297 us/frame (n=59)
+DIAG 1140: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1140: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=948 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 62
+  Z80task: z80=3566 us, ym=8948 us (n=62)
+  detail: 68Kcpu=6416 us, video=6719 us (n=61)
+68K: 13218 us/frame, Z80wait: 2337 us/frame (n=61)
+DIAG 1200: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1200: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1008 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=3217 us, ym=9986 us (n=62)
+  detail: 68Kcpu=6070 us, video=5217 us (n=60)
+68K: 11241 us/frame, Z80wait: 4438 us/frame (n=60)
+DIAG 1260: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1260: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1068 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=3070 us, ym=11183 us (n=60)
+  detail: 68Kcpu=5813 us, video=4109 us (n=62)
+68K: 9857 us/frame, Z80wait: 5750 us/frame (n=61)
+DIAG 1320: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1320: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1128 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=2797 us, ym=11257 us (n=62)
+68K: 8872 us/frame, Z80wait: 6846 us/frame (n=60)
+  detail: 68Kcpu=5588 us, video=3183 us (n=62)
+DIAG 1380: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1380: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1188 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=2753 us, ym=11776 us (n=61)
+  detail: 68Kcpu=5490 us, video=2849 us (n=60)
+68K: 8299 us/frame, Z80wait: 7345 us/frame (n=61)
+DIAG 1440: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1440: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1248 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=2733 us, ym=11964 us (n=60)
+  detail: 68Kcpu=5447 us, video=2372 us (n=60)
+68K: 7837 us/frame, Z80wait: 7906 us/frame (n=60)
+DIAG 1500: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1500: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1308 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2734 us, ym=11897 us (n=60)
+  detail: 68Kcpu=5363 us, video=1891 us (n=60)
+68K: 7267 us/frame, Z80wait: 8480 us/frame (n=60)
+DIAG 1560: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1560: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1368 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2601 us, ym=12281 us (n=60)
+  detail: 68Kcpu=5290 us, video=1664 us (n=60)
+68K: 6968 us/frame, Z80wait: 8781 us/frame (n=60)
+DIAG 1620: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1620: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1428 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2591 us, ym=12007 us (n=60)
+  detail: 68Kcpu=5287 us, video=2295 us (n=60)
+68K: 7597 us/frame, Z80wait: 8516 us/frame (n=60)
+DIAG 1680: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1680: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1488 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 58
+  Z80task: z80=3754 us, ym=2834 us (n=59)
+  detail: 68Kcpu=6955 us, video=8793 us (n=60)
+68K: 15779 us/frame, Z80wait: 75 us/frame (n=60)
+DIAG 1740: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1740: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1548 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=3677 us, ym=6897 us (n=60)
+68K: 13836 us/frame, Z80wait: 1531 us/frame (n=61)
+  detail: 68Kcpu=6560 us, video=7339 us (n=62)
+DIAG 1800: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1800: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1608 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 59
+  Z80task: z80=3381 us, ym=10196 us (n=60)
+68K: 12199 us/frame, Z80wait: 3475 us/frame (n=60)
+  detail: 68Kcpu=6249 us, video=5722 us (n=62)
+DIAG 1860: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1860: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1668 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=3160 us, ym=10465 us (n=61)
+68K: 10534 us/frame, Z80wait: 5156 us/frame (n=60)
+  detail: 68Kcpu=5969 us, video=4493 us (n=60)
+DIAG 1920: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1920: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1728 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=2968 us, ym=11262 us (n=60)
+68K: 9232 us/frame, Z80wait: 6476 us/frame (n=60)
+  detail: 68Kcpu=5699 us, video=3487 us (n=61)
+DIAG 1980: pc=0037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 1980: PC=000037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1788 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2885 us, ym=11596 us (n=60)
+68K: 8498 us/frame, Z80wait: 7229 us/frame (n=60)
+  detail: 68Kcpu=5564 us, video=2793 us (n=61)
+DIAG 2040: pc=0037aa vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 ur=3 um=1 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=180 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2040: PC=000037b0 vec=1 gmode=1 fd80=82 p1=ff start=ff coin=07 irq=1848 scr=02/00 fp=0 ur=3 um=1 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 01 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=180 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2732 us, ym=11875 us (n=60)
+68K: 7552 us/frame, Z80wait: 8197 us/frame (n=60)
+  detail: 68Kcpu=5429 us, video=2072 us (n=62)
+DIAG 2100: pc=0037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=0 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=164 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2100: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=1908 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=163 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2635 us, ym=11878 us (n=60)
+68K: 7833 us/frame, Z80wait: 7910 us/frame (n=60)
+  detail: 68Kcpu=5760 us, video=1866 us (n=60)
+DIAG 2160: pc=0037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=0 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2160: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=1968 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2592 us, ym=12240 us (n=60)
+68K: 7485 us/frame, Z80wait: 8180 us/frame (n=61)
+  detail: 68Kcpu=5918 us, video=1567 us (n=60)
+DIAG 2220: pc=0037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=0 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2220: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2028 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=2599 us, ym=12126 us (n=61)
+68K: 7214 us/frame, Z80wait: 8534 us/frame (n=60)
+  detail: 68Kcpu=5911 us, video=1557 us (n=60)
+DIAG 2280: pc=0037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=0 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2280: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2088 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2564 us, ym=12422 us (n=60)
+68K: 7104 us/frame, Z80wait: 8576 us/frame (n=61)
+  detail: 68Kcpu=5706 us, video=1346 us (n=60)
+DIAG 2340: pc=0037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=0 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2340: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2148 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=2612 us, ym=11957 us (n=61)
+68K: 7677 us/frame, Z80wait: 8225 us/frame (n=60)
+  detail: 68Kcpu=6070 us, video=2532 us (n=59)
+DIAG 2400: pc=0037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=0 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2400: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2208 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 59
+  Z80task: z80=3579 us, ym=4096 us (n=59)
+68K: 15409 us/frame, Z80wait: 290 us/frame (n=60)
+  detail: 68Kcpu=7330 us, video=7433 us (n=62)
+DIAG 2460: pc=0037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=0 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2460: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2268 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=3257 us, ym=10450 us (n=61)
+68K: 12180 us/frame, Z80wait: 3483 us/frame (n=60)
+  detail: 68Kcpu=6747 us, video=5255 us (n=61)
+DIAG 2520: pc=0037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=0 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2520: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2328 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=3023 us, ym=10689 us (n=60)
+68K: 10627 us/frame, Z80wait: 4990 us/frame (n=61)
+  detail: 68Kcpu=6421 us, video=3885 us (n=62)
+DIAG 2580: pc=0037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=0 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2580: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2388 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=2843 us, ym=11107 us (n=61)
+68K: 9451 us/frame, Z80wait: 6262 us/frame (n=60)
+  detail: 68Kcpu=6275 us, video=3022 us (n=62)
+DIAG 2640: pc=0037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2640: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2448 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2785 us, ym=11636 us (n=60)
+68K: 8615 us/frame, Z80wait: 7027 us/frame (n=61)
+  detail: 68Kcpu=5914 us, video=2422 us (n=60)
+DIAG 2700: pc=0037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2700: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2508 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=2716 us, ym=11834 us (n=61)
+68K: 8019 us/frame, Z80wait: 7731 us/frame (n=60)
+  detail: 68Kcpu=5795 us, video=2210 us (n=60)
+DIAG 2760: pc=0037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2760: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2568 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2708 us, ym=11797 us (n=60)
+68K: 7642 us/frame, Z80wait: 8020 us/frame (n=61)
+  detail: 68Kcpu=5734 us, video=1989 us (n=60)
+DIAG 2820: pc=0037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2820: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2628 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=2560 us, ym=12552 us (n=60)
+68K: 7238 us/frame, Z80wait: 8511 us/frame (n=60)
+  detail: 68Kcpu=5609 us, video=1532 us (n=61)
+DIAG 2880: pc=0037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2880: PC=000037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2688 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 60
+  Z80task: z80=2655 us, ym=12090 us (n=61)
+68K: 7194 us/frame, Z80wait: 8470 us/frame (n=61)
+  detail: 68Kcpu=5657 us, video=1541 us (n=60)
+DIAG 2940: pc=0037aa vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 ur=3 um=2 sc=00 sch=00 sf=00 pm=0 cd1=1 wdog=1
+  IO: ctl1_r8=120 ctl1_r16=0 ctl3_r8=120 ctl3_r16=0 coin_r8=60 wdog_kicks=60 pressed=0
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 
+  BIOS[FDB0..BF]: 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10 
+FRAME 2940: PC=000037b0 vec=1 gmode=5 fd80=82 p1=ff start=ff coin=07 irq=2748 scr=02/00 fp=0 ur=3 um=2 sf=00 pm=0
+  BIOS[FDB0..FDC0]: 00 01 00 00 00 00 00 00 00 00 00 00 00 00 10 00 
+  SRAM[30..50]: 00 00 00 00 02 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b 00 02 00 00 00 00 3b 00 00 00 
+  CTL3: r8=120 r16=0 last8=ff last16=ffff
+FPS: 61
+  Z80task: z80=2590 us, ym=12411 us (n=60)
+68K: 7093 us/frame, Z80wait: 8680 us/frame (n=60)
+  detail: 68Kcpu=5496 us, video=1322 us (n=61)

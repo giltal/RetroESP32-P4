@@ -28,10 +28,8 @@ set(GNGEO_SRCS
     # ESP32 platform stubs (replaces screen.c, sound.c, event.c, menu.c, conf.c, messages.c)
     esp32_platform.c
 
-    # M68K CPU (generator68k — table-driven)
+    # M68K CPU (Generator68K — table-based)
     generator68k/cpu68k.c
-    generator68k/reg68k.c
-    generator68k/gen68k.c
     generator68k/cpu68k-0.c
     generator68k/cpu68k-1.c
     generator68k/cpu68k-2.c
@@ -48,6 +46,7 @@ set(GNGEO_SRCS
     generator68k/cpu68k-d.c
     generator68k/cpu68k-e.c
     generator68k/cpu68k-f.c
+    generator68k/reg68k.c
     generator68k_interf.c
 
     # Z80 CPU (mamez80 — pure C)

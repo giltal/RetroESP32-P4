@@ -1,0 +1,68 @@
+I (98) boot:  6 ota_3            OTA app          00 13 00350000Load file 019-v12.bin       in region 3: OK 
+ZIP entry: '000-lo.lo' (looking for '019-v21.bin')
+ZIP entry: '019-c1.c1' (looking for '019-v21.bin')
+ZIP entry: '019-c2.c2' (looking for '019-v21.bin')
+ZIP entry: '019-m1.m1' (looking for '019-v21.bin')
+ZIP entry: '019-p1.p1' (looking for '019-v21.bin')
+ZIP entry: '019-s1.s1' (looking for '019-v21.bin')
+ZIP entry: '019-v11.v11' (looking for '019-v21.bin')
+ZIP entry: '019-v12.v12' (looking for '019-v21.bin')
+ZIP entry: '019-v21.v21' (looking for '019-v21.bin')
+Trying to load file 019-v21.bin       in region 4
+I (12538) app_common: crash_guard: boot counter cleared
+Load file 019-v21.bin       in region 4: OK 
+ZIP entry: '000-lo.lo' (looking for '019-c1.bin')
+ZIP entry: '019-c1.c1' (looking for '019-c1.bin')
+Trying to load file 019-c1.bin        in region 9
+Load file 019-c1.bin        in region 9: OK 
+ZIP entry: '000-lo.lo' (looking for '019-c2.bin')
+ZIP entry: '019-c1.c1' (looking for '019-c2.bin')
+ZIP entry: '019-c2.c2' (looking for '019-c2.bin')
+Trying to load file 019-c2.bin        in region 9
+Load file 019-c2.bin        in region 9: OK 
+I (16852) gngeo_esp32: Loading complete
+Default roms init
+Allocating 0x00000800 byte for Region 10
+BIOS: Opening /sd/roms/neogeo/neogeo.zip
+ZIP entry: 'ng-lo.rom' (looking for '000-lo.lo')
+ZIP entry: 'neo-geo.rom' (looking for '000-lo.lo')
+ZIP entry: 'ng-sfix.rom' (looking for '000-lo.lo')
+ZIP entry: 'ng-sm1.rom' (looking for '000-lo.lo')
+BIOS: 000-lo.lo not found, trying ng-lo.rom
+ZIP entry: 'ng-lo.rom' (looking for 'ng-lo.rom')
+BIOS: lo loaded (131072 bytes)
+Load Sfix
+ZIP entry: 'ng-lo.rom' (looking for 'sfix.sfx')
+ZIP entry: 'neo-geo.rom' (looking for 'sfix.sfx')
+ZIP entry: 'ng-sfix.rom' (looking for 'sfix.sfx')
+ZIP entry: 'ng-sm1.rom' (looking for 'sfix.sfx')
+Couldn't find sfix.sfx, try sfix.sfix
+ZIP entry: 'ng-lo.rom' (looking for 'sfix.sfix')
+ZIP entry: 'neo-geo.rom' (looking for 'sfix.sfix')
+ZIP entry: 'ng-sfix.rom' (looking for 'sfix.sfix')
+ZIP entry: 'ng-sm1.rom' (looking for 'sfix.sfix')
+Trying ng-sfix.rom
+ZIP entry: 'ng-lo.rom' (looking for 'ng-sfix.rom')
+ZIP entry: 'neo-geo.rom' (looking for 'ng-sfix.rom')
+ZIP entry: 'ng-sfix.rom' (looking for 'ng-sfix.rom')
+BIOS: sfix loaded (131072 bytes)
+BIOS: Loading CPU BIOS (system=0, country=2)
+BIOS: Loading usa_2slt.bin
+ZIP entry: 'ng-lo.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'neo-geo.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'ng-sfix.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'ng-sm1.rom' (looking for 'usa_2slt.bin')
+BIOS: usa_2slt.bin not found, trying neo-geo.rom
+ZIP entry: 'ng-lo.rom' (looking for 'neo-geo.rom')
+ZIP entry: 'neo-geo.rom' (looking for 'neo-geo.rom')
+MUSASHI 68K CPU INIT
+Game ROM already LE (gv[0]=0x10), skip swap
+BIOS already LE (byte0=0x10)
+ROM[0..7] vectors: 0010 f300 00c0 0402
+  SSP=0010f300  PC=00c00402
+After reset: PC=00c00402 SP=0010f300
+I (17556) gngeo_esp32: init_sdl_audio: initializing ES8311 at 22050 Hz
+I (17563) audio: Reconfiguring I2S sample rate: 16000 -> 22050
+I (17568) audio: I2S sample rate set to 22050 Hz
+I (17572) odroid_audio: Audio init (compat): sample_rate=22050, vol=4
+I (17579) audio: Volume set to 50

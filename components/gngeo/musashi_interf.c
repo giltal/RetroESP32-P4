@@ -38,13 +38,9 @@ static m68ki_cpu_core *musashi_cpu_core = &musashi_cpu_storage;
 /* Track cycle count at frame start so cpu_68k_getcycle() returns per-frame cycles */
 static unsigned int frame_start_cycles;
 
-/* MVS auto-boot: flag to enable SRAM[0x5E] read intercept only after BIOS
- * has finished SRAM initialization (avoids disrupting early BIOS init flow) */
-static int sram5e_intercept_active = 0;
-
 /* Musashi cycle table is scaled by MUL=7 (from m68kconf.h).
  * External callers use real 68K cycles, so we scale at the boundary. */
-#define CYCLE_SCALE 7
+#define CYCLE_SCALE 2
 
 /* ======================================================================== */
 /* ======================== BYTE SWAP HELPER ============================== */
@@ -128,14 +124,7 @@ unsigned int m68k_read_memory_8(unsigned int address)
     case 0xD8: case 0xD9: case 0xDA: case 0xDB:
     case 0xDC: case 0xDD: case 0xDE: case 0xDF:
         sram_rd_count++;
-        {
-            unsigned int val = mem68k_fetch_sram_byte(address);
-            /* MVS BIOS auto-boot: clear bit 7 of SRAM[0x5E] on read,
-             * but only after BIOS has completed SRAM init (~frame 260). */
-            if (sram5e_intercept_active && (address & 0xFFFF) == 0x005E)
-                val &= 0x7F;
-            return val;
-        }
+        return mem68k_fetch_sram_byte(address);
     case 0xC0: case 0xC1:
         return mem68k_fetch_bios_byte(address);
     default:
@@ -281,7 +270,7 @@ void m68k_write_memory_32(unsigned int address, unsigned int value)
 /* =================== INTERRUPT ACKNOWLEDGE CALLBACK ===================== */
 /* ======================================================================== */
 
-static int irq_ack_count = 0;
+int irq_ack_count = 0;
 
 static int neogeo_int_ack(int int_level)
 {
@@ -400,118 +389,48 @@ int cpu_68k_run(Uint32 nb_cycle)
 {
     frame_count++;
 
-    /* Dump game ROM header once at startup - both raw and via FETCH */
-    if (frame_count == 5) {
-        uint8_t *rom = memory.rom.cpu_m68k.p;
-        printf("GAME_ROM raw[100..13F]:\n");
-        for (int i = 0; i < 0x40; i += 2) {
-            uint16_t w = *(uint16_t*)&rom[0x100 + i];
-            printf("%04x ", w);
-            if ((i & 0x1E) == 0x1E) printf("\n");
-        }
-        /* Show what 68K actually sees via FETCH macros (bank ROM 0x200100) */
-        printf("FETCH16 bank[200100..20013E]:\n");
-        for (int i = 0; i < 0x40; i += 2) {
-            uint16_t w = FETCH16BANK(0x200100 + i);
-            printf("%04x ", w);
-            if ((i & 0x1E) == 0x1E) printf("\n");
-        }
-        /* Show game vector table at ROM offset 0x00-0x7F */
-        printf("game_vector[00..0F]: ");
-        for (int i = 0; i < 0x10; i++)
-            printf("%02x ", memory.game_vector[i]);
-        printf("\n");
-        /* Show user routine vectors via FETCH */
-        printf("User vectors: startup=%08x eyecatch=%08x demo=%08x title=%08x\n",
-               FETCH32BANK(0x200114), FETCH32BANK(0x200118),
-               FETCH32BANK(0x20011C), FETCH32BANK(0x200120));
-        /* Show VBL vector from game ROM offset 0x64 */
-        printf("Game VBL vector (ROM[0x64]): %08x\n",
-               (FETCH16BANK(0x200064) << 16) | FETCH16BANK(0x200066));
-    }
-
-    /* No auto-boot hacks — BIOS boots naturally with correct ROM byte order */
-
     /* Reset per-frame cycle counter at the start of each frame's run */
     frame_start_cycles = m68k->cycles;
     unsigned int scaled = nb_cycle * CYCLE_SCALE;
     m68k_run(m68k->cycles + scaled);
     int overrun_scaled = (int)(m68k->cycles - frame_start_cycles) - (int)scaled;
 
-    /* Periodic state monitoring (every 60 frames = 1 sec) */
+    /* Periodic state monitoring (every 60 frames = ~1 sec) */
     if ((frame_count % 60 == 0)) {
         uint8_t *ram = memory.ram;
-        uint16_t state = (ram[0xFCD8 + 1] << 8) | ram[0xFCD8];
-        /* Game mode at $10009A (68K byte → ram[0x009A ^ 1] = ram[0x009B]) */
         uint8_t gmode = ram[0x009A ^ 1];
-        /* BIOS control at $10FD80 (68K byte → ram[0xFD80 ^ 1] = ram[0xFD81]) */
-        uint8_t fd80 = ram[0xFD80 ^ 1];
-        /* Credit/coin counters - check multiple possible locations */
-        uint8_t cred1 = ram[0xD8A8 ^ 1]; /* $10D8A8 common BIOS credit location */
-        uint8_t cred2 = ram[0xFE06 ^ 1]; /* $10FE06 */
-        uint8_t cred3 = ram[0xFE30 ^ 1]; /* $10FE30 */
-        uint8_t fee2  = ram[0xFEE2 ^ 1]; /* A5+$0BE2 (old injection, should be 0 now) */
-        /* BIOS handshake variables */
-        uint8_t user_req = ram[0xFDAE ^ 1]; /* $10FDAE: BIOS_USER_REQUEST */
-        uint8_t user_mod = ram[0xFDAF ^ 1]; /* $10FDAF: BIOS_USER_MODE */
-        uint8_t start_fl = ram[0xFDB4 ^ 1]; /* $10FDB4: BIOS_START_FLAG */
-        uint8_t plyr_mod = ram[0xFDB6 ^ 1]; /* $10FDB6: BIOS_PLAYER_MOD1 */
-        /* SRAM credits */
-        uint8_t scred1 = memory.sram[0x34]; /* $D00034: P1 credits */
-        uint8_t scred2 = memory.sram[0x35]; /* $D00035: P2 credits */
-        uint8_t sfree  = memory.sram[0x42]; /* $D00042: free play */
-        printf("FRAME %d: PC=%08x vec=%d gmode=%d fd80=%02x p1=%02x start=%02x coin=%02x irq=%d scr=%02x/%02x fp=%d ur=%d um=%d sf=%02x pm=%d\n",
-               frame_count, m68k_get_reg(M68K_REG_PC),
-               memory.current_vector, gmode, fd80, memory.intern_p1,
-               memory.intern_start, memory.intern_coin, irq_ack_count,
-               scred1, scred2, sfree, user_req, user_mod, start_fl, plyr_mod);
-        /* Dump BIOS handshake area + SRAM credits */
-        printf("  BIOS[FDB0..FDC0]: ");
-        for (int bi = 0; bi < 16; bi++) printf("%02x ", ram[0xFDB0 + bi]);
-        printf("\n  SRAM[30..50]: ");
-        for (int bi = 0x30; bi < 0x50; bi++) printf("%02x ", memory.sram[bi]);
-        printf("\n  CTL3: r8=%d r16=%d last8=%02x last16=%04x\n",
-               ctl3_r8_count, ctl3_r16_count, ctl3_last_r8, ctl3_last_r16);
-        ctl3_r8_count = 0; ctl3_r16_count = 0;
+        uint8_t user_req = ram[0xFDAE ^ 1];
+        uint32_t sr = m68k_get_reg(M68K_REG_SR);
+        printf("MUSASHI FRAME %d: PC=%08x SR=%04x vec=%d gmode=%d p1=%02x start=%02x coin=%02x ur=%d irqack=%d\n",
+               frame_count, m68k_get_reg(M68K_REG_PC), sr,
+               memory.current_vector, gmode, memory.intern_p1,
+               memory.intern_start, memory.intern_coin, user_req, irq_ack_count);
     }
 
-    /* One-shot code dump when game is in main loop */
+    /* Detect stuck at BIOS entry — print once when PC first lands there */
     {
-        static int code_dump_done = 0;
+        static int stuck_count = 0;
+        static int stuck_reported = 0;
         uint32_t pc = m68k_get_reg(M68K_REG_PC);
-        if (!code_dump_done && pc >= 0x3700 && pc < 0x3900 && frame_count > 300) {
-            code_dump_done = 1;
-            printf("Game main loop active at PC=%08x\n", pc);
-            /* Dump game ROM vector table at $000100-$000140 */
-            uint8_t *rom = memory.rom.cpu_m68k.p;
-            if (rom) {
-                printf("ROM vectors $100-$140:\n");
-                for (int i = 0x100; i < 0x140; i += 4) {
-                    /* ROM is stored little-endian, 68K is big-endian.
-                     * Already byte-swapped during load? Check first. */
-                    uint32_t val = (rom[i] << 24) | (rom[i+1] << 16) |
-                                   (rom[i+2] << 8) | rom[i+3];
-                    uint32_t val_le = rom[i] | (rom[i+1] << 8) |
-                                      (rom[i+2] << 16) | (rom[i+3] << 24);
-                    printf("  $%04x: %02x %02x %02x %02x  (BE=%08x LE=%08x)\n",
-                           i, rom[i], rom[i+1], rom[i+2], rom[i+3], val, val_le);
-                }
+        if (pc == 0x00C00402) {
+            stuck_count++;
+            if (stuck_count == 5 && !stuck_reported) {
+                stuck_reported = 1;
+                uint32_t sr = m68k_get_reg(M68K_REG_SR);
+                printf("STUCK at C00402 for %d frames, SR=%04x, irqack=%d, watchdog=%d\n",
+                       stuck_count, sr, irq_ack_count, memory.watchdog);
+                /* Dump a few BIOS bytes at $C00402 (LE format) */
+                uint8_t *bios = memory.rom.bios_m68k.p;
+                printf("  BIOS[0402..041F]: ");
+                for (int i = 0x402; i < 0x420; i++) printf("%02x ", bios[i]);
+                printf("\n");
             }
+        } else {
+            stuck_count = 0;
+            stuck_reported = 0;
         }
     }
 
-    /* Dump input-related RAM ranges when button is pressed (once per press) */
-    {
-        static int input_dump_done = 0;
-        if (memory.intern_p1 != 0xFF && !input_dump_done) {
-            input_dump_done = 1;
-            uint8_t *ram = memory.ram;
-            uint8_t gmode = ram[0x009A ^ 1];
-            printf("INPUT p1=%02x gmode=%d scr=%02x/%02x\n", memory.intern_p1, gmode,
-                   memory.sram[0x34], memory.sram[0x35]);
-        }
-        if (memory.intern_p1 == 0xFF) input_dump_done = 0;
-    }
     return overrun_scaled > 0 ? (overrun_scaled / CYCLE_SCALE) : 0;
 }
 

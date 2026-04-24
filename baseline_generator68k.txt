@@ -1,0 +1,312 @@
+I (399) hex_psram: SRF          : 0x02 (Slow Refresh)
+I (403) hex_psram: BurstType    : 0x00 ( Wrap)
+I (407) hex_psram: BurstLen     : 0x03 (2048 Byte)
+I (412) hex_psram: BitMode      : 0x01 (X16 Mode)
+I (416) hex_psram: Readlatency  : 0x04 (14 cycles@Fixed)
+I (421) hex_psram: DriveStrength: 0x00 (1/1)
+I (425) MSPI Timing: Enter psram timing tuning
+I (598) esp_psram: Found 32MB PSRAM device
+I (598) esp_psram: Speed: 200MHz
+I (599) hex_psram: psram CS IO is dedicated
+I (600) cpu_start: Multicore app
+I (1508) esp_psram: SPI SRAM memory test OK
+I (1535) cpu_start: GPIO 38 and 37 are used as console UART I/O pins
+I (1535) cpu_start: Pro cpu start user code
+I (1536) cpu_start: cpu freq: 360000000 Hz
+I (1537) app_init: Application information:
+I (1541) app_init: Project name:     neogeo_app
+I (1546) app_init: App version:      48a1d8c-dirty
+I (1550) app_init: Compile time:     Apr 22 2026 07:59:01
+I (1555) app_init: ELF file SHA256:  6d174b31d...
+I (1560) app_init: ESP-IDF:          v5.5.2
+I (1564) efuse_init: Min chip rev:     v0.1
+I (1567) efuse_init: Max chip rev:     v1.99
+I (1572) efuse_init: Chip rev:         v1.3
+I (1576) heap_init: Initializing. RAM available for dynamic allocation:
+I (1582) heap_init: At 4FF2B070 len 0000FF50 (63 KiB): RETENT_RAM
+I (1588) heap_init: At 4FF3AFC0 len 00004BF0 (18 KiB): RAM
+I (1593) heap_init: At 4FF9C720 len 000038E0 (14 KiB): RAM
+I (1598) heap_init: At 501080A0 len 00007F60 (31 KiB): RTCRAM
+I (1603) heap_init: At 30100068 len 00001F98 (7 KiB): TCM
+I (1609) esp_psram: Adding pool of 31623K of PSRAM memory to heap allocator
+W (1616) spi_flash: Detected boya flash chip but using generic driver. For optimal functionality, enable `SPI_FLASH_SUPPORT_BOYA_CHIP` in menuconfig
+I (1629) spi_flash: detected chip: generic
+I (1632) spi_flash: flash io: dio
+I (1636) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (1642) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (1649) main_task: Started on CPU0
+I (1652) main_task: Calling app_main()
+I (1655) app_common: === Emulator App Init ===
+I (1665) app_common: crash_guard: boot_count = 0 (max 3)
+I (1666) odroid_system: === RetroESP32-P4 System Init ===
+I (1670) odroid_system: I2C master bus initialized (SDA=7, SCL=8)
+I (1675) odroid_system: Initializing PPA 2D engine...
+I (1680) ppa_engine: PPA buffer alignment: 64 bytes
+I (1685) ppa_engine: PPA 2D engine initialized (SRM + Blend + Fill)
+I (1691) odroid_system: Initializing USB HID gamepad host...
+I (1727) gamepad: USB host library installed
+I (1727) gamepad: USB HID gamepad host initialized — plug in a USB gamepad!
+I (1727) gamepad: Waiting for USB HID gamepad...
+I (1727) odroid_system: Initializing audio (ES8311 codec)...
+I (1737) audio: I2S0 initialized: SR=16000, MCLK=13, BCLK=12, WS=10, DOUT=9, DIN=48
+I (1750) ES8311: Work in Slave mode
+I (1753) I2S_IF: STD mode, dir: TX, data_bit: 16, slot_bit: 16 active_channel: 2, slot_mask: 0x3
+I (1755) I2S_IF: STD mode, dir: RX, data_bit: 16, slot_bit: 16 active_channel: 2, slot_mask: 0x3
+I (1779) Adev_Codec: Open codec device OK
+I (1780) audio: ES8311 codec initialized (I2C addr=0x30, vol=60)
+I (1780) audio: Audio subsystem ready
+I (1781) odroid_system: Initializing LCD (ST7701 MIPI DSI)...
+I (1787) st7701_lcd: MIPI DSI PHY Powered on
+I (1792) st7701_lcd: Install MIPI DSI LCD control panel
+I (1936) st7701_mipi: LCD ID: FF FF FF
+I (1936) st7701_mipi: st7701->madctl_val: 0x0, st7701->colmod_val: 0x55
+I (2089) st7701_lcd: LCD initialized successfully (480x800, RGB565)
+I (2090) odroid_system: Initializing touch (GT911)...
+I (2090) gt911_touch: Initialize touch IO (I2C)
+I (2094) gt911_touch: Initialize touch controller GT911
+I (2100) GT911: TouchPad_ID:0x39,0x31,0x31
+I (2103) GT911: TouchPad_Config_Version:250
+I (2219) odroid_system: === System Init Complete ===
+I (2228) odroid_display: Virtual framebuffer allocated in PSRAM: 800x480 (768000 bytes)
+I (2229) odroid_display: Backlight LEDC initialized on GPIO 23
+I (2231) odroid_audio: Audio init (compat): sample_rate=16000, vol=4
+I (2242) odroid_input: GPIO gamepad DETECTED (GPIO 29 reads LOW)
+I (2243) odroid_input: GPIO gamepad initialized: analog(49,50,52) digital(28,29,30,32,34,35)
+I (2251) odroid_input: Input subsystem ready (USB HID gamepad + GPIO gamepad)
+I (2258) odroid_sdcard: Initializing SD card (SDMMC mode with on-chip LDO)
+W (2264) ldo: The voltage value 0 is out of the recommended range [500, 2700]
+I (2271) odroid_sdcard: SD mount attempt 1/3
+I (2516) odroid_sdcard: SD Card mounted at /sd (attempt 1)
+Name: SD32G
+Type: SDHC
+Speed: 20.00 MHz (limit: 20.00 MHz)
+Size: 29520MB
+CSD: ver=2, sector_size=512, capacity=60456960 read_bl_len=9
+SSR: bus_width=4
+I (2524) app_common: === Emulator App Init Complete ===
+I (2529) app_common: Safe-boot check: touch screen to return to launcher...
+I (3037) app_common: Safe-boot check passed (no touch detected).
+I (3037) app_common: ROM path: /sd/roms/neogeo/lbowling.zip
+I (3038) neogeo: ROM: /sd/roms/neogeo/lbowling.zip
+I (3042) neogeo: Starting Neo Geo emulation: /sd/roms/neogeo/lbowling.zip
+I (3048) neogeo_run: Neo Geo emulator starting...
+I (3052) neogeo_run: ROM path: /sd/roms/neogeo/lbowling.zip
+W (3057) odroid_sdcard: SD card already mounted
+I (3072) neogeo_run: Free PSRAM: 30017 KB
+I (3072) neogeo_run: Free internal: 54 KB
+I (3073) neogeo_run: Game: lbowling, ROM dir: /sd/roms/neogeo
+I (3074) gngeo_esp32: screen_init: 352x256 RGB565
+I (3088) neogeo_run: After screen_init — Free PSRAM: 29353 KB
+I (3088) neogeo_run: Loading game: lbowling
+BBB Blitter soft effect none
+Can't open
+Loading /sd/roms/neogeo/lbowling.zip
+ZIP entry: 'rom/' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/mslug4.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/lans2004.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/nitdbl.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/neodrift.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/nitd.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/shocktra.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/zedblade.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/ct2k3sp.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/fatfursp.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/ms5plus.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/garouo.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/neogeo.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/whp.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/aof2.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/janshin.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/ncombat.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/svcplus.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/mslug2.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof96h.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof2002b.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof98k.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof2003.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof2000n.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/wakuwak7.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/savagere.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof95h.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kf2k3pcb.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/rbff2h.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/pbobbl2n.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/kof99.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/overtop.drv' (looking for 'rom/lbowling.drv')
+ZIP entry: 'rom/lbowling.drv' (looking for 'rom/lbowling.drv')
+Allocating 0x00100000 byte for Region 8
+Allocating 0x00020000 byte for Region 1
+Allocating 0x00100000 byte for Region 9
+Allocating 0x00020000 byte for Region 6
+Allocating 0x00001000 byte for Region 11
+Allocating 0x00100000 byte for Region 3
+Allocating 0x00080000 byte for Region 4
+BIOS SIZE 00000000 00000000 00000000
+I (3356) gngeo_esp32: Loading: Loading... (size=3407872)
+ZIP entry: '000-lo.lo' (looking for '019-p1.bin')
+ZIP entry: '019-c1.c1' (looking for '019-p1.bin')
+ZIP entry: '019-c2.c2' (looking for '019-p1.bin')
+ZIP entry: '019-m1.m1' (looking for '019-p1.bin')
+ZIP entry: '019-p1.p1' (looking for '019-p1.bin')
+Trying to load file 019-p1.bin        in region 8
+Load file 019-p1.bin        in region 8: OK
+ZIP entry: '000-lo.lo' (looking for '019-s1.bin')
+ZIP entry: '019-c1.c1' (looking for '019-s1.bin')
+ZIP entry: '019-c2.c2' (looking for '019-s1.bin')
+ZIP entry: '019-m1.m1' (looking for '019-s1.bin')
+ZIP entry: '019-p1.p1' (looking for '019-s1.bin')
+ZIP entry: '019-s1.s1' (looking for '019-s1.bin')
+Trying to load file 019-s1.bin        in region 6
+Load file 019-s1.bin        in region 6: OK
+ZIP entry: '000-lo.lo' (looking for '019-m1.bin')
+ZIP entry: '019-c1.c1' (looking for '019-m1.bin')
+ZIP entry: '019-c2.c2' (looking for '019-m1.bin')
+ZIP entry: '019-m1.m1' (looking for '019-m1.bin')
+Trying to load file 019-m1.bin        in region 1
+Load file 019-m1.bin        in region 1: OK
+ZIP entry: '000-lo.lo' (looking for '019-v11.bin')
+ZIP entry: '019-c1.c1' (looking for '019-v11.bin')
+ZIP entry: '019-c2.c2' (looking for '019-v11.bin')
+ZIP entry: '019-m1.m1' (looking for '019-v11.bin')
+ZIP entry: '019-p1.p1' (looking for '019-v11.bin')
+ZIP entry: '019-s1.s1' (looking for '019-v11.bin')
+ZIP entry: '019-v11.v11' (looking for '019-v11.bin')
+Trying to load file 019-v11.bin       in region 3
+Load file 019-v11.bin       in region 3: OK
+ZIP entry: '000-lo.lo' (looking for '019-v12.bin')
+ZIP entry: '019-c1.c1' (looking for '019-v12.bin')
+ZIP entry: '019-c2.c2' (looking for '019-v12.bin')
+ZIP entry: '019-m1.m1' (looking for '019-v12.bin')
+ZIP entry: '019-p1.p1' (looking for '019-v12.bin')
+ZIP entry: '019-s1.s1' (looking for '019-v12.bin')
+ZIP entry: '019-v11.v11' (looking for '019-v12.bin')
+ZIP entry: '019-v12.v12' (looking for '019-v12.bin')
+Trying to load file 019-v12.bin       in region 3
+Load file 019-v12.bin       in region 3: OK
+ZIP entry: '000-lo.lo' (looking for '019-v21.bin')
+ZIP entry: '019-c1.c1' (looking for '019-v21.bin')
+ZIP entry: '019-c2.c2' (looking for '019-v21.bin')
+ZIP entry: '019-m1.m1' (looking for '019-v21.bin')
+ZIP entry: '019-p1.p1' (looking for '019-v21.bin')
+ZIP entry: '019-s1.s1' (looking for '019-v21.bin')
+ZIP entry: '019-v11.v11' (looking for '019-v21.bin')
+ZIP entry: '019-v12.v12' (looking for '019-v21.bin')
+ZIP entry: '019-v21.v21' (looking for '019-v21.bin')
+Trying to load file 019-v21.bin       in region 4
+I (12527) app_common: crash_guard: boot counter cleared
+Load file 019-v21.bin       in region 4: OK
+ZIP entry: '000-lo.lo' (looking for '019-c1.bin')
+ZIP entry: '019-c1.c1' (looking for '019-c1.bin')
+Trying to load file 019-c1.bin        in region 9
+Load file 019-c1.bin        in region 9: OK
+ZIP entry: '000-lo.lo' (looking for '019-c2.bin')
+ZIP entry: '019-c1.c1' (looking for '019-c2.bin')
+ZIP entry: '019-c2.c2' (looking for '019-c2.bin')
+Trying to load file 019-c2.bin        in region 9
+Load file 019-c2.bin        in region 9: OK
+I (16772) gngeo_esp32: Loading complete
+Default roms init
+Allocating 0x00000800 byte for Region 10
+BIOS: Opening /sd/roms/neogeo/neogeo.zip
+ZIP entry: 'ng-lo.rom' (looking for '000-lo.lo')
+ZIP entry: 'neo-geo.rom' (looking for '000-lo.lo')
+ZIP entry: 'ng-sfix.rom' (looking for '000-lo.lo')
+ZIP entry: 'ng-sm1.rom' (looking for '000-lo.lo')
+BIOS: 000-lo.lo not found, trying ng-lo.rom
+ZIP entry: 'ng-lo.rom' (looking for 'ng-lo.rom')
+BIOS: lo loaded (131072 bytes)
+Load Sfix
+ZIP entry: 'ng-lo.rom' (looking for 'sfix.sfx')
+ZIP entry: 'neo-geo.rom' (looking for 'sfix.sfx')
+ZIP entry: 'ng-sfix.rom' (looking for 'sfix.sfx')
+ZIP entry: 'ng-sm1.rom' (looking for 'sfix.sfx')
+Couldn't find sfix.sfx, try sfix.sfix
+ZIP entry: 'ng-lo.rom' (looking for 'sfix.sfix')
+ZIP entry: 'neo-geo.rom' (looking for 'sfix.sfix')
+ZIP entry: 'ng-sfix.rom' (looking for 'sfix.sfix')
+ZIP entry: 'ng-sm1.rom' (looking for 'sfix.sfix')
+Trying ng-sfix.rom
+ZIP entry: 'ng-lo.rom' (looking for 'ng-sfix.rom')
+ZIP entry: 'neo-geo.rom' (looking for 'ng-sfix.rom')
+ZIP entry: 'ng-sfix.rom' (looking for 'ng-sfix.rom')
+BIOS: sfix loaded (131072 bytes)
+BIOS: Loading CPU BIOS (system=0, country=2)
+BIOS: Loading usa_2slt.bin
+ZIP entry: 'ng-lo.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'neo-geo.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'ng-sfix.rom' (looking for 'usa_2slt.bin')
+ZIP entry: 'ng-sm1.rom' (looking for 'usa_2slt.bin')
+BIOS: usa_2slt.bin not found, trying neo-geo.rom
+ZIP entry: 'ng-lo.rom' (looking for 'neo-geo.rom')
+ZIP entry: 'neo-geo.rom' (looking for 'neo-geo.rom')
+GEN68k CPU INIT
+BIOS BYTE1=00000010
+I (17519) gngeo_esp32: init_sdl_audio: initializing ES8311 at 22050 Hz
+I (17520) audio: Reconfiguring I2S sample rate: 16000 -> 22050
+I (17521) audio: I2S sample rate set to 22050 Hz
+I (17525) odroid_audio: Audio init (compat): sample_rate=22050, vol=4
+I (17531) audio: Volume set to 50
+I (17534) odroid_audio: Volume set: 2/4 → 50%
+I (17538) gngeo_esp32: Audio ready: 22050 Hz, 367 samples/frame, Z80 on core 1
+I (17599) neogeo_run: Game loaded successfully!
+I (17600) neogeo_run: After init_game — Free PSRAM: 24624 KB
+I (17600) neogeo_run: P ROM: 1024 KB
+I (17601) neogeo_run: S ROM: 128 KB
+I (17605) neogeo_run: Tiles: 1024 KB
+I (17608) neogeo_run: ADPCM-A: 1024 KB
+I (17611) neogeo_run: M ROM (Z80): 128 KB
+I (17615) neogeo_run: Nb tiles: 8192
+I (17618) neogeo_run: Starting main loop...
+INPUT p1=00 start=00 gmode=0 vec=0 pc=c00402
+INPUT start=00 p1=00 gmode=0 vec=0 pc=c00402
+Selecting Bios Vector
+  Z80task: z80=2447 us, ym=2167 us (n=1)
+E (17689) lcd.dsi: dpi_panel_draw_bitmap(547): previous draw operation is not finished
+  detail: 68Kcpu=6269 us, video=51533 us (n=1)
+68K: 58231 us/frame, Z80wait: 6 us/frame (n=1)
+INPUT p1=ff start=ff gmode=85 vec=0 pc=c13144
+INPUT start=ff p1=ff gmode=85 vec=0 pc=c13144
+DIAG 60: pc=c1317e vec=0 gmode=154 fd80=80 p1=ff start=ff coin=07 ur=174 um=253 sc=ac sch=fd sf=b4 pm=182 cd1=176 wdog=1
+  IO: ctl1_r8=0 ctl1_r16=0 ctl3_r8=0 ctl3_r16=0 coin_r8=0 wdog_kicks=315398
+  IO_LAST: ctl1=ff ctl3=ff coin=ff
+  SRAM[30..45]: aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa
+  BIOS[FDB0..BF]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd
+  Z80task: z80=2496 us, ym=8819 us (n=59)
+FPS: 61
+  detail: 68Kcpu=5164 us, video=8239 us (n=63)
+68K: 13435 us/frame, Z80wait: 1542 us/frame (n=63)
+  Z80task: z80=2315 us, ym=8723 us (n=36)
+  detail: 68Kcpu=22826 us, video=5923 us (n=32)
+68K: 28781 us/frame, Z80wait: 2317 us/frame (n=32)
+FPS: 36
+  Z80task: z80=2061 us, ym=1882 us (n=17)
+  detail: 68Kcpu=57499 us, video=1587 us (n=17)
+68K: 59101 us/frame, Z80wait: 4 us/frame (n=17)
+FPS: 17
+DIAG 120: pc=c1311e vec=0 gmode=154 fd80=80 p1=ff start=ff coin=07 ur=174 um=253 sc=ac sch=fd sf=b4 pm=182 cd1=176 wdog=1
+  IO: ctl1_r8=0 ctl1_r16=0 ctl3_r8=0 ctl3_r16=0 coin_r8=0 wdog_kicks=298310
+  IO_LAST: ctl1=ff ctl3=ff coin=ff
+  SRAM[30..45]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b
+  BIOS[FDB0..BF]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd
+  Z80task: z80=2007 us, ym=1876 us (n=16)
+  detail: 68Kcpu=61313 us, video=1719 us (n=16)
+68K: 63047 us/frame, Z80wait: 3 us/frame (n=16)
+FPS: 16
+  Z80task: z80=2096 us, ym=1892 us (n=18)
+  detail: 68Kcpu=49819 us, video=5329 us (n=18)
+68K: 55167 us/frame, Z80wait: 5 us/frame (n=18)
+FPS: 18
+  Z80task: z80=1983 us, ym=1863 us (n=19)
+  detail: 68Kcpu=49681 us, video=2528 us (n=19)
+68K: 52225 us/frame, Z80wait: 3 us/frame (n=19)
+FPS: 19
+DIAG 180: pc=c00438 vec=0 gmode=154 fd80=80 p1=ff start=ff coin=07 ur=174 um=253 sc=ac sch=fd sf=b4 pm=182 cd1=176 wdog=1
+  IO: ctl1_r8=0 ctl1_r16=0 ctl3_r8=0 ctl3_r16=0 coin_r8=151945 wdog_kicks=187474
+  IO_LAST: ctl1=ff ctl3=ff coin=47
+  SRAM[30..45]: 00 00 00 00 00 00 00 00 00 00 01 01 01 02 01 01 01 03 00 00 30 3b
+  BIOS[FDB0..BF]: b0 fd b2 fd b4 fd b6 fd b8 fd ba fd bc fd be fd
+  Z80task: z80=2110 us, ym=1888 us (n=18)
+  detail: 68Kcpu=49709 us, video=5299 us (n=18)
+68K: 55035 us/frame, Z80wait: 4 us/frame (n=18)
+FPS: 18
+  Z80task: z80=1985 us, ym=1870 us (n=19)

@@ -300,7 +300,7 @@ void neogeo_main_loop(void) {
 	int m68k_overclk = CF_VAL(cf_get_item_by_name("68kclock"));
 	int z80_overclk = CF_VAL(cf_get_item_by_name("z80clock"));
 	//int nb_frames = 0;
-	int a,i;
+	int a = 0, i;
 #ifdef GP2X
 	//int snd_volume=gp2x_sound_volume_get();
 	int snd_volume = 30;
@@ -695,9 +695,10 @@ void neogeo_main_loop(void) {
 
 				memory.watchdog++;
 
-				if (memory.watchdog > 7) { /* Watchdog reset after ~0.13 == ~7.8 frames */
+				if (memory.watchdog > 120) { /* Watchdog: generous timeout for BIOS init with masked interrupts */
                     printf("WATCHDOG RESET %d\n",memory.watchdog);
 					cpu_68k_reset();
+					memory.watchdog = 0; /* Clear counter on reset to avoid infinite loop */
                 }
 
 				if (a) {
