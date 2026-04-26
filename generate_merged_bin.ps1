@@ -19,9 +19,9 @@ $OUT  = "$ROOT\RetroESP32_P4_v1.bin"
 
 # Flash map (must match partitions_ota.csv)
 # Format: offset, filename, description
-$offsets = @("0x2000","0x8000","0xD000","0x10000","0x0D0000","0x160000","0x200000","0x350000","0x410000","0x550000","0x5F0000","0x690000","0x740000","0x8C0000","0x9B0000")
-$files   = @("bootloader.bin","partition-table.bin","ota_data_initial.bin","launcher.bin","nes_app.bin","gb_app.bin","sms_app.bin","spectrum_app.bin","stella_app.bin","prosystem_app.bin","handy_app.bin","pce_app.bin","atari800_app.bin","snes_app.bin","genesis_app.bin")
-$descs   = @("Bootloader","Partition Table","OTA Data","Launcher (factory)","NES (ota_0)","GB/GBC (ota_1)","SMS/GG/COL (ota_2)","ZX Spectrum (ota_3)","Stella (ota_4)","ProSystem (ota_5)","Handy (ota_6)","PC Engine (ota_7)","Atari 800 (ota_8)","SNES (ota_10)","Genesis (ota_11)")
+$offsets = @("0x2000","0x8000","0xD000","0x10000","0x0D0000","0x160000","0x200000","0x350000","0x410000","0x550000","0x5F0000","0x690000","0x740000","0x8C0000","0x9B0000","0xB00000")
+$files   = @("bootloader.bin","partition-table.bin","ota_data_initial.bin","launcher.bin","nes_app.bin","gb_app.bin","sms_app.bin","spectrum_app.bin","stella_app.bin","prosystem_app.bin","handy_app.bin","pce_app.bin","atari800_app.bin","snes_app.bin","genesis_app.bin","neogeo_app.bin")
+$descs   = @("Bootloader","Partition Table","OTA Data","Launcher (factory)","NES (ota_0)","GB/GBC (ota_1)","SMS/GG/COL (ota_2)","ZX Spectrum (ota_3)","Stella (ota_4)","ProSystem (ota_5)","Handy (ota_6)","PC Engine (ota_7)","Atari 800 (ota_8)","SNES (ota_10)","Genesis (ota_11)","Neo Geo (ota_12)")
 
 Write-Host ""
 Write-Host "=== RetroESP32-P4 Merged Binary Generator ===" -ForegroundColor Cyan
