@@ -113,6 +113,7 @@
 
 #include "mvs.h"
 #include "../state.h"
+#include "../adpcm_cache.h"
 #include "2610intf.h"
 #include "ym2610.h"
 
@@ -2065,6 +2066,14 @@ static void SSG_write(int r, int v) {
 static u8 *pcmbufA;
 static u32 pcmsizeA;
 
+/* ADPCM V-ROM streaming caches (for large games) */
+adpcm_cache_t adpcm_cacheA;
+adpcm_cache_t adpcm_cacheB;
+
+/* Read macro: use cache if active, otherwise direct PSRAM pointer */
+#define ADPCM_READ_A(addr) (adpcm_cacheA.active ? adpcm_cache_read(&adpcm_cacheA, (addr)) : *(pcmbufA + (addr)))
+#define ADPCM_READ_B(addr) (adpcm_cacheB.active ? adpcm_cache_read(&adpcm_cacheB, (addr)) : *(pcmbufB + (addr)))
+
 /* Algorithm and tables verified on real YM2610 */
 
 /* usual ADPCM table (16 * 1.1^N) */
@@ -2119,7 +2128,7 @@ static void OPNB_ADPCMA_init_table(void) {
 			if (ch->now_addr & 1)
 				data = ch->now_data & 0x0f;
 			else {
-				ch->now_data = *(pcmbufA + (ch->now_addr >> 1));
+				ch->now_data = ADPCM_READ_A(ch->now_addr >> 1);
 				data = (ch->now_data >> 4) & 0x0f;
 			}
 
@@ -2501,7 +2510,7 @@ INLINE void OPNB_ADPCMB_CALC(ADPCMB *adpcmb) {
 			if (adpcmb->now_addr & 1) {
 				data = adpcmb->now_data & 0x0f;
 			} else {
-				adpcmb->now_data = *(pcmbufB + (adpcmb->now_addr >> 1));
+				adpcmb->now_data = ADPCM_READ_B(adpcmb->now_addr >> 1);
 				data = adpcmb->now_data >> 4;
 			}
 

@@ -24,6 +24,8 @@ void gn_strncat_dir(char *basedir,char *dir,size_t n);
 #define ROOTPATH "sd:/apps/gngeo/"
 #elif defined (__AMIGA__)
 #define ROOTPATH "/PROGDIR/data/"
+#elif defined (EMBEDDED_FS)
+#define ROOTPATH "/sd/roms/neogeo/"
 #else
 #define ROOTPATH ""
 #endif

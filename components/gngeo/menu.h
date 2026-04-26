@@ -71,6 +71,7 @@ void gn_reset_pbar(void);
 void gn_init_pbar(char *name,int size);
 void gn_update_pbar(int pos);
 void gn_terminate_pbar(void);
+void gn_loading_info(const char *msg);
 
 void gn_popup_error(char *name,char *fmt,...);
 int gn_popup_question(char *name,char *fmt,...);

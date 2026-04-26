@@ -31,6 +31,7 @@
 #include <zlib.h>
 #endif
 #include "video.h"
+#include "diskio.h"
 #include "memory.h"
 #include "emu.h"
 #include "messages.h"
@@ -152,31 +153,33 @@ int init_sprite_cache(Uint32 size, Uint32 bsize) {
 	gcache->ptr = malloc(gcache->total_bank * sizeof (Uint8*));
 	if (gcache->ptr == NULL)
 		return GN_FALSE;
-	//gcache->z_pos=malloc(gcache->total_bank*sizeof(unz_file_pos ));
 	memset(gcache->ptr, 0, gcache->total_bank * sizeof (Uint8*));
 
 	gcache->size = size;
 	gcache->data = malloc(gcache->size);
 	if (gcache->data == NULL) {
 		free(gcache->ptr);
+		gcache->ptr = NULL;
 		return GN_FALSE;
 	}
-	printf("INIT CACHE %p\n", gcache->data);
+	printf("INIT CACHE %p (%u KB)\n", gcache->data, size / 1024);
 
-	//gcache->max_slot=((float)gcache->size/0x4000000)*TOTAL_GFX_BANK;
-	//gcache->max_slot=((float)gcache->size/memory.rom.tiles.size)*gcache->total_bank;
 	gcache->max_slot = size / gcache->slot_size;
-	//gcache->slot_size=0x4000000/TOTAL_GFX_BANK;
 	printf("Allocating %08x for gfx cache (%d %d slot)\n", gcache->size, gcache->max_slot, gcache->slot_size);
 	gcache->usage = malloc(gcache->max_slot * sizeof (Uint32));
 	for (i = 0; i < gcache->max_slot; i++)
 		gcache->usage[i] = -1;
-	//printf("inbuf size= %d\n",compressBound(bsize));
+
+	if (!gcache->raw_mode) {
+		/* GNO compressed mode — need decompression buffer */
 #ifdef WIZ
-	gcache->in_buf = malloc(bsize + 1024);
+		gcache->in_buf = malloc(bsize + 1024);
 #else
-	gcache->in_buf = malloc(compressBound(bsize));
+		gcache->in_buf = malloc(compressBound(bsize));
 #endif
+	} else {
+		gcache->in_buf = NULL; /* raw mode: no decompression buffer needed */
+	}
 	return GN_TRUE;
 }
 
@@ -198,19 +201,20 @@ void free_sprite_cache(void) {
 		free(gcache->in_buf);
 		gcache->in_buf = NULL;
 	}
+	if (gcache->sector_map) {
+		free(gcache->sector_map);
+		gcache->sector_map = NULL;
+	}
 }
 
 Uint8 *get_cached_sprite_ptr(Uint32 tileno) {
 	GFX_CACHE *gcache = &memory.vid.spr_cache;
 	static int pos = 0;
-	static int init = 1;
+	static int read_errors = 0;
 	int tile_sh = ~((gcache->slot_size >> 7) - 1);
 
 	int bank = ((tileno & tile_sh) / (gcache->slot_size >> 7));
 	int a;
-	int r;
-	Uint32 cmp_size;
-	uLongf dst_size;
 
 	if (gcache->ptr[bank]) {
 		/* The bank is present in the cache */
@@ -220,13 +224,47 @@ Uint8 *get_cached_sprite_ptr(Uint32 tileno) {
 	a = pos;
 	pos++;
 	if (pos >= gcache->max_slot) pos = 0;
-	//printf("Offset for bank is %d\n",gcache->offset[bank]);
 
-	fseek(gcache->gno, gcache->offset[bank], SEEK_SET);
-	r = fread(&cmp_size, sizeof (Uint32), 1, gcache->gno);
-	r = fread(gcache->in_buf, cmp_size, 1, gcache->gno);
-	dst_size = gcache->slot_size;
-	r = uncompress(gcache->data + a * gcache->slot_size, &dst_size, gcache->in_buf, cmp_size);
+	if (gcache->raw_mode) {
+		/* Raw .ctile file — bypass FATFS entirely using disk_read() with
+		 * the pre-built sector map.  This avoids FATFS cluster chain
+		 * traversal (which needs FAT reads through fs->win in PSRAM that
+		 * fail when DMA memory is exhausted at runtime). */
+		Uint8 *dest = gcache->data + a * gcache->slot_size;
+		Uint8 *bounce = gcache->bounce_buf;
+		int ok = 0;
+
+		if (bounce && gcache->sector_map) {
+			for (int retry = 0; retry < 3; retry++) {
+				DRESULT dres = disk_read(gcache->pdrv, bounce,
+										 gcache->sector_map[bank],
+										 gcache->sectors_per_bank);
+				if (dres == RES_OK) {
+					memcpy(dest, bounce, gcache->slot_size);
+					ok = 1;
+					break;
+				}
+			}
+		}
+		if (!ok) {
+			memset(dest, 0, gcache->slot_size);
+			read_errors++;
+			if (read_errors <= 10)
+				printf("CACHE_ERR: bank %d read failed (tile %u, errors=%d)\n",
+					   bank, tileno, read_errors);
+		}
+	} else {
+		/* GNO compressed mode */
+		int r;
+		Uint32 cmp_size;
+		uLongf dst_size;
+		fseek(gcache->gno, gcache->offset[bank], SEEK_SET);
+		r = fread(&cmp_size, sizeof (Uint32), 1, gcache->gno);
+		r = fread(gcache->in_buf, cmp_size, 1, gcache->gno);
+		dst_size = gcache->slot_size;
+		r = uncompress(gcache->data + a * gcache->slot_size, &dst_size, gcache->in_buf, cmp_size);
+		(void)r;
+	}
 
 	gcache->ptr[bank] = gcache->data + a * gcache->slot_size;
 
@@ -583,13 +621,13 @@ void draw_screen(void) {
 
 
 			if (sx >= -16 && sx + 15 < 336 && sy >= 0 && sy + 15 < 256) {
+				unsigned int orig_tileno = tileno;
 
 				penusage = PEN_USAGE(tileno);
 				if (memory.vid.spr_cache.data) {
 					memory.rom.tiles.p = get_cached_sprite_ptr(tileno);
 					tileno = (tileno & ((memory.vid.spr_cache.slot_size >> 7) - 1));
 				}
-
 
 #ifdef PROCESSOR_ARM
 				mem_gfx = memory.rom.tiles.p;

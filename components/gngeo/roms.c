@@ -6,7 +6,12 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <string.h>
+#include <sys/stat.h>
 #include "esp_heap_caps.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
 //#include <stdbool.h>
 #include "roms.h"
 #include "emu.h"
@@ -18,6 +23,8 @@
 #include "unzip.h"
 
 #include "video.h"
+#include "ff.h"
+#include "diskio.h"
 #include "transpack.h"
 #include "conf.h"
 #include "resfile.h"
@@ -25,6 +32,7 @@
 #include "gnutil.h"
 #include "frame_skip.h"
 #include "screen.h"
+#include "adpcm_cache.h"
 #ifdef GP2X
 #include "gp2x.h"
 #include "ym2610-940/940shared.h"
@@ -138,7 +146,7 @@ int bankoffset_kof2000[64] = {
 };
 Uint8 scramblecode_kof2000[7] = {0xEC, 15, 14, 7, 3, 10, 5,};
 
-#define LOAD_BUF_SIZE (128*1024)
+#define LOAD_BUF_SIZE (256*1024)
 static Uint8* iloadbuf = NULL;
 
 //char romerror[1024];
@@ -864,6 +872,9 @@ struct roms_init_func {
 	{ NULL, NULL}
 };
 
+/* Forward declaration for streaming cache support */
+static int convert_roms_tile(Uint8 *g, int tileno);
+
 static int allocate_region(ROM_REGION *r, Uint32 size, int region) {
 	DEBUG_LOG("Allocating 0x%08x byte for Region %d\n", size, region);
 	if (size != 0) {
@@ -922,6 +933,393 @@ static void free_region(ROM_REGION *r) {
 	r->p = NULL;
 }
 
+/*
+ * Streaming ROM cache support for large Neo Geo games.
+ *
+ * When sprite tiles (C ROM) or ADPCM samples (V ROM) are too large for
+ * PSRAM, we extract them to flat files on the SD card and use paged
+ * caches in PSRAM for runtime access.
+ *
+ * Cache file paths:  /sd/roms/neogeo/<game>.ctile  (converted sprite tiles)
+ *                    /sd/roms/neogeo/<game>.vroma   (ADPCM-A samples)
+ *                    /sd/roms/neogeo/<game>.vromb   (ADPCM-B samples, if different)
+ *
+ * Sprite cache budget: 12 MB in PSRAM, bank size 4096 bytes (32 tiles).
+ * ADPCM cache budget:  4 MB in PSRAM, page size 4096 bytes.
+ */
+
+#define SPRITE_CACHE_BUDGET   (12 * 1024 * 1024)
+#define SPRITE_BANK_SIZE      4096
+#define ADPCM_CACHE_BUDGET    (4 * 1024 * 1024)
+#define CUSAGE_MAGIC          0x43553039  /* "CU09" — unbuffered I/O for read-modify-write */
+
+/* Minimum free PSRAM to keep after all allocations (headroom for stacks, etc.) */
+#define PSRAM_HEADROOM        (2 * 1024 * 1024)
+
+static int streaming_tiles = 0;   /* 1 if sprite tiles are streamed from SD */
+static int streaming_adpcma = 0;  /* 1 if ADPCM-A is streamed from SD */
+static int streaming_adpcmb = 0;  /* 1 if ADPCM-B is streamed from SD */
+static FILE *stream_tile_file = NULL;   /* temp file handle during cache creation */
+static FILE *stream_adpcma_file = NULL;
+static FILE *stream_adpcmb_file = NULL;
+
+static void get_cache_path(const char *name, const char *ext, char *out, int maxlen) {
+	snprintf(out, maxlen, "%s%s.%s", ROOTPATH, name, ext);
+}
+
+static int cache_file_exists(const char *path) {
+	struct stat st;
+	return (stat(path, &st) == 0 && st.st_size > 0);
+}
+
+/* Check that a .cusage file has the correct magic header */
+static int cusage_file_valid(const char *path) {
+	FILE *f = fopen(path, "rb");
+	if (!f) return 0;
+	Uint32 magic = 0;
+	fread(&magic, sizeof(magic), 1, f);
+	fclose(f);
+	return (magic == CUSAGE_MAGIC);
+}
+
+static int read_counter;  /* Moved here so write_data_*_to_file can use it */
+
+/* Write interleaved sprite data from ZIP to a file (same as read_data_i but to file).
+ * Reads from ZIP, scatters bytes at stride-2 into a file buffer to avoid byte-by-byte seeks.
+ * Uses read-modify-write with a 8KB file buffer for each 4KB of input. */
+static int write_data_i_to_file(ZFILE *gz, FILE *out, Uint32 dest, Uint32 size, Uint32 total_size) {
+	Uint32 s = 4096;   /* input chunk size */
+	Uint8 *inbuf = malloc(s);
+	Uint8 *filebuf = malloc(s * 2);  /* output covers 2x the input (stride 2) */
+	if (!inbuf || !filebuf) {
+		free(inbuf); free(filebuf);
+		return -1;
+	}
+
+	Uint32 odd = dest & 1;  /* 0 for even C ROM, 1 for odd C ROM — constant for entire call */
+	Uint32 total_read = 0, total_nonzero = 0;
+
+	while (size) {
+		Uint32 c = size;
+		if (c > s) c = s;
+		c = gn_unzip_fread(gz, inbuf, c);
+		if (c == 0) break;
+
+		/* Count non-zero bytes from ZIP */
+		for (Uint32 i = 0; i < c; i++) { if (inbuf[i]) total_nonzero++; }
+		total_read += c;
+
+		/* Align file region to even boundary for read-modify-write */
+		Uint32 out_start = dest & ~1U;
+		Uint32 out_len = c * 2;
+
+		/* Clamp to file size */
+		if (out_start + out_len > total_size)
+			out_len = total_size - out_start;
+
+		/* Read existing file contents (contains the other interleave half or zeros) */
+		fseek(out, out_start, SEEK_SET);
+		fread(filebuf, 1, out_len, out);
+
+		/* Scatter input bytes at correct interleave offsets */
+		for (Uint32 i = 0; i < c && (i * 2 + odd) < out_len; i++) {
+			filebuf[i * 2 + odd] = inbuf[i];
+		}
+
+		/* Write back the merged buffer */
+		fseek(out, out_start, SEEK_SET);
+		fwrite(filebuf, 1, out_len, out);
+
+		dest += c * 2;
+		size -= c;
+		read_counter += c;
+		gn_update_pbar(read_counter);
+	}
+	fflush(out);
+	fsync(fileno(out));
+	printf("  write_data_i: read=%u bytes, nonzero=%u (%.1f%%)\n",
+		   total_read, total_nonzero, total_read ? (total_nonzero * 100.0f / total_read) : 0.0f);
+	free(inbuf);
+	free(filebuf);
+	return 0;
+}
+
+/* Write sequential data from ZIP to a file (same as read_data_p but to file) */
+static int write_data_p_to_file(ZFILE *gz, FILE *out, Uint32 dest, Uint32 size) {
+	Uint8 *buf;
+	Uint32 s = 4096, c;
+	buf = malloc(s);
+	if (!buf) return -1;
+
+	fseek(out, dest, SEEK_SET);
+	while (size) {
+		c = size;
+		if (c > s) c = s;
+		c = gn_unzip_fread(gz, buf, c);
+		if (c == 0) break;
+		fwrite(buf, 1, c, out);
+		size -= c;
+		read_counter += c;
+		gn_update_pbar(read_counter);
+	}
+	free(buf);
+	return 0;
+}
+
+/* Convert raw tile data in a file to decoded 4bpp format, in chunks.
+ * Also builds spr_usage table in memory. */
+static void convert_tiles_in_file(FILE *f, Uint32 total_size, GAME_ROMS *r) {
+	Uint32 nb_tiles = total_size >> 7;
+	Uint32 bank_tiles = SPRITE_BANK_SIZE >> 7;  /* tiles per bank */
+	Uint8 *bank_buf = malloc(SPRITE_BANK_SIZE);
+	if (!bank_buf) return;
+
+	/* Allocate spr_usage in PSRAM (small: nb_tiles/16 * 4 bytes) */
+	allocate_region(&r->spr_usage, (total_size >> 11) * sizeof(Uint32), REGION_SPR_USAGE);
+	memset(r->spr_usage.p, 0, r->spr_usage.size);
+
+	printf("Converting %u tiles in file (%u banks)...\n", nb_tiles, (nb_tiles + bank_tiles - 1) / bank_tiles);
+
+	for (Uint32 tile = 0; tile < nb_tiles; tile += bank_tiles) {
+		Uint32 chunk_tiles = bank_tiles;
+		if (tile + chunk_tiles > nb_tiles)
+			chunk_tiles = nb_tiles - tile;
+		Uint32 chunk_bytes = chunk_tiles << 7;
+
+		/* Read raw bank from file */
+		fseek(f, (long)tile << 7, SEEK_SET);
+		fread(bank_buf, 1, chunk_bytes, f);
+
+		/* Convert each tile in the bank (in-place in bank_buf) */
+		for (Uint32 t = 0; t < chunk_tiles; t++) {
+			Uint32 global_tileno = tile + t;
+			int usage = convert_roms_tile(bank_buf, t);
+			((Uint32 *)r->spr_usage.p)[global_tileno >> 4] |= usage;
+		}
+
+		/* Write converted bank back to file */
+		fseek(f, (long)tile << 7, SEEK_SET);
+		fwrite(bank_buf, 1, chunk_bytes, f);
+	}
+	fflush(f);
+	free(bank_buf);
+	printf("Tile conversion complete.\n");
+}
+
+/* Set up the sprite streaming cache from a .ctile file */
+static int setup_sprite_streaming(const char *ctile_path, Uint32 tile_size) {
+	GFX_CACHE *gcache = &memory.vid.spr_cache;
+
+	/* Allocate FATFS FIL structure in internal RAM so that its embedded
+	 * sector buffer is DMA-reachable for the init-time sector map build. */
+	FIL *fil = heap_caps_calloc(1, sizeof(FIL), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+	if (!fil) {
+		printf("ERROR: Cannot allocate FIL in internal RAM (%u bytes, %u free)\n",
+			   (unsigned)sizeof(FIL),
+			   (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+		return GN_FALSE;
+	}
+
+	/* Build FATFS path: strip VFS mount-point "/sd" and prepend drive "0:" */
+	char fatfs_path[256];
+	const char *rel = ctile_path;
+	if (strncmp(rel, "/sd/", 4) == 0) rel += 3;   /* keep leading '/' */
+	snprintf(fatfs_path, sizeof(fatfs_path), "0:%s", rel);
+
+	FRESULT fres = f_open(fil, fatfs_path, FA_READ);
+	if (fres != FR_OK) {
+		printf("ERROR: f_open(%s) failed, FRESULT=%d\n", fatfs_path, (int)fres);
+		heap_caps_free(fil);
+		return GN_FALSE;
+	}
+	printf("Sprite cache opened via FATFS: %s (FIL in internal RAM, %u bytes)\n",
+		   fatfs_path, (unsigned)sizeof(FIL));
+
+	/* --- Build LBA sector map by walking the FAT chain directly ---
+	 * FATFS f_lseek has a subtle bug: at cluster boundaries, fp->clust
+	 * points to the PREVIOUS cluster (because `while (ofs > bcs)` uses
+	 * strict greater-than).  Also, fp->clust is invalid when fptr==0.
+	 * This causes 25% of banks (every 4th) to map to wrong sectors.
+	 *
+	 * Instead, we walk the FAT chain ourselves using disk_read() on
+	 * the FAT table sectors.  This is correct by construction and
+	 * avoids all FATFS internal state issues. */
+	FATFS *fs = fil->obj.fs;
+	WORD ssize = fs->ssize;          /* SD card sector size (512) */
+	WORD csize = fs->csize;          /* cluster size in sectors */
+	LBA_t database = fs->database;   /* first data sector LBA */
+	LBA_t fatbase = fs->fatbase;     /* FAT table start sector */
+	BYTE pdrv = fs->pdrv;
+	BYTE fs_type = fs->fs_type;
+	int sectors_per_bank = SPRITE_BANK_SIZE / ssize;
+	int banks_per_cluster = (csize * ssize) / SPRITE_BANK_SIZE;
+	DWORD total_banks = fil->obj.objsize / SPRITE_BANK_SIZE;
+	DWORD sclust = fil->obj.sclust;
+
+	printf("Sector map: ssize=%u csize=%u database=%lu fatbase=%lu sclust=%lu spb=%d bpc=%d banks=%lu fs_type=%d\n",
+		   ssize, csize, (unsigned long)database, (unsigned long)fatbase,
+		   (unsigned long)sclust, sectors_per_bank, banks_per_cluster,
+		   (unsigned long)total_banks, fs_type);
+
+	/* Close FATFS file — we only needed it to get the filesystem params
+	 * and start cluster.  All further reads go through disk_read(). */
+	f_close(fil);
+	heap_caps_free(fil);
+	fil = NULL;
+
+	if (banks_per_cluster < 1) {
+		printf("ERROR: cluster size %u bytes < bank size %d\n",
+			   (unsigned)(csize * ssize), SPRITE_BANK_SIZE);
+		return GN_FALSE;
+	}
+
+	DWORD *sector_map = calloc(total_banks, sizeof(DWORD));
+	if (!sector_map) {
+		printf("ERROR: sector_map alloc failed (%lu bytes)\n",
+			   (unsigned long)(total_banks * sizeof(DWORD)));
+		return GN_FALSE;
+	}
+
+	/* Allocate a DMA-aligned bounce buffer for reading FAT sectors.
+	 * We reuse the sprite bounce buffer (allocated later), so use
+	 * a temporary one here — one sector is enough. */
+	Uint8 *fat_buf = heap_caps_aligned_alloc(64, ssize, MALLOC_CAP_DMA);
+	if (!fat_buf) {
+		printf("ERROR: FAT read buffer alloc failed\n");
+		free(sector_map);
+		return GN_FALSE;
+	}
+
+	/* Walk the cluster chain from sclust, filling sector_map */
+	DWORD clust = sclust;
+	DWORD bank = 0;
+	LBA_t cached_fat_sect = 0;  /* which FAT sector is in fat_buf */
+
+	while (bank < total_banks && clust >= 2 && clust < fs->n_fatent) {
+		/* Compute LBA of first sector in this cluster */
+		LBA_t base_sect = database + (LBA_t)(clust - 2) * csize;
+
+		/* Fill sector_map entries for all banks within this cluster */
+		for (int b = 0; b < banks_per_cluster && bank < total_banks; b++, bank++) {
+			sector_map[bank] = (DWORD)(base_sect + b * sectors_per_bank);
+		}
+
+		/* Follow FAT chain to next cluster */
+		LBA_t fat_sect;
+		UINT fat_off;
+		if (fs_type == FS_FAT32) {
+			fat_sect = fatbase + (clust / (ssize / 4));
+			fat_off = (clust % (ssize / 4)) * 4;
+		} else {
+			/* FAT16 */
+			fat_sect = fatbase + (clust / (ssize / 2));
+			fat_off = (clust % (ssize / 2)) * 2;
+		}
+
+		/* Read FAT sector if not already cached */
+		if (fat_sect != cached_fat_sect) {
+			DRESULT dres = disk_read(pdrv, fat_buf, fat_sect, 1);
+			if (dres != RES_OK) {
+				printf("ERROR: FAT sector read failed at LBA %lu\n",
+					   (unsigned long)fat_sect);
+				heap_caps_free(fat_buf);
+				free(sector_map);
+				return GN_FALSE;
+			}
+			cached_fat_sect = fat_sect;
+		}
+
+		if (fs_type == FS_FAT32) {
+			clust = (*(DWORD *)(fat_buf + fat_off)) & 0x0FFFFFFF;
+		} else {
+			clust = *(WORD *)(fat_buf + fat_off);
+		}
+	}
+
+	heap_caps_free(fat_buf);
+
+	if (bank < total_banks) {
+		printf("ERROR: FAT chain ended early at bank %lu/%lu (clust=%lu)\n",
+			   (unsigned long)bank, (unsigned long)total_banks,
+			   (unsigned long)clust);
+		free(sector_map);
+		return GN_FALSE;
+	}
+
+	printf("Sector map built: bank[0]=LBA %lu, bank[%lu]=LBA %lu\n",
+		   (unsigned long)sector_map[0],
+		   (unsigned long)(total_banks - 1),
+		   (unsigned long)sector_map[total_banks - 1]);
+
+	/* Set up raw mode */
+	gcache->sector_map = sector_map;
+	gcache->sectors_per_bank = sectors_per_bank;
+	gcache->pdrv = pdrv;
+	gcache->gno = NULL;      /* not used in raw mode */
+	gcache->offset = NULL;
+	gcache->raw_mode = 1;
+
+	/* tiles region: keep the size but p is NULL (data is on SD) */
+	memory.rom.tiles.size = tile_size;
+	memory.rom.tiles.p = NULL;
+	memory.nb_of_tiles = tile_size >> 7;
+
+	/* Try cache sizes from large to small */
+	Uint32 cache_sizes[] = { 12, 8, 6, 4, 2, 0 };
+	for (int i = 0; cache_sizes[i] != 0; i++) {
+		Uint32 cache_bytes = cache_sizes[i] * 1024 * 1024;
+		if (init_sprite_cache(cache_bytes, SPRITE_BANK_SIZE) == GN_TRUE) {
+			printf("Sprite streaming: %u MB cache, %u tiles, bank=%d\n",
+				   cache_sizes[i], memory.nb_of_tiles, SPRITE_BANK_SIZE);
+			/* DMA-aligned bounce buffer in internal RAM.  SDMMC DMA on
+			 * ESP32-P4 requires cache-line-aligned buffers.  Allocating
+			 * with MALLOC_CAP_DMA + 64-byte alignment lets SDMMC do
+			 * direct DMA without its own bounce allocation. */
+			gcache->bounce_buf = heap_caps_aligned_alloc(64, SPRITE_BANK_SIZE, MALLOC_CAP_DMA);
+			if (gcache->bounce_buf)
+				printf("Sprite bounce buffer: %d bytes (DMA-aligned @ %p)\n",
+					   SPRITE_BANK_SIZE, gcache->bounce_buf);
+			else
+				printf("WARNING: bounce buffer alloc failed (%u bytes free DMA)\n",
+					   (unsigned)heap_caps_get_free_size(MALLOC_CAP_DMA));
+			return GN_TRUE;
+		}
+	}
+
+	printf("ERROR: Could not allocate sprite cache\n");
+	free(sector_map);
+	gcache->sector_map = NULL;
+	return GN_FALSE;
+}
+
+/* Set up ADPCM streaming cache from a .vrom file */
+static int setup_adpcm_streaming(adpcm_cache_t *cache, const char *vrom_path,
+                                  Uint32 vrom_size, ROM_REGION *region) {
+	FILE *f = fopen(vrom_path, "rb");
+	if (!f) {
+		printf("ERROR: Cannot open ADPCM cache %s\n", vrom_path);
+		return GN_FALSE;
+	}
+
+	/* Try cache sizes from large to small */
+	Uint32 cache_sizes[] = { 4, 2, 1, 0 };
+	for (int i = 0; cache_sizes[i] != 0; i++) {
+		Uint32 cache_bytes = cache_sizes[i] * 1024 * 1024;
+		if (adpcm_cache_init(cache, f, vrom_size, cache_bytes) == 0) {
+			printf("ADPCM streaming: %u MB cache (ROM: %u MB)\n",
+				   cache_sizes[i], vrom_size / (1024 * 1024));
+			/* Set region size but p = NULL (data on SD) */
+			region->size = vrom_size;
+			region->p = NULL;
+			return GN_TRUE;
+		}
+	}
+
+	printf("ERROR: Could not allocate ADPCM cache\n");
+	fclose(f);
+	return GN_FALSE;
+}
+
 static int zip_seek_current_file(ZFILE *gz, Uint32 offset) {
 	Uint8 *buf;
 	Uint32 s = 4096, c;
@@ -944,7 +1342,7 @@ static int zip_seek_current_file(ZFILE *gz, Uint32 offset) {
 
 }
 
-static int read_counter;
+/* read_counter declared earlier (before write_data_*_to_file functions) */
 
 static int read_data_i(ZFILE *gz, ROM_REGION *r, Uint32 dest, Uint32 size) {
 	//Uint8 *buf;
@@ -1033,7 +1431,13 @@ static int load_region(PKZIP *pz, GAME_ROMS *r, int region, Uint32 src,
 
 	switch (region) {
 		case REGION_SPRITES: /* Special interleaved loading  */
-			read_data_i(gz, &r->tiles, dest, size);
+			if (streaming_tiles && stream_tile_file) {
+				/* Write interleaved data to cache file instead of PSRAM */
+				printf("TILE_LOAD: file=%s dest=0x%08X size=0x%08X (odd=%u)\n", filename, dest, size, dest & 1);
+				write_data_i_to_file(gz, stream_tile_file, dest, size, r->tiles.size);
+			} else if (r->tiles.p) {
+				read_data_i(gz, &r->tiles, dest, size);
+			}
 			break;
 		case REGION_AUDIO_CPU_CARTRIDGE:
 			read_data_p(gz, &r->cpu_z80, dest, size);
@@ -1048,10 +1452,18 @@ static int load_region(PKZIP *pz, GAME_ROMS *r, int region, Uint32 src,
 			read_data_p(gz, &r->game_sfix, dest, size);
 			break;
 		case REGION_AUDIO_DATA_1:
-			read_data_p(gz, &r->adpcma, dest, size);
+			if (streaming_adpcma && stream_adpcma_file) {
+				write_data_p_to_file(gz, stream_adpcma_file, dest, size);
+			} else if (r->adpcma.p) {
+				read_data_p(gz, &r->adpcma, dest, size);
+			}
 			break;
 		case REGION_AUDIO_DATA_2:
-			read_data_p(gz, &r->adpcmb, dest, size);
+			if (streaming_adpcmb && stream_adpcmb_file) {
+				write_data_p_to_file(gz, stream_adpcmb_file, dest, size);
+			} else if (r->adpcmb.p) {
+				read_data_p(gz, &r->adpcmb, dest, size);
+			}
 			break;
 		case REGION_MAIN_CPU_BIOS:
 			read_data_p(gz, &r->bios_m68k, dest, size);
@@ -1374,6 +1786,7 @@ int dr_load_roms(GAME_ROMS *r, char *rom_path, char *name) {
 
 	memset(r, 0, sizeof (GAME_ROMS));
 
+	gn_loading_info("Loading driver...");
 	drv = res_load_drv(name);
 	if (!drv) {
 		gn_set_error_msg("Can't find rom driver for %s\n", name);
@@ -1407,30 +1820,101 @@ int dr_load_roms(GAME_ROMS *r, char *rom_path, char *name) {
 			REGION_MAIN_CPU_CARTRIDGE);
 	if (drv->romsize[REGION_AUDIO_CPU_CARTRIDGE] == 0
 			&& drv->romsize[REGION_AUDIO_CPU_ENCRYPTED] != 0) {
-		//allocate_region(&r->cpu_z80,drv->romsize[REGION_AUDIO_CPU_ENCRYPTED]);
-		//allocate_region(&r->cpu_z80c,drv->romsize[REGION_AUDIO_CPU_ENCRYPTED]);
 		allocate_region(&r->cpu_z80c, 0x80000, REGION_AUDIO_CPU_ENCRYPTED);
 		allocate_region(&r->cpu_z80, 0x90000, REGION_AUDIO_CPU_CARTRIDGE);
 	} else {
 		allocate_region(&r->cpu_z80, drv->romsize[REGION_AUDIO_CPU_CARTRIDGE],
 				REGION_AUDIO_CPU_CARTRIDGE);
 	}
-	allocate_region(&r->tiles, drv->romsize[REGION_SPRITES], REGION_SPRITES);
 	allocate_region(&r->game_sfix, drv->romsize[REGION_FIXED_LAYER_CARTRIDGE],
 			REGION_FIXED_LAYER_CARTRIDGE);
 	allocate_region(&r->gfix_usage, r->game_sfix.size >> 5,
 			REGION_GAME_FIX_USAGE);
 
-	/* Skip audio data when sound is disabled to save PSRAM */
-	if (conf.sound) {
-		allocate_region(&r->adpcma, drv->romsize[REGION_AUDIO_DATA_1],
-				REGION_AUDIO_DATA_1);
-		allocate_region(&r->adpcmb, drv->romsize[REGION_AUDIO_DATA_2],
-				REGION_AUDIO_DATA_2);
+	/* Determine if tiles and ADPCM need streaming (too large for PSRAM) */
+	Uint32 tiles_size = drv->romsize[REGION_SPRITES];
+	Uint32 adpcma_size = conf.sound ? drv->romsize[REGION_AUDIO_DATA_1] : 0;
+	Uint32 adpcmb_size = conf.sound ? drv->romsize[REGION_AUDIO_DATA_2] : 0;
+	Uint32 free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+
+	/* Need enough for: tiles + adpcma + adpcmb + spr_usage + headroom */
+	Uint32 total_rom_need = tiles_size + adpcma_size + adpcmb_size + PSRAM_HEADROOM;
+	streaming_tiles = 0;
+	streaming_adpcma = 0;
+	streaming_adpcmb = 0;
+
+	char ctile_path[128], vroma_path[128], vromb_path[128];
+	get_cache_path(name, "ctile", ctile_path, sizeof(ctile_path));
+	get_cache_path(name, "vroma", vroma_path, sizeof(vroma_path));
+	get_cache_path(name, "vromb", vromb_path, sizeof(vromb_path));
+
+	gn_loading_info("Allocating memory...");
+	printf("ROM sizes: tiles=%uMB adpcma=%uMB adpcmb=%uMB free_psram=%uMB\n",
+		   tiles_size / (1024*1024), adpcma_size / (1024*1024),
+		   adpcmb_size / (1024*1024), free_psram / (1024*1024));
+
+	if (total_rom_need > free_psram) {
+		printf("ROMs too large for PSRAM (%u MB needed, %u MB free) — using streaming\n",
+			   total_rom_need / (1024*1024), free_psram / (1024*1024));
+
+		/* Decide what to stream based on size.
+		 * Strategy: stream the largest regions first until total fits */
+		Uint32 budget = free_psram - PSRAM_HEADROOM;
+
+		/* Always try to stream tiles (usually the largest) */
+		if (tiles_size > budget / 2 || tiles_size + adpcma_size + adpcmb_size > budget) {
+			streaming_tiles = 1;
+			/* Don't allocate tiles in PSRAM — will use cache */
+			r->tiles.p = NULL;
+			r->tiles.size = tiles_size;
+		} else {
+			allocate_region(&r->tiles, tiles_size, REGION_SPRITES);
+		}
+
+		/* Recalculate remaining budget */
+		Uint32 remaining = budget - (streaming_tiles ? 0 : tiles_size);
+		remaining -= SPRITE_CACHE_BUDGET; /* reserve for sprite cache if streaming */
+
+		if (conf.sound && adpcma_size > 0) {
+			if (adpcma_size > remaining) {
+				streaming_adpcma = 1;
+				r->adpcma.p = NULL;
+				r->adpcma.size = adpcma_size;
+				remaining -= ADPCM_CACHE_BUDGET;
+			} else {
+				allocate_region(&r->adpcma, adpcma_size, REGION_AUDIO_DATA_1);
+				remaining -= adpcma_size;
+			}
+
+			if (adpcmb_size > 0 && adpcmb_size > remaining) {
+				streaming_adpcmb = 1;
+				r->adpcmb.p = NULL;
+				r->adpcmb.size = adpcmb_size;
+			} else if (adpcmb_size > 0) {
+				allocate_region(&r->adpcmb, adpcmb_size, REGION_AUDIO_DATA_2);
+			}
+		}
 	} else {
+		/* Everything fits in PSRAM — normal path */
+		allocate_region(&r->tiles, tiles_size, REGION_SPRITES);
+		if (conf.sound) {
+			allocate_region(&r->adpcma, adpcma_size, REGION_AUDIO_DATA_1);
+			allocate_region(&r->adpcmb, adpcmb_size, REGION_AUDIO_DATA_2);
+		} else {
+			r->adpcma.p = NULL; r->adpcma.size = 0;
+			r->adpcmb.p = NULL; r->adpcmb.size = 0;
+		}
+	}
+
+	if (!conf.sound) {
 		r->adpcma.p = NULL; r->adpcma.size = 0;
 		r->adpcmb.p = NULL; r->adpcmb.size = 0;
+		streaming_adpcma = 0;
+		streaming_adpcmb = 0;
 	}
+
+	printf("Streaming: tiles=%d adpcma=%d adpcmb=%d\n",
+		   streaming_tiles, streaming_adpcma, streaming_adpcmb);
 
 	/* Allocate bios if necessary */
 	DEBUG_LOG("BIOS SIZE %08x %08x %08x\n", drv->romsize[REGION_MAIN_CPU_BIOS],
@@ -1454,14 +1938,137 @@ int dr_load_roms(GAME_ROMS *r, char *rom_path, char *name) {
 
 	iloadbuf = malloc(LOAD_BUF_SIZE);
 
+	/*
+	 * Open cache files for streaming regions.
+	 * If cache files already exist, we skip extracting those regions from ZIP.
+	 * If not, we create them during the ROM loading loop.
+	 */
+	int skip_tile_extract = 0;
+	int skip_adpcma_extract = 0;
+	int skip_adpcmb_extract = 0;
+
+	if (streaming_tiles) {
+		char cusage_chk[128];
+		get_cache_path(name, "cusage", cusage_chk, sizeof(cusage_chk));
+		if (cache_file_exists(ctile_path) && cusage_file_valid(cusage_chk)) {
+			printf("Sprite cache complete: %s\n", ctile_path);
+			skip_tile_extract = 1;
+		} else {
+			/* Remove incomplete cache files from previous interrupted run */
+			remove(ctile_path);
+			remove(cusage_chk);
+			printf("Creating sprite cache: %s (%u MB)\n", ctile_path, tiles_size / (1024*1024));
+			stream_tile_file = fopen(ctile_path, "w+b");
+			if (stream_tile_file) {
+				/* Pre-fill file to full size (zeroed) */
+				Uint8 zero[4096];
+				memset(zero, 0, sizeof(zero));
+				for (Uint32 off = 0; off < tiles_size; off += sizeof(zero)) {
+					Uint32 chunk = sizeof(zero);
+					if (off + chunk > tiles_size) chunk = tiles_size - off;
+					fwrite(zero, 1, chunk, stream_tile_file);
+				}
+				fflush(stream_tile_file);
+				fsync(fileno(stream_tile_file));
+				fclose(stream_tile_file);
+				/* Reopen in r+b so FATFS can properly read back written data */
+				stream_tile_file = fopen(ctile_path, "r+b");
+				if (stream_tile_file)
+					setvbuf(stream_tile_file, NULL, _IONBF, 0);  /* Unbuffered — critical for read-modify-write on FATFS */
+				printf("Pre-fill done (%u MB)\n", tiles_size / (1024*1024));
+			}
+		}
+	}
+	if (streaming_adpcma) {
+		if (cache_file_exists(vroma_path)) {
+			printf("ADPCM-A cache found: %s\n", vroma_path);
+			skip_adpcma_extract = 1;
+		} else {
+			remove(vroma_path);
+			printf("Creating ADPCM-A cache: %s (%u MB)\n", vroma_path, adpcma_size / (1024*1024));
+			stream_adpcma_file = fopen(vroma_path, "w+b");
+		}
+	}
+	if (streaming_adpcmb && adpcmb_size > 0) {
+		if (cache_file_exists(vromb_path)) {
+			printf("ADPCM-B cache found: %s\n", vromb_path);
+			skip_adpcmb_extract = 1;
+		} else {
+			remove(vromb_path);
+			printf("Creating ADPCM-B cache: %s (%u MB)\n", vromb_path, adpcmb_size / (1024*1024));
+			stream_adpcmb_file = fopen(vromb_path, "w+b");
+		}
+	}
+
+	/*
+	 * Fast-path: if .vroma/.vromb exists and ADPCM is in PSRAM (not streaming),
+	 * load directly from the flat file instead of decompressing from ZIP.
+	 * This replaces ~30s of stb_zlib decompression with a ~2s flat fread.
+	 */
+	if (!streaming_adpcma && r->adpcma.p && adpcma_size > 0 && cache_file_exists(vroma_path)) {
+		gn_loading_info("Loading ADPCM audio...");
+		int64_t t0 = esp_timer_get_time();
+		FILE *vf = fopen(vroma_path, "rb");
+		if (vf) {
+			size_t rd = fread(r->adpcma.p, 1, adpcma_size, vf);
+			fclose(vf);
+			int64_t elapsed = esp_timer_get_time() - t0;
+			printf("ADPCM-A fast-load from %s: %u KB in %lld ms (%.1f MB/s)\n",
+				   vroma_path, (unsigned)(rd / 1024), elapsed / 1000,
+				   elapsed > 0 ? (double)rd / elapsed : 0.0);
+			skip_adpcma_extract = 1;
+		}
+	}
+	if (!streaming_adpcmb && r->adpcmb.p && adpcmb_size > 0 && cache_file_exists(vromb_path)) {
+		int64_t t0 = esp_timer_get_time();
+		FILE *vf = fopen(vromb_path, "rb");
+		if (vf) {
+			size_t rd = fread(r->adpcmb.p, 1, adpcmb_size, vf);
+			fclose(vf);
+			int64_t elapsed = esp_timer_get_time() - t0;
+			printf("ADPCM-B fast-load from %s: %u KB in %lld ms (%.1f MB/s)\n",
+				   vromb_path, (unsigned)(rd / 1024), elapsed / 1000,
+				   elapsed > 0 ? (double)rd / elapsed : 0.0);
+			skip_adpcmb_extract = 1;
+		}
+	}
+
 	/* Now, load the roms */
+	gn_loading_info("Loading ROMs...");
 	read_counter = 0;
 	romsize = 0;
 	for (i = 0; i < drv->nb_romfile; i++)
 		romsize += drv->rom[i].size;
 	gn_init_pbar("Loading...", romsize);
+	int64_t load_start_us = esp_timer_get_time();
+	int64_t total_skip_us = 0, total_load_us = 0;
 	for (i = 0; i < drv->nb_romfile; i++) {
-		//		gn_update_pbar(i, drv->nb_romfile);
+		int region = drv->rom[i].region;
+		int64_t file_start_us = esp_timer_get_time();
+
+		/* Skip extraction for regions that have existing cache files */
+		if (region == REGION_SPRITES && skip_tile_extract) {
+			read_counter += drv->rom[i].size;
+			gn_update_pbar(read_counter);
+			total_skip_us += esp_timer_get_time() - file_start_us;
+			printf("SKIP  %-20s region=%d size=%uKB\n", drv->rom[i].filename, region, drv->rom[i].size/1024);
+			continue;
+		}
+		if (region == REGION_AUDIO_DATA_1 && skip_adpcma_extract) {
+			read_counter += drv->rom[i].size;
+			gn_update_pbar(read_counter);
+			total_skip_us += esp_timer_get_time() - file_start_us;
+			printf("SKIP  %-20s region=%d size=%uKB\n", drv->rom[i].filename, region, drv->rom[i].size/1024);
+			continue;
+		}
+		if (region == REGION_AUDIO_DATA_2 && skip_adpcmb_extract) {
+			read_counter += drv->rom[i].size;
+			gn_update_pbar(read_counter);
+			total_skip_us += esp_timer_get_time() - file_start_us;
+			printf("SKIP  %-20s region=%d size=%uKB\n", drv->rom[i].filename, region, drv->rom[i].size/1024);
+			continue;
+		}
+
 		if (load_region(gz, r, drv->rom[i].region, drv->rom[i].src,
 				drv->rom[i].dest, drv->rom[i].size, drv->rom[i].crc,
 				drv->rom[i].filename) != 0) {
@@ -1488,36 +2095,162 @@ int dr_load_roms(GAME_ROMS *r, char *rom_path, char *name) {
 
 			}
 		}
+		int64_t file_elapsed_us = esp_timer_get_time() - file_start_us;
+		total_load_us += file_elapsed_us;
+		printf("LOAD  %-20s region=%d size=%6uKB  %4lldms  (%.1f MB/s)\n",
+			   drv->rom[i].filename, region, drv->rom[i].size/1024,
+			   file_elapsed_us / 1000,
+			   file_elapsed_us > 0 ? (double)drv->rom[i].size / file_elapsed_us : 0.0);
 
 	}
+	int64_t load_elapsed_us = esp_timer_get_time() - load_start_us;
+	printf("=== LOAD SUMMARY: total=%lldms  load=%lldms  skip=%lldms  files=%d ===\n",
+		   load_elapsed_us / 1000, total_load_us / 1000, total_skip_us / 1000, drv->nb_romfile);
 	gn_terminate_pbar();
 	/* Close/clean up */
 	gn_close_zip(gz);
 	if (gzp) gn_close_zip(gzp);
 	free(drv);
 
+	/* Handle streaming tile cache creation */
+	if (streaming_tiles) {
+		gn_loading_info("Setting up sprite cache...");
+		char cusage_path[128];
+		get_cache_path(name, "cusage", cusage_path, sizeof(cusage_path));
+
+		if (stream_tile_file) {
+			/* Scan for first non-zero data in the raw tile file */
+			{
+				Uint8 dbg[4096];
+				int found_nonzero = 0;
+				Uint32 total_nonzero = 0;
+				fseek(stream_tile_file, 0, SEEK_SET);
+				/* Check first 1MB for non-zero tiles */
+				for (Uint32 off = 0; off < 1024*1024 && !found_nonzero; off += 4096) {
+					fread(dbg, 1, 4096, stream_tile_file);
+					for (int b = 0; b < 4096; b++) {
+						if (dbg[b] != 0) total_nonzero++;
+					}
+					if (total_nonzero > 0 && !found_nonzero) {
+						/* Find and dump the first non-zero 128-byte tile in this block */
+						for (int t = 0; t < 4096; t += 128) {
+							int has_data = 0;
+							for (int b = 0; b < 128; b++) { if (dbg[t+b]) has_data = 1; }
+							if (has_data) {
+								Uint32 tileno = (off + t) / 128;
+								printf("RAW first non-zero tile %u (offset 0x%X):\n", tileno, off + t);
+								for (int d = 0; d < 128; d += 16) {
+									printf("  %04X: %02X %02X %02X %02X %02X %02X %02X %02X  %02X %02X %02X %02X %02X %02X %02X %02X\n",
+										d, dbg[t+d],dbg[t+d+1],dbg[t+d+2],dbg[t+d+3],dbg[t+d+4],dbg[t+d+5],dbg[t+d+6],dbg[t+d+7],
+										dbg[t+d+8],dbg[t+d+9],dbg[t+d+10],dbg[t+d+11],dbg[t+d+12],dbg[t+d+13],dbg[t+d+14],dbg[t+d+15]);
+								}
+								found_nonzero = 1;
+								break;
+							}
+						}
+					}
+				}
+				printf("RAW file scan: %u non-zero bytes in first 1MB\n", total_nonzero);
+			}
+			/* We just extracted tiles to the cache file — convert them in-place */
+			printf("Converting tiles in cache file...\n");
+			convert_tiles_in_file(stream_tile_file, r->tiles.size, r);
+			fflush(stream_tile_file);
+			fsync(fileno(stream_tile_file));
+			fclose(stream_tile_file);
+			stream_tile_file = NULL;
+
+			/* Save spr_usage to companion file (serves as completion marker) */
+			FILE *uf = fopen(cusage_path, "wb");
+			if (uf) {
+				Uint32 magic = CUSAGE_MAGIC;
+				fwrite(&magic, sizeof(magic), 1, uf);
+				fwrite(r->spr_usage.p, 1, r->spr_usage.size, uf);
+				fflush(uf);
+				fsync(fileno(uf));
+				fclose(uf);
+				printf("Saved spr_usage (%u bytes)\n", r->spr_usage.size);
+			}
+		} else {
+			/* Load spr_usage from companion file */
+			Uint32 usage_size = (tiles_size >> 11) * sizeof(Uint32);
+			allocate_region(&r->spr_usage, usage_size, REGION_SPR_USAGE);
+			FILE *uf = fopen(cusage_path, "rb");
+			if (uf) {
+				Uint32 magic = 0;
+				fread(&magic, sizeof(magic), 1, uf);  /* skip magic header */
+				fread(r->spr_usage.p, 1, usage_size, uf);
+				fclose(uf);
+				printf("Loaded spr_usage from %s\n", cusage_path);
+			} else {
+				/* No valid cusage — should not happen (checked earlier) */
+				printf("ERROR: cusage file missing, deleting cache\n");
+				remove(ctile_path);
+				remove(cusage_path);
+				memset(r->spr_usage.p, 0, usage_size);
+			}
+		}
+		/* Set up streaming from the .ctile file */
+		if (setup_sprite_streaming(ctile_path, tiles_size) != GN_TRUE) {
+			printf("ERROR: Failed to set up sprite streaming\n");
+			return GN_FALSE;
+		}
+	}
+
+	/* Handle streaming ADPCM cache setup */
+	if (streaming_adpcma) {
+		if (stream_adpcma_file) {
+			fflush(stream_adpcma_file);
+			fsync(fileno(stream_adpcma_file));
+			fclose(stream_adpcma_file);
+			stream_adpcma_file = NULL;
+		}
+		if (setup_adpcm_streaming(&adpcm_cacheA, vroma_path, adpcma_size, &r->adpcma) != GN_TRUE) {
+			printf("ERROR: Failed to set up ADPCM-A streaming\n");
+			return GN_FALSE;
+		}
+	}
+	if (streaming_adpcmb) {
+		if (stream_adpcmb_file) {
+			fflush(stream_adpcmb_file);
+			fsync(fileno(stream_adpcmb_file));
+			fclose(stream_adpcmb_file);
+			stream_adpcmb_file = NULL;
+		}
+		if (setup_adpcm_streaming(&adpcm_cacheB, vromb_path, adpcmb_size, &r->adpcmb) != GN_TRUE) {
+			printf("ERROR: Failed to set up ADPCM-B streaming\n");
+			return GN_FALSE;
+		}
+	}
+
 	if (r->adpcmb.size == 0) {
 		r->adpcmb.p = r->adpcma.p;
 		r->adpcmb.size = r->adpcma.size;
-#ifdef ENABLE_940T
-		shared_data->pcmbufb = (Uint8*) (r->adpcmb.p - gp2x_ram);
-		printf("SOUND2 code: %08x\n", (Uint32) shared_data->pcmbufb);
-		shared_data->pcmbufb_size = r->adpcmb.size;
-#endif
+		/* If ADPCM-A is streaming, B should alias the same cache */
+		if (streaming_adpcma && !streaming_adpcmb) {
+			adpcm_cacheB = adpcm_cacheA;
+			adpcm_cacheB.file = NULL; /* don't double-close */
+			streaming_adpcmb = 1;
+		}
 	}
 
-	memory.fix_game_usage = r->gfix_usage.p; //malloc(r->game_sfix.size >> 5);
-	/*	memory.pen_usage = malloc((r->tiles.size >> 11) * sizeof(Uint32));
-	CHECK_ALLOC(memory.pen_usage);
-	memset(memory.pen_usage, 0, (r->tiles.size >> 11) * sizeof(Uint32));
-	 */
+	memory.fix_game_usage = r->gfix_usage.p;
 	memory.nb_of_tiles = r->tiles.size >> 7;
 
 	free(iloadbuf);
+	iloadbuf = NULL;
 
 	/* Init rom and bios */
+	gn_loading_info("Decrypting ROMs...");
 	init_roms(r);
-	convert_all_tile(r);
+
+	/* Convert tiles (only if loaded in PSRAM, not streaming) */
+	if (!streaming_tiles) {
+		gn_loading_info("Converting tiles...");
+		convert_all_tile(r);
+	}
+
+	gn_loading_info("Loading BIOS...");
 	return dr_load_bios(r);
 
 error1:
@@ -1557,6 +2290,7 @@ int dr_load_game(char *name) {
 			memory.fix_game_usage);
 
 	/* TODO: Move this somewhere else. */
+	gn_loading_info("Initializing video...");
 	init_video();
 
 	return GN_TRUE;
@@ -1899,23 +2633,39 @@ void dr_free_roms(GAME_ROMS *r) {
 		printf("Free tiles\n");
 		free_region(&r->tiles);
 	} else {
-		fclose(memory.vid.spr_cache.gno);
+		if (memory.vid.spr_cache.gno) {
+			fclose(memory.vid.spr_cache.gno);
+			memory.vid.spr_cache.gno = NULL;
+		}
 		free_sprite_cache();
-		free(memory.vid.spr_cache.offset);
+		if (memory.vid.spr_cache.offset) {
+			free(memory.vid.spr_cache.offset);
+			memory.vid.spr_cache.offset = NULL;
+		}
 	}
 	free_region(&r->game_sfix);
 
 #ifndef ENABLE_940T
 	free_region(&r->cpu_z80);
 	free_region(&r->bios_audio);
-	if (r->adpcmb.p != r->adpcma.p)
+
+	/* Free ADPCM caches if streaming */
+	if (adpcm_cacheA.active) {
+		adpcm_cache_free(&adpcm_cacheA);
+	}
+	if (adpcm_cacheB.active) {
+		adpcm_cache_free(&adpcm_cacheB);
+	}
+
+	if (r->adpcmb.p && r->adpcmb.p != r->adpcma.p)
 		free_region(&r->adpcmb);
 	else {
 		r->adpcmb.p = NULL;
 		r->adpcmb.size = 0;
 	}
 
-	free_region(&r->adpcma);
+	if (r->adpcma.p)
+		free_region(&r->adpcma);
 #endif
 
 	free_region(&r->bios_m68k);
@@ -1927,6 +2677,10 @@ void dr_free_roms(GAME_ROMS *r) {
 
 	free(r->info.name);
 	free(r->info.longname);
+
+	streaming_tiles = 0;
+	streaming_adpcma = 0;
+	streaming_adpcmb = 0;
 
 	conf.game = NULL;
 }
@@ -2105,6 +2859,7 @@ int init_game(char *rom_name) {
 #ifndef GP2X /* crash on the gp2x */
     sdl_set_title(conf.game);
 #endif
+    gn_loading_info("Initializing CPU...");
     init_neo();
     setup_misc_patch(conf.game);
 

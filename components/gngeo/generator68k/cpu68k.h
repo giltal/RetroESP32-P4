@@ -15,6 +15,7 @@ typedef struct _t_ipc {
 typedef struct _t_ipclist {
     struct _t_ipclist *next;
     uint8 norepeat;
+    uint8 _pad[3];
     uint32 pc;
     uint32 pass;
     uint32  bank;

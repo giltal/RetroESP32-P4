@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "esp_heap_caps.h"
 
 #include "generator.h"
 #include "cpu68k.h"
@@ -39,6 +40,30 @@ __attribute__((section(".ext_ram.bss"))) t_ipclist *ipclist[LEN_IPCLISTTABLE];
 #else
 t_ipclist *ipclist[LEN_IPCLISTTABLE];
 #endif
+
+/* ── IPC Pool Allocator ──────────────────────────────────────────────
+ * One contiguous 2 MB block from PSRAM.  Bump pointer for allocation.
+ * When full, zero the hash table and reset the bump pointer — instant
+ * "flush" with no per-entry free() calls.  Eliminates malloc overhead,
+ * heap fragmentation, and scattered PSRAM accesses.
+ * ──────────────────────────────────────────────────────────────────── */
+#define IPC_POOL_MAX   (3584 * 1024)  /* 3.5 MB — ideal size */
+#define IPC_POOL_MIN   (1024 * 1024)  /* 1 MB — minimum usable */
+static uint8 *ipc_pool      = NULL;   /* base of the pool                */
+static uint32 ipc_pool_used = 0;      /* bump pointer (bytes used so far) */
+static uint32 ipc_pool_size = 0;      /* actual allocated size            */
+
+/* Allocate from the IPC pool.  Returns NULL if the pool is full. */
+static void *ipc_pool_alloc(uint32 size)
+{
+  /* Align to 4 bytes */
+  size = (size + 3) & ~3u;
+  if (ipc_pool_used + size > ipc_pool_size)
+    return NULL;
+  void *p = ipc_pool + ipc_pool_used;
+  ipc_pool_used += size;
+  return p;
+}
 
 //extern uint8 current_cpu_bank;
 extern uint32 bankaddress;
@@ -339,20 +364,56 @@ void cpu68k_ipc(uint32 addr68k, uint8 *addr, t_iib * iib, t_ipc * ipc)
   }
 }
 
+/* forward declaration */
+void cpu68k_clearcache(void);
+
 t_ipclist *cpu68k_makeipclist(uint32 pc)
 {
-  int size = 16;
-  t_ipclist *list = malloc(sizeof(t_ipclist) + 16 * sizeof(t_ipc) + 8);
-  t_ipc *ipc = (t_ipc *) (list + 1);
+  int size = 64;
+  unsigned int alloc_size = sizeof(t_ipclist) + 64 * sizeof(t_ipc) + 8;
+  t_ipclist *list;
+  t_ipc *ipc;
   t_iib *iib;
   int instrs = 0;
   uint16 required;
   int i;
 
-  if (list == NULL) {
-      printf("Out of memory");
-      exit(1);
+  /* Lazy init: allocate pool on first use */
+  if (ipc_pool == NULL) {
+    /* Try ideal size first, fall back to largest available block */
+    uint32 try_size = IPC_POOL_MAX;
+    ipc_pool = heap_caps_malloc(try_size, MALLOC_CAP_SPIRAM);
+    if (ipc_pool == NULL) {
+      try_size = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+      if (try_size > IPC_POOL_MAX) try_size = IPC_POOL_MAX;
+      /* Leave a small margin for other allocations */
+      if (try_size > 64 * 1024) try_size -= 64 * 1024;
+      if (try_size < IPC_POOL_MIN) {
+        printf("FATAL: not enough PSRAM for IPC pool (largest=%u, min=%d)\n", try_size, IPC_POOL_MIN);
+        exit(1);
+      }
+      ipc_pool = heap_caps_malloc(try_size, MALLOC_CAP_SPIRAM);
+      if (ipc_pool == NULL) {
+        printf("FATAL: cannot allocate IPC pool (%u bytes)\n", try_size);
+        exit(1);
+      }
+    }
+    ipc_pool_size = try_size;
+    ipc_pool_used = 0;
+    printf("IPC pool: %uK allocated\n", ipc_pool_size / 1024);
   }
+
+  list = ipc_pool_alloc(alloc_size);
+  if (list == NULL) {
+      printf("IPC pool full (%uK) — flushing\n", ipc_pool_used / 1024);
+      cpu68k_clearcache();
+      list = ipc_pool_alloc(alloc_size);
+      if (list == NULL) {
+          printf("FATAL: IPC pool alloc failed after flush\n");
+          exit(1);
+      }
+  }
+  ipc = (t_ipc *) (list + 1);
 
   pc &= 0xffffff;
   list->pc = pc;
@@ -372,12 +433,20 @@ t_ipclist *cpu68k_makeipclist(uint32 pc)
 	    printf("Something has gone seriously wrong @ %08X", (unsigned)pc);
 	    exit(1);
 	}
-	size += 16;
-	list = realloc(list, sizeof(t_ipclist) + size * sizeof(t_ipc) + 8);
-	if (list == NULL) {
-	    printf("Out of memory whilst making ipc list @ %08X",
-		(unsigned)pc);
-	    exit(1);
+	size *= 2;  /* double to minimize repeated grow+waste */
+	{
+	    unsigned int new_alloc = sizeof(t_ipclist) + size * sizeof(t_ipc) + 8;
+	    /* Pool allocator: can't realloc in place.  Allocate new, copy. */
+	    /* The old space is abandoned (reclaimed on next flush). */
+	    t_ipclist *newlist = ipc_pool_alloc(new_alloc);
+	    if (newlist == NULL) {
+		uint32 save_pc = list->pc;
+		printf("IPC pool full during grow — flushing\n");
+		cpu68k_clearcache();
+		return cpu68k_makeipclist(save_pc);
+	    }
+	    memcpy(newlist, list, sizeof(t_ipclist) + (instrs - 1) * sizeof(t_ipc));
+	    list = newlist;
 	}
 	ipc = ((t_ipc *) (list + 1)) + instrs - 1;
     }
@@ -429,26 +498,15 @@ t_ipclist *cpu68k_makeipclist(uint32 pc)
 
 void cpu68k_clearcache(void)
 {
-  int i;
-  t_ipclist *p, *n;
-
-  for (i = 0; i < LEN_IPCLISTTABLE; i++) {
-    if (ipclist[i]) {
-      p=ipclist[i];
-      while(p){
-        n=p->next;
-        free(p);
-    p=n;
-      }
-      ipclist[i] = NULL;
-    }
-  }
+  /* Pool allocator: just zero the hash table and reset the bump pointer.
+   * No per-entry free() needed — the entire pool is reused. */
+  memset(ipclist, 0, sizeof(ipclist));
+  ipc_pool_used = 0;
 }
 
 void cpu68k_reset(void)
 {
   int i;
-  t_ipclist *p, *n;
 #if 0
   if (!cpu68k_ram) {
     /* +4 due to bug in DIRECTRAM hdr/mem68k.h code over-run of buffer */
@@ -467,16 +525,9 @@ void cpu68k_reset(void)
   cpu68k_frames = 0;            /* Number of frames */
 
   for (i = 0; i < LEN_IPCLISTTABLE; i++) {
-    if (ipclist[i]) {
-      p=ipclist[i];
-      while(p){
-        n=p->next;
-        free(p);
-    p=n;
-      }
-      ipclist[i] = NULL;
-    }
+    ipclist[i] = NULL;
   }
+  ipc_pool_used = 0;
 }
 
 void cpu68k_endfield(void)

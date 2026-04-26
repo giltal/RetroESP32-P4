@@ -24,6 +24,7 @@
 #endif
 
 #include "SDL.h"
+#include "ff.h"
 
 typedef struct gfx_cache {
 	Uint8 *data;  /* The cache */
@@ -33,9 +34,14 @@ typedef struct gfx_cache {
 	int max_slot; /* Maximal numer of bank that can be cached (depend on cache size) */
 	int slot_size;
 	int *usage;   /* contain index to the banks in used order */
-	FILE *gno;
+	FILE *gno;        /* file handle for compressed GNO mode */
     Uint32 *offset;
     Uint8* in_buf;
+    int raw_mode; /* 1 = raw uncompressed file (flat .ctile), 0 = compressed GNO */
+    Uint8 *bounce_buf; /* Internal-RAM DMA-aligned bounce buffer for SDMMC reads */
+    DWORD *sector_map; /* LBA sector map: sector_map[bank] = first LBA sector of bank */
+    int sectors_per_bank; /* number of 512-byte sectors per bank (typically 8) */
+    BYTE pdrv;         /* FATFS physical drive number for disk_read */
 }GFX_CACHE;
 
 typedef struct VIDEO {

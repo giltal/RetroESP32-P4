@@ -1,0 +1,404 @@
+#!/usr/bin/env python3
+"""
+Generate Neo Geo cache files (.ctile, .cusage, .vroma) for any game.
+Reads the ROM driver from gngeo_data.zip to auto-detect C ROM pairs,
+V ROM files, and sizes. No hardcoded game-specific data.
+
+Usage: python gen_cache.py <game_name> [--rom-dir DIR] [--out-dir DIR]
+
+  game_name   : short name, e.g. "blazstar", "mslug", "kof99"
+  --rom-dir   : directory containing <game>.zip and gngeo_data.zip
+                (default: same directory as this script)
+  --out-dir   : output directory for cache files
+                (default: same as --rom-dir)
+
+Examples:
+  python gen_cache.py blazstar
+  python gen_cache.py mslug --rom-dir C:\\roms --out-dir C:\\output
+"""
+
+import sys
+import os
+import struct
+import zipfile
+import time
+import argparse
+
+# Region constants (must match gngeo roms.h)
+REGION_AUDIO_CPU_CART = 1
+REGION_AUDIO_DATA_1   = 3   # ADPCM-A
+REGION_AUDIO_DATA_2   = 4   # ADPCM-B
+REGION_SPRITES        = 9   # C ROMs
+
+# Sprite usage magic (must match roms.c and gen_ctile.py)
+CUSAGE_MAGIC   = 0x43553039  # "CU09"
+TILE_INVISIBLE = 1
+
+
+def read_drv(data):
+    """Parse a .drv ROM definition file from gngeo_data.zip."""
+    off = 0
+    name = data[off:off+32].split(b'\x00')[0].decode(); off += 32
+    parent = data[off:off+32].split(b'\x00')[0].decode(); off += 32
+    longname = data[off:off+128].split(b'\x00')[0].decode(); off += 128
+    year = struct.unpack_from('<I', data, off)[0]; off += 4
+    romsizes = list(struct.unpack_from('<10I', data, off)); off += 40
+    nb_romfile = struct.unpack_from('<I', data, off)[0]; off += 4
+
+    roms = []
+    for _ in range(nb_romfile):
+        fname = data[off:off+32].split(b'\x00')[0].decode(); off += 32
+        region = data[off]; off += 1
+        src, dest, size, crc = struct.unpack_from('<4I', data, off); off += 16
+        roms.append({
+            'filename': fname, 'region': region,
+            'src': src, 'dest': dest, 'size': size, 'crc': crc
+        })
+
+    return {
+        'name': name, 'parent': parent, 'longname': longname,
+        'year': year, 'romsizes': romsizes, 'roms': roms
+    }
+
+
+def convert_roms_tile(tile_data):
+    """Convert one 128-byte raw tile to decoded 4bpp format.
+    Exactly matches convert_roms_tile() in roms.c."""
+    swap = bytearray(tile_data)
+    out = bytearray(128)
+    usage = 0
+    out_idx = 0
+
+    for y in range(16):
+        # First dword: bits from swap[64..] region
+        dw = 0
+        for x in range(8):
+            pen  = ((swap[64 + (y << 2) + 3] >> x) & 1) << 3
+            pen |= ((swap[64 + (y << 2) + 1] >> x) & 1) << 2
+            pen |= ((swap[64 + (y << 2) + 2] >> x) & 1) << 1
+            pen |=  (swap[64 + (y << 2)]     >> x) & 1
+            dw |= pen << ((7 - x) << 2)
+            usage |= (1 << pen)
+        struct.pack_into('<I', out, out_idx, dw)
+        out_idx += 4
+
+        # Second dword: bits from swap[0..] region
+        dw = 0
+        for x in range(8):
+            pen  = ((swap[(y << 2) + 3] >> x) & 1) << 3
+            pen |= ((swap[(y << 2) + 1] >> x) & 1) << 2
+            pen |= ((swap[(y << 2) + 2] >> x) & 1) << 1
+            pen |=  (swap[(y << 2)]     >> x) & 1
+            dw |= pen << ((7 - x) << 2)
+            usage |= (1 << pen)
+        struct.pack_into('<I', out, out_idx, dw)
+        out_idx += 4
+
+    return bytes(out), usage
+
+
+def make_rom_reader(game_zip, parent_zip):
+    """Return a function that reads ROM files from game ZIP or parent ZIP."""
+    def read_rom_file(filename, crc=0):
+        stem = os.path.splitext(filename)[0].lower()
+        for z in [game_zip, parent_zip]:
+            if z is None:
+                continue
+            # Try exact name match (case-insensitive)
+            for zn in z.namelist():
+                if zn.lower() == filename.lower():
+                    return z.read(zn)
+            # Try stem match (e.g. "239-c1.bin" matches "239-c1.c1")
+            for zn in z.namelist():
+                if os.path.splitext(zn)[0].lower() == stem:
+                    print(f"    stem match: {filename} -> {zn}")
+                    return z.read(zn)
+            # Fall back to CRC match
+            if crc != 0:
+                for info in z.infolist():
+                    if info.CRC == (crc & 0xFFFFFFFF):
+                        print(f"    CRC match: {filename} -> {info.filename}")
+                        return z.read(info.filename)
+        raise FileNotFoundError(
+            f"ROM file '{filename}' (crc=0x{crc:08x}) not found in ZIP(s)")
+    return read_rom_file
+
+
+def get_crom_pairs(drv):
+    """Extract C ROM interleave pairs from the driver.
+    Returns list of (even_file, odd_file, dest_base, size) tuples."""
+    sprite_roms = [r for r in drv['roms'] if r['region'] == REGION_SPRITES]
+    # Group by dest with bit 0 stripped (the interleave base)
+    bases = {}
+    for r in sprite_roms:
+        base = r['dest'] & ~1
+        is_odd = r['dest'] & 1
+        if base not in bases:
+            bases[base] = [None, None]
+        bases[base][is_odd] = r
+
+    pairs = []
+    for base in sorted(bases.keys()):
+        even, odd = bases[base]
+        if even is None or odd is None:
+            print(f"  WARNING: incomplete pair at base 0x{base:08X}")
+            continue
+        pairs.append((even['filename'], odd['filename'],
+                       even['crc'], odd['crc'], base, even['size']))
+
+    return pairs
+
+
+def generate_ctile(drv, read_rom, output_dir, game_name):
+    """Generate .ctile and .cusage files."""
+    sprite_size = drv['romsizes'][REGION_SPRITES]
+    if sprite_size == 0:
+        print("No sprite data for this game.")
+        return
+
+    pairs = get_crom_pairs(drv)
+    if not pairs:
+        print("ERROR: No C ROM pairs found in driver.")
+        return
+
+    ctile_path = os.path.join(output_dir, f"{game_name}.ctile")
+    cusage_path = os.path.join(output_dir, f"{game_name}.cusage")
+
+    print(f"\n=== Sprite Cache (.ctile + .cusage) ===")
+    print(f"Total sprite size: {sprite_size // (1024*1024)} MB")
+    print(f"C ROM pairs: {len(pairs)}")
+
+    # Allocate interleaved buffer
+    tiles_buf = bytearray(sprite_size)
+
+    t0 = time.time()
+
+    # Read and interleave C ROM pairs
+    for even_name, odd_name, even_crc, odd_crc, dest_base, rom_size in pairs:
+        print(f"  Interleaving {even_name} + {odd_name} "
+              f"-> offset 0x{dest_base:07X} ({rom_size // (1024*1024)} MB each)")
+
+        even_data = read_rom(even_name, even_crc)
+        odd_data = read_rom(odd_name, odd_crc)
+
+        if len(even_data) < rom_size:
+            print(f"    WARNING: {even_name} is {len(even_data)} bytes, "
+                  f"expected {rom_size}")
+        if len(odd_data) < rom_size:
+            print(f"    WARNING: {odd_name} is {len(odd_data)} bytes, "
+                  f"expected {rom_size}")
+
+        # Interleave: even bytes at dest+0,+2,+4,...  odd at dest+1,+3,+5,...
+        actual_size = min(rom_size, len(even_data), len(odd_data))
+        for i in range(actual_size):
+            tiles_buf[dest_base + i * 2] = even_data[i]
+            tiles_buf[dest_base + i * 2 + 1] = odd_data[i]
+
+    t1 = time.time()
+    print(f"Interleave done in {t1 - t0:.1f}s")
+
+    # Convert tiles and build spr_usage
+    nb_tiles = sprite_size >> 7   # 128 bytes per tile
+    nb_usage = nb_tiles >> 4      # one uint32 per 16 tiles
+    spr_usage = [0] * nb_usage
+
+    print(f"Converting {nb_tiles:,} tiles...")
+    converted_buf = bytearray(sprite_size)
+    tiles_visible = 0
+
+    for tile in range(nb_tiles):
+        offset = tile << 7
+        raw = tiles_buf[offset:offset + 128]
+        conv, usage = convert_roms_tile(raw)
+        converted_buf[offset:offset + 128] = conv
+
+        if (usage & ~1) == 0:
+            spr_usage[tile >> 4] |= (TILE_INVISIBLE << ((tile & 0xF) * 2))
+        else:
+            tiles_visible += 1
+
+        if tile > 0 and tile % 100000 == 0:
+            print(f"  {tile:,}/{nb_tiles:,} ({100 * tile // nb_tiles}%)")
+
+    t2 = time.time()
+    print(f"Conversion done in {t2 - t1:.1f}s  "
+          f"({tiles_visible:,} visible, {nb_tiles - tiles_visible:,} invisible)")
+
+    # Write .ctile
+    print(f"Writing {ctile_path} ({sprite_size // (1024*1024)} MB)...")
+    with open(ctile_path, 'wb') as f:
+        f.write(converted_buf)
+
+    # Write .cusage
+    usage_data = struct.pack('<I', CUSAGE_MAGIC)
+    for u in spr_usage:
+        usage_data += struct.pack('<I', u)
+
+    print(f"Writing {cusage_path} ({len(usage_data):,} bytes)...")
+    with open(cusage_path, 'wb') as f:
+        f.write(usage_data)
+
+    t3 = time.time()
+    print(f"Sprite cache done! {t3 - t0:.1f}s total")
+    print(f"  {ctile_path}: {os.path.getsize(ctile_path):,} bytes")
+    print(f"  {cusage_path}: {os.path.getsize(cusage_path):,} bytes")
+
+
+def generate_vroma(drv, read_rom, output_dir, game_name):
+    """Generate .vroma (and .vromb if needed) ADPCM cache files."""
+    adpcma_size = drv['romsizes'][REGION_AUDIO_DATA_1]
+    adpcmb_size = drv['romsizes'][REGION_AUDIO_DATA_2]
+
+    if adpcma_size == 0 and adpcmb_size == 0:
+        print("\nNo ADPCM data for this game — skipping .vroma")
+        return
+
+    # ADPCM-A
+    if adpcma_size > 0:
+        vroma_files = [r for r in drv['roms']
+                       if r['region'] == REGION_AUDIO_DATA_1]
+        if vroma_files:
+            out_path = os.path.join(output_dir, f'{game_name}.vroma')
+            print(f"\n=== ADPCM-A Cache (.vroma) ===")
+            print(f"Size: {adpcma_size // 1024} KB, files: {len(vroma_files)}")
+
+            t0 = time.time()
+            buf = bytearray(adpcma_size)
+
+            for rom in vroma_files:
+                print(f"  {rom['filename']} -> offset 0x{rom['dest']:08X}, "
+                      f"{rom['size'] // 1024} KB")
+                data = read_rom(rom['filename'], rom['crc'])
+                dest = rom['dest']
+                copy_len = min(len(data), rom['size'], adpcma_size - dest)
+                buf[dest:dest + copy_len] = data[:copy_len]
+
+            with open(out_path, 'wb') as f:
+                f.write(buf)
+
+            elapsed = time.time() - t0
+            print(f"  Done in {elapsed:.1f}s — "
+                  f"{os.path.getsize(out_path):,} bytes")
+
+    # ADPCM-B (rare, but some games have it)
+    if adpcmb_size > 0:
+        vromb_files = [r for r in drv['roms']
+                       if r['region'] == REGION_AUDIO_DATA_2]
+        if vromb_files:
+            out_path = os.path.join(output_dir, f'{game_name}.vromb')
+            print(f"\n=== ADPCM-B Cache (.vromb) ===")
+            print(f"Size: {adpcmb_size // 1024} KB, files: {len(vromb_files)}")
+
+            t0 = time.time()
+            buf = bytearray(adpcmb_size)
+
+            for rom in vromb_files:
+                print(f"  {rom['filename']} -> offset 0x{rom['dest']:08X}, "
+                      f"{rom['size'] // 1024} KB")
+                data = read_rom(rom['filename'], rom['crc'])
+                dest = rom['dest']
+                copy_len = min(len(data), rom['size'], adpcmb_size - dest)
+                buf[dest:dest + copy_len] = data[:copy_len]
+
+            with open(out_path, 'wb') as f:
+                f.write(buf)
+
+            elapsed = time.time() - t0
+            print(f"  Done in {elapsed:.1f}s — "
+                  f"{os.path.getsize(out_path):,} bytes")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Generate Neo Geo cache files (.ctile, .cusage, .vroma)')
+    parser.add_argument('game', help='Game short name (e.g. blazstar, mslug)')
+    parser.add_argument('--rom-dir', default=None,
+                        help='Directory with game ZIP and gngeo_data.zip '
+                             '(default: script directory)')
+    parser.add_argument('--out-dir', default=None,
+                        help='Output directory (default: same as --rom-dir)')
+    args = parser.parse_args()
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    rom_dir = args.rom_dir or script_dir
+    out_dir = args.out_dir or rom_dir
+
+    game_name = args.game
+    game_zip_path = os.path.join(rom_dir, f'{game_name}.zip')
+    gngeo_data_path = os.path.join(rom_dir, 'gngeo_data.zip')
+
+    # Validate inputs
+    if not os.path.isfile(game_zip_path):
+        print(f"ERROR: Game ZIP not found: {game_zip_path}")
+        sys.exit(1)
+    if not os.path.isfile(gngeo_data_path):
+        print(f"ERROR: gngeo_data.zip not found: {gngeo_data_path}")
+        sys.exit(1)
+    os.makedirs(out_dir, exist_ok=True)
+
+    # Load driver
+    with zipfile.ZipFile(gngeo_data_path) as gz:
+        try:
+            drv_data = gz.read(f'rom/{game_name}.drv')
+        except KeyError:
+            print(f"ERROR: No driver found for '{game_name}' in gngeo_data.zip")
+            print(f"Available games:")
+            games = sorted(n.replace('rom/', '').replace('.drv', '')
+                           for n in gz.namelist()
+                           if n.startswith('rom/') and n.endswith('.drv'))
+            for g in games:
+                print(f"  {g}")
+            sys.exit(1)
+
+    drv = read_drv(drv_data)
+
+    print(f"Game:    {drv['longname']} ({game_name})")
+    print(f"Year:    {drv['year']}")
+    print(f"Parent:  {drv['parent'] or '(none)'}")
+    print(f"Sprites: {drv['romsizes'][REGION_SPRITES] // (1024*1024)} MB")
+    print(f"ADPCM-A: {drv['romsizes'][REGION_AUDIO_DATA_1] // 1024} KB")
+    if drv['romsizes'][REGION_AUDIO_DATA_2] > 0:
+        print(f"ADPCM-B: {drv['romsizes'][REGION_AUDIO_DATA_2] // 1024} KB")
+    print(f"ROM dir: {rom_dir}")
+    print(f"Output:  {out_dir}")
+
+    # Open ZIPs
+    game_zip = zipfile.ZipFile(game_zip_path)
+    parent_zip = None
+    if drv['parent']:
+        parent_path = os.path.join(rom_dir, drv['parent'] + '.zip')
+        if os.path.isfile(parent_path):
+            parent_zip = zipfile.ZipFile(parent_path)
+
+    read_rom = make_rom_reader(game_zip, parent_zip)
+
+    t_start = time.time()
+
+    # Generate all cache files
+    generate_ctile(drv, read_rom, out_dir, game_name)
+    generate_vroma(drv, read_rom, out_dir, game_name)
+
+    # Cleanup
+    game_zip.close()
+    if parent_zip:
+        parent_zip.close()
+
+    t_total = time.time() - t_start
+    print(f"\n{'='*50}")
+    print(f"All cache files generated in {t_total:.1f}s")
+    print(f"\nUpload to device:")
+    ctile_path = os.path.join(out_dir, f'{game_name}.ctile')
+    cusage_path = os.path.join(out_dir, f'{game_name}.cusage')
+    vroma_path = os.path.join(out_dir, f'{game_name}.vroma')
+    if os.path.isfile(ctile_path):
+        print(f"  python tools/upload_papp.py {game_name}.cusage "
+              f"--dest /sd/roms/neogeo/{game_name}.cusage")
+        print(f"  python tools/upload_papp.py {game_name}.ctile "
+              f"--dest /sd/roms/neogeo/{game_name}.ctile")
+    if os.path.isfile(vroma_path):
+        print(f"  python tools/upload_papp.py {game_name}.vroma "
+              f"--dest /sd/roms/neogeo/{game_name}.vroma")
+
+
+if __name__ == '__main__':
+    main()

@@ -49,7 +49,7 @@ esp_err_t odroid_sdcard_open(const char* base_path)
 
         sdmmc_host_t host = SDMMC_HOST_DEFAULT();
         host.slot = SDMMC_HOST_SLOT_0;
-        host.max_freq_khz = SDMMC_FREQ_DEFAULT;
+        host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
         host.pwr_ctrl_handle = pwr_ctrl_handle;
 
         sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();

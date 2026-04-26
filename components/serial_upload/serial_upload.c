@@ -32,7 +32,7 @@ static TaskHandle_t s_upload_task = NULL;
 #define MAGIC_LEN   4
 #define CHUNK_SIZE  4096
 #define MAX_PATH    256
-#define MAX_FILE_SIZE (4 * 1024 * 1024)  /* 4 MB safety limit */
+#define MAX_FILE_SIZE (48 * 1024 * 1024)  /* 48 MB — large enough for Neo Geo sprite caches */
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 

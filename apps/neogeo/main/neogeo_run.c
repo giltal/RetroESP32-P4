@@ -28,6 +28,8 @@ static const char *TAG = "neogeo_run";
 extern void esp32_set_rompath(const char *path);
 extern void esp32_enable_sound(int enable);
 extern void esp32_init_conf(const char *game_name);
+extern void gn_loading_info(const char *msg);
+extern void gn_set_loading_game(const char *name);
 
 void neogeo_run(const char *rom_path)
 {
@@ -92,6 +94,8 @@ void neogeo_run(const char *rom_path)
 
     /* ── Load game ROMs and initialize emulator ── */
     ESP_LOGI(TAG, "Loading game: %s", game_name);
+    gn_set_loading_game(game_name);
+    gn_loading_info("Initializing...");
 
     if (init_game(game_name) != 1) { /* GN_TRUE = 1 */
         ESP_LOGE(TAG, "init_game failed for %s", game_name);
