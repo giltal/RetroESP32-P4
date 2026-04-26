@@ -33,6 +33,10 @@
 #include "odroid_audio.h"
 #include "odroid_settings.h"
 #include "st7701_lcd.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "freertos/queue.h"
 
 /* stb_zlib for uncompress() implementation */
 #include "stb_zlib.h"
@@ -421,7 +425,14 @@ static void neo_blit_sidebar_buttons(void)
 #define NEO_FB_W 304
 #define NEO_FB_H 224
 
-/* Forward declaration — defined later in Screen functions section */
+/* ── Async double-buffered display ── */
+static uint16_t *lcd_fb_arr[2] = { NULL, NULL };
+static int lcd_fb_write = 0;
+static QueueHandle_t neo_vidQueue = NULL;
+static TaskHandle_t neo_videoTaskHandle = NULL;
+static volatile bool neo_videoTaskRunning = false;
+
+/* Forward declaration — points to current write buffer */
 static uint16_t *lcd_fb;
 
 static void neo_show_volume(void)
@@ -684,6 +695,31 @@ static uint16_t *buffer_pixels;
 static uint16_t *sprbuf_pixels;
 /* lcd_fb forward-declared above (used by menu/volume overlays) */
 
+/* ── Neo Geo video task (Core 1) — async PPA + LCD push ── */
+static void neo_video_task(void *arg) {
+    (void)arg;
+    uint16_t *frame = NULL;
+    neo_videoTaskRunning = true;
+
+    while (1) {
+        xQueuePeek(neo_vidQueue, &frame, portMAX_DELAY);
+        if (frame == (uint16_t *)1) break;  /* quit sentinel */
+
+        ili9341_write_frame_rgb565_custom(frame, NEO_FB_W, NEO_FB_H, 2.0f, false);
+
+        /* Blit sidebar button labels after frame push */
+        if (sidebar_countdown > 0) {
+            neo_blit_sidebar_buttons();
+            sidebar_countdown--;
+        }
+
+        xQueueReceive(neo_vidQueue, &frame, portMAX_DELAY);
+    }
+
+    neo_videoTaskRunning = false;
+    vTaskDelete(NULL);
+}
+
 int screen_init(void) {
     ESP_LOGI(TAG, "screen_init: %dx%d RGB565", NEO_SCREEN_W + 32, NEO_SCREEN_H + 32);
 
@@ -733,12 +769,20 @@ int screen_init(void) {
     scan = NULL;
     fontbuf = NULL;
 
-    /* Allocate contiguous buffer for visible area → LCD blit */
-    lcd_fb = heap_caps_calloc(1, 304 * 224 * 2, MALLOC_CAP_SPIRAM);
-    if (!lcd_fb) {
-        ESP_LOGE(TAG, "Failed to allocate LCD framebuffer");
-        return -1;
+    /* Allocate double-buffered LCD framebuffer for async display */
+    for (int i = 0; i < 2; i++) {
+        lcd_fb_arr[i] = heap_caps_calloc(1, 304 * 224 * 2, MALLOC_CAP_SPIRAM);
+        if (!lcd_fb_arr[i]) {
+            ESP_LOGE(TAG, "Failed to allocate LCD framebuffer %d", i);
+            return -1;
+        }
     }
+    lcd_fb_write = 0;
+    lcd_fb = lcd_fb_arr[lcd_fb_write];
+
+    /* Video task is created lazily in screen_update() so it doesn't
+     * consume internal DMA RAM before the sprite bounce buffer is
+     * allocated during ROM loading. */
 
     /* Pre-render sidebar button labels (MENU / VOL) */
     neo_init_sidebar_buttons();
@@ -757,6 +801,23 @@ int screen_resize(int w, int h) { (void)w; (void)h; return 0; }
 void screen_update(void) {
     if (!buffer_pixels || !lcd_fb) return;
 
+    /* Lazy-init video task on first frame (after bounce buffer is allocated) */
+    if (!neo_vidQueue) {
+        neo_vidQueue = xQueueCreate(1, sizeof(uint16_t *));
+        /* Stack in PSRAM to avoid consuming scarce internal DMA RAM */
+        static StackType_t *neo_vid_stack;
+        static StaticTask_t neo_vid_tcb;
+        if (!neo_vid_stack) {
+            neo_vid_stack = heap_caps_malloc(4096 * sizeof(StackType_t),
+                                            MALLOC_CAP_SPIRAM);
+        }
+        if (neo_vid_stack) {
+            neo_videoTaskHandle = xTaskCreateStaticPinnedToCore(
+                neo_video_task, "neo_video", 4096,
+                NULL, 5, neo_vid_stack, &neo_vid_tcb, 1);
+        }
+    }
+
     /* Extract visible area (304x224) from buffer (352 pixels wide, offset 16,16) */
     const int src_stride = NEO_SCREEN_W + 32; /* 352 */
     const int vis_w = visible_area.w;          /* 304 */
@@ -770,21 +831,41 @@ void screen_update(void) {
                vis_w * sizeof(uint16_t));
     }
 
-    /* Push to LCD — PPA will scale + rotate */
-    ili9341_write_frame_rgb565_custom(lcd_fb, vis_w, vis_h, 2.0f, false);
+    /* Post frame to video task on Core 1 (non-blocking overwrite) */
+    if (neo_vidQueue) {
+        void *arg = (void *)lcd_fb;
+        xQueueOverwrite(neo_vidQueue, &arg);
 
-    /* Blit sidebar button labels on first frames */
-    if (sidebar_countdown > 0) {
-        neo_blit_sidebar_buttons();
-        sidebar_countdown--;
+        /* Flip to other buffer for next frame */
+        lcd_fb_write ^= 1;
+        lcd_fb = lcd_fb_arr[lcd_fb_write];
+    } else {
+        /* Fallback: synchronous push */
+        ili9341_write_frame_rgb565_custom(lcd_fb, vis_w, vis_h, 2.0f, false);
+        if (sidebar_countdown > 0) {
+            neo_blit_sidebar_buttons();
+            sidebar_countdown--;
+        }
     }
 }
 
 void screen_close(void) {
+    /* Shut down async video task */
+    if (neo_vidQueue) {
+        uint16_t *sentinel = (uint16_t *)1;
+        xQueueOverwrite(neo_vidQueue, &sentinel);
+        for (int i = 0; i < 50 && neo_videoTaskRunning; i++)
+            vTaskDelay(pdMS_TO_TICKS(20));
+        vQueueDelete(neo_vidQueue);
+        neo_vidQueue = NULL;
+    }
     if (screen_pixels) { heap_caps_free(screen_pixels); screen_pixels = NULL; }
     if (buffer_pixels) { heap_caps_free(buffer_pixels); buffer_pixels = NULL; }
     if (sprbuf_pixels) { heap_caps_free(sprbuf_pixels); sprbuf_pixels = NULL; }
-    if (lcd_fb)        { heap_caps_free(lcd_fb);        lcd_fb = NULL; }
+    for (int i = 0; i < 2; i++) {
+        if (lcd_fb_arr[i]) { heap_caps_free(lcd_fb_arr[i]); lcd_fb_arr[i] = NULL; }
+    }
+    lcd_fb = NULL;
 }
 void screen_fullscreen(void) {}
 void init_sdl(void) { screen_init(); }
@@ -803,12 +884,14 @@ static SDL_AudioSpec desired_spec, obtain_spec;
 SDL_AudioSpec *desired = &desired_spec;
 SDL_AudioSpec *obtain = &obtain_spec;
 
-/* Double-buffered play_buffer: YM2610 renders into one while I2S pushes the other */
+/* Triple-buffered play_buffer: YM2610 renders into one while I2S pushes another */
 Uint16 *play_buffer = NULL;          /* points to active render buffer */
 static Uint16 *play_buf_a = NULL;
 static Uint16 *play_buf_b = NULL;
-static Uint16 *submit_buf = NULL;    /* buffer being submitted by audio task */
-static int submit_len = 0;           /* frame count to submit */
+static Uint16 *play_buf_c = NULL;
+static volatile Uint16 *submit_buf = NULL;    /* buffer being submitted by audio task */
+static volatile int submit_len = 0;           /* frame count to submit */
+static int play_buf_idx = 0;                  /* cycles 0→1→2→0 */
 
 /* Number of stereo samples to generate per frame (sample_rate / 60) */
 static int audio_samples_per_frame = 367;
@@ -838,10 +921,11 @@ static void audio_submit_task(void *arg) {
     (void)arg;
     while (audio_task_running) {
         if (xSemaphoreTake(audio_ready_sem, pdMS_TO_TICKS(100)) == pdTRUE) {
-            if (submit_buf && submit_len > 0) {
-                odroid_audio_submit((short *)submit_buf, submit_len);
+            volatile Uint16 *buf = submit_buf;
+            int len = submit_len;
+            if (buf && len > 0) {
+                odroid_audio_submit((short *)buf, len);
             }
-            xSemaphoreGive(audio_done_sem);
         }
     }
     vTaskDelete(NULL);
@@ -889,12 +973,16 @@ static void z80_sound_task(void *arg) {
                 int64_t tz80_e = esp_timer_get_time();
 
                 /* Synthesize audio and hand off to I2S task */
-                xSemaphoreTake(audio_done_sem, pdMS_TO_TICKS(20));
                 YM2610Update_stream(audio_samples_per_frame);
                 int64_t tym_e = esp_timer_get_time();
+
+                /* Triple-buffer rotation: hand off current buffer, advance to next */
                 submit_buf = play_buffer;
                 submit_len = audio_samples_per_frame;
-                play_buffer = (play_buffer == play_buf_a) ? play_buf_b : play_buf_a;
+                play_buf_idx = (play_buf_idx + 1) % 3;
+                static Uint16 *bufs[3];
+                bufs[0] = play_buf_a; bufs[1] = play_buf_b; bufs[2] = play_buf_c;
+                play_buffer = bufs[play_buf_idx];
                 xSemaphoreGive(audio_ready_sem);
 
                 /* Z80 task timing stats */
@@ -929,15 +1017,17 @@ int init_sdl_audio(void) {
 
     audio_samples_per_frame = conf.sample_rate / 60;
 
-    /* Allocate double play_buffers in PSRAM */
+    /* Allocate triple play_buffers in PSRAM */
     if (!play_buf_a) {
         play_buf_a = heap_caps_calloc(16384, sizeof(Uint16), MALLOC_CAP_SPIRAM);
         play_buf_b = heap_caps_calloc(16384, sizeof(Uint16), MALLOC_CAP_SPIRAM);
-        if (!play_buf_a || !play_buf_b) {
+        play_buf_c = heap_caps_calloc(16384, sizeof(Uint16), MALLOC_CAP_SPIRAM);
+        if (!play_buf_a || !play_buf_b || !play_buf_c) {
             ESP_LOGE(TAG, "Failed to allocate play_buffers in PSRAM");
             return -1;
         }
         play_buffer = play_buf_a;
+        play_buf_idx = 0;
     }
 
     desired->freq = conf.sample_rate;
@@ -965,8 +1055,6 @@ int init_sdl_audio(void) {
 
     /* Create audio I2S submission task */
     audio_ready_sem = xSemaphoreCreateBinary();
-    audio_done_sem = xSemaphoreCreateBinary();
-    xSemaphoreGive(audio_done_sem);
     audio_task_running = true;
 
     static StaticTask_t audio_tcb;
@@ -1312,8 +1400,8 @@ void esp32_init_conf(const char *game_name) {
     conf.y_start = 16;
     conf.res_x = 304;
     conf.res_y = 224;
-    conf.sample_rate = 22050;
-    conf.sound = 1;      /* Sound enabled */
+    conf.sample_rate = 11025;
+    conf.sound = 1;
     conf.vsync = 0;
     conf.raster = 0;     /* Non-raster mode (simpler) */
     conf.debug = 0;

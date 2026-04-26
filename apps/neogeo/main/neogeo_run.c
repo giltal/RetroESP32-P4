@@ -81,7 +81,7 @@ void neogeo_run(const char *rom_path)
     /* ── Initialize GnGeo conf ── */
     esp32_init_conf(game_name);
     esp32_set_rompath(rom_dir);
-    esp32_enable_sound(1); /* Sound enabled */
+    esp32_enable_sound(1);
 
     /* ── Init screen (allocates framebuffers) ── */
     if (screen_init() != 0) {

@@ -200,6 +200,7 @@ static void take_screenshot(void) {
 static int fc;
 static int last_line;
 static int skip_this_frame = 0;
+static int fps_render_count = 0;
 
 static inline int neo_interrupt(void) {
     static int frames;
@@ -221,6 +222,7 @@ static inline int neo_interrupt(void) {
 		PROFILER_START(PROF_VIDEO);
 
 		draw_screen();
+		fps_render_count++;
 
 		PROFILER_STOP(PROF_VIDEO);
 	}
@@ -252,6 +254,7 @@ static inline void update_screen(void) {
 		} else {
 			draw_screen_scanline(last_line - 21, 262, 1);
 		}
+		fps_render_count++;
 	}
 
 	last_line = 0;
@@ -335,6 +338,7 @@ void neogeo_main_loop(void) {
 	static int fps_frame_count = 0;
 	fps_last_time = esp_timer_get_time();
 	fps_frame_count = 0;
+	fps_render_count = 0;
 
 	//pause_audio(0);
 	while (!neo_emu_done) {
@@ -342,8 +346,9 @@ void neogeo_main_loop(void) {
 		fps_frame_count++;
 		int64_t now = esp_timer_get_time();
 		if (now - fps_last_time >= 1000000) { /* every 1 second */
-			printf("FPS: %d\n", fps_frame_count);
+			printf("FPS: %d (rendered: %d, skipped: %d)\n", fps_frame_count, fps_render_count, fps_frame_count - fps_render_count);
 			fps_frame_count = 0;
+			fps_render_count = 0;
 			fps_last_time = now;
 		}
 
@@ -634,9 +639,9 @@ void neogeo_main_loop(void) {
 			extern void esp32_z80_start_frame(void);
 			esp32_z80_start_frame();
 			/* Don't wait yet — let Z80 run in parallel with 68K below */
-		} /*
-		 else
-		 my_timer();*/
+		} else {
+			my_timer();
+		}
 #endif
 #ifdef ENABLE_940T
 		if (conf.sound) {

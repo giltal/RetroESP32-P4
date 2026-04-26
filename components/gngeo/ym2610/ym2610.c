@@ -110,6 +110,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <math.h>
+#include "esp_timer.h"
 
 #include "mvs.h"
 #include "../state.h"
@@ -2861,6 +2862,15 @@ void YM2610Update_stream(int length) {
 	FM_CH *cch[6];
 	Uint16 *pl = play_buffer;
 
+	/* ── Per-component profiling ── */
+	static int64_t prof_eg = 0, prof_fm = 0, prof_ssg = 0;
+	static int64_t prof_adpcmb = 0, prof_adpcma = 0, prof_mix = 0;
+	static int64_t prof_last = 0;
+	static int prof_calls = 0;
+	int64_t t0, t1;
+	int64_t loc_eg = 0, loc_fm = 0, loc_ssg = 0;
+	int64_t loc_adpcmb = 0, loc_adpcma = 0, loc_mix = 0;
+
 	//printf("AAA %d\n",length);
 	cch[0] = &YM2610.CH[1];
 	cch[1] = &YM2610.CH[2];
@@ -2910,6 +2920,7 @@ void YM2610Update_stream(int length) {
 		out_ssg = 0;
 
 		/* advance envelope generator */
+		t0 = esp_timer_get_time();
 		OPN->eg_timer += OPN->eg_timer_add;
 		while (OPN->eg_timer >= OPN->eg_timer_overflow) {
 			OPN->eg_timer -= OPN->eg_timer_overflow;
@@ -2920,25 +2931,41 @@ void YM2610Update_stream(int length) {
 			advance_eg_channel(OPN, &cch[2]->SLOT[SLOT1]);
 			advance_eg_channel(OPN, &cch[3]->SLOT[SLOT1]);
 		}
+		t1 = esp_timer_get_time();
+		loc_eg += (t1 - t0);
 
 		/* calculate FM */
+		t0 = t1;
 		chan_calc(OPN, cch[0]); /*remapped to 1*/
 		chan_calc(OPN, cch[1]); /*remapped to 2*/
 		chan_calc(OPN, cch[2]); /*remapped to 4*/
 		chan_calc(OPN, cch[3]); /*remapped to 5*/
+		t1 = esp_timer_get_time();
+		loc_fm += (t1 - t0);
 
 		/* calculate SSG */
+		t0 = t1;
 		outn = SSG_CALC(outn);
+		t1 = esp_timer_get_time();
+		loc_ssg += (t1 - t0);
+
 		/* deltaT ADPCM */
+		t0 = t1;
 		if (YM2610.adpcmb.portstate & 0x80)
 			OPNB_ADPCMB_CALC(&YM2610.adpcmb);
+		t1 = esp_timer_get_time();
+		loc_adpcmb += (t1 - t0);
 
+		t0 = t1;
 		for (j = 0; j < 6; j++) {
 			/* ADPCM */
 			if (YM2610.adpcma[j].flag)
 				OPNB_ADPCMA_calc_chan(&YM2610.adpcma[j]);
 		}
+		t1 = esp_timer_get_time();
+		loc_adpcma += (t1 - t0);
 		/* buffering */
+		t0 = t1;
 		lt = out_adpcma[OUTD_LEFT] + out_adpcma[OUTD_CENTER];
 		rt = out_adpcma[OUTD_RIGHT] + out_adpcma[OUTD_CENTER];
 
@@ -2969,12 +2996,27 @@ void YM2610Update_stream(int length) {
 		 */
 		*pl++ = lt;
 		*pl++ = rt;
+		t1 = esp_timer_get_time();
+		loc_mix += (t1 - t0);
 
 		//my_timer();
 
 		INTERNAL_TIMER_A( OPN->ST , cch[1] );
 	} INTERNAL_TIMER_B(OPN->ST,length);
 
+	/* ── Accumulate and print profiling ── */
+	prof_eg += loc_eg; prof_fm += loc_fm; prof_ssg += loc_ssg;
+	prof_adpcmb += loc_adpcmb; prof_adpcma += loc_adpcma; prof_mix += loc_mix;
+	prof_calls++;
+	int64_t now = esp_timer_get_time();
+	if (now - prof_last > 1000000) {
+		printf("  YM2610: EG=%lld FM=%lld SSG=%lld ADPCM-B=%lld ADPCM-A=%lld mix=%lld us/frame (n=%d)\n",
+			prof_eg/prof_calls, prof_fm/prof_calls, prof_ssg/prof_calls,
+			prof_adpcmb/prof_calls, prof_adpcma/prof_calls, prof_mix/prof_calls, prof_calls);
+		prof_eg = prof_fm = prof_ssg = prof_adpcmb = prof_adpcma = prof_mix = 0;
+		prof_calls = 0;
+		prof_last = now;
+	}
 }
 
 void YM2610Update(int *p) {

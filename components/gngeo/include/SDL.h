@@ -106,22 +106,34 @@ static inline int SDL_FillRect(SDL_Surface *dst, SDL_Rect *r, uint32_t color) {
     if (!dst || !dst->pixels) return -1;
     int bpp = dst->format->BytesPerPixel;
     if (!r) {
-        /* Fill entire surface */
+        /* Fill entire surface — use 32-bit writes for 2× throughput */
         if (bpp == 2) {
             uint16_t c16 = (uint16_t)color;
-            uint16_t *p = (uint16_t *)dst->pixels;
-            int count = dst->w * dst->h;
-            for (int i = 0; i < count; i++) p[i] = c16;
+            uint32_t c32 = ((uint32_t)c16 << 16) | c16;
+            uint32_t *p32 = (uint32_t *)dst->pixels;
+            int count32 = (dst->w * dst->h) >> 1;
+            for (int i = 0; i < count32; i++) p32[i] = c32;
         } else {
             memset(dst->pixels, (int)color, dst->pitch * dst->h);
         }
     } else {
         if (bpp == 2) {
             uint16_t c16 = (uint16_t)color;
+            uint32_t c32 = ((uint32_t)c16 << 16) | c16;
             for (int y = r->y; y < r->y + r->h && y < dst->h; y++) {
                 uint16_t *row = (uint16_t *)((uint8_t *)dst->pixels + y * dst->pitch);
-                for (int x = r->x; x < r->x + r->w && x < dst->w; x++)
-                    row[x] = c16;
+                int x = r->x;
+                int xend = r->x + r->w;
+                if (xend > dst->w) xend = dst->w;
+                /* Align to 32-bit boundary */
+                if ((x & 1) && x < xend) { row[x] = c16; x++; }
+                /* 32-bit bulk fill */
+                uint32_t *p32 = (uint32_t *)&row[x];
+                int n32 = (xend - x) >> 1;
+                for (int i = 0; i < n32; i++) p32[i] = c32;
+                x += n32 << 1;
+                /* Tail */
+                if (x < xend) row[x] = c16;
             }
         }
     }

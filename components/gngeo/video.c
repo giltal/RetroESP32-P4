@@ -207,9 +207,11 @@ void free_sprite_cache(void) {
 	}
 }
 
+/* Shared eviction position for sprite cache (used by get_cached_sprite_ptr and prefetch) */
+static int spr_cache_evict_pos = 0;
+
 Uint8 *get_cached_sprite_ptr(Uint32 tileno) {
 	GFX_CACHE *gcache = &memory.vid.spr_cache;
-	static int pos = 0;
 	static int read_errors = 0;
 	int tile_sh = ~((gcache->slot_size >> 7) - 1);
 
@@ -221,9 +223,9 @@ Uint8 *get_cached_sprite_ptr(Uint32 tileno) {
 		return gcache->ptr[bank];
 	}
 	/* We have to find a slot for this bank */
-	a = pos;
-	pos++;
-	if (pos >= gcache->max_slot) pos = 0;
+	a = spr_cache_evict_pos;
+	spr_cache_evict_pos++;
+	if (spr_cache_evict_pos >= gcache->max_slot) spr_cache_evict_pos = 0;
 
 	if (gcache->raw_mode) {
 		/* Raw .ctile file — bypass FATFS entirely using disk_read() with
@@ -460,6 +462,146 @@ static __inline__ void draw_fix_char(unsigned char *buf, int start, int end) {
 	if (start != 0 && end != 0) SDL_SetClipRect(buffer, NULL);
 }
 
+/* ── Sprite bank pre-fetch: batch-load missing SD banks before rendering ── */
+#ifdef ESP32_PLATFORM
+#include "esp_timer.h"
+static void prefetch_sprite_banks(void) {
+	GFX_CACHE *gcache = &memory.vid.spr_cache;
+	if (!gcache->data || !gcache->sector_map || !gcache->bounce_buf || !gcache->raw_mode)
+		return;
+
+	Uint8 *vidram = memory.vid.ram;
+	int tile_mask = ~((gcache->slot_size >> 7) - 1);
+	int tiles_per_bank = gcache->slot_size >> 7;
+	int total_banks = gcache->total_bank;
+
+	/* Collect missing bank numbers from VRAM sprite data.
+	 * We parse the sprite strip table (same as draw_screen) but only
+	 * check cache status — no rendering. */
+	int missing[384];  /* max unique banks in a single frame */
+	int nmiss = 0;
+
+	/* Bitset to avoid duplicate bank entries */
+	uint32_t seen[(total_banks + 31) >> 5];
+	memset(seen, 0, ((total_banks + 31) >> 5) * sizeof(uint32_t));
+
+	int sx = 0, my = 0, rzx = 15;
+	for (int count = 0; count < 0x300; count += 2) {
+		unsigned int t1 = READ_WORD(&vidram[0x10400 + count]);
+		unsigned int t2 = READ_WORD(&vidram[0x10800 + count]);
+		unsigned int t3 = READ_WORD(&vidram[0x10000 + count]);
+
+		if (t1 & 0x40) {
+			sx += rzx;
+			int zx = (t3 >> 8) & 0x0f;
+			rzx = (zx != 15) ? zx + 1 : 16;
+		} else {
+			int zx = (t3 >> 8) & 0x0f;
+			int rzy = t3 & 0xff;
+			if (rzy == 0) continue;
+			sx = (t2 >> 7);
+			my = t1 & 0x3f;
+			if (my > 0x20) my = 0x20;
+			if (rzy < 0xff && my < 0x10 && my) {
+				my = my * 255 / rzy;
+				if (my > 0x10) my = 0x10;
+			}
+			rzx = (zx != 15) ? zx + 1 : 16;
+		}
+
+		if (my == 0) continue;
+		if (sx >= 0x1F0) sx -= 0x200;
+		if (sx >= 320) continue;
+
+		unsigned int offs = count << 6;
+		for (unsigned int y2 = 0; y2 < (unsigned)my; y2++) {
+			unsigned int tileno = READ_WORD(&vidram[offs]);
+			offs += 2;
+			unsigned int tileatr = READ_WORD(&vidram[offs]);
+			offs += 2;
+
+			if (memory.nb_of_tiles > 0x10000 && (tileatr & 0x10)) tileno += 0x10000;
+			if (memory.nb_of_tiles > 0x20000 && (tileatr & 0x20)) tileno += 0x20000;
+			if (memory.nb_of_tiles > 0x40000 && (tileatr & 0x40)) tileno += 0x40000;
+			if (tileatr & 0x8)
+				tileno = (tileno & ~7) + ((tileno + neogeo_frame_counter) & 7);
+			else if (tileatr & 0x4)
+				tileno = (tileno & ~3) + ((tileno + neogeo_frame_counter) & 3);
+
+			if (tileno > memory.nb_of_tiles) continue;
+
+			Uint8 pen = PEN_USAGE(tileno);
+			if (pen == TILE_INVISIBLE) continue;
+
+			int bank = (tileno & tile_mask) / tiles_per_bank;
+			if (bank >= total_banks) continue;
+			if (gcache->ptr[bank]) continue;  /* already cached */
+
+			int word = bank >> 5;
+			int bit = bank & 31;
+			if (seen[word] & (1u << bit)) continue;  /* already in list */
+			seen[word] |= (1u << bit);
+
+			if (nmiss < 384) missing[nmiss++] = bank;
+		}
+	}
+
+	if (nmiss == 0) return;
+
+	/* Sort missing banks by LBA sector for sequential SD access */
+	for (int i = 1; i < nmiss; i++) {
+		int key = missing[i];
+		DWORD key_lba = gcache->sector_map[key];
+		int j = i - 1;
+		while (j >= 0 && gcache->sector_map[missing[j]] > key_lba) {
+			missing[j + 1] = missing[j];
+			j--;
+		}
+		missing[j + 1] = key;
+	}
+
+	/* Batch-load: read consecutive banks in single disk_read calls */
+	int spb = gcache->sectors_per_bank;
+
+	int i = 0;
+	while (i < nmiss) {
+		/* Find run of consecutive LBA banks */
+		int run_start = i;
+		int run_len = 1;
+		while (i + run_len < nmiss && run_len < 8) {
+			DWORD expected_lba = gcache->sector_map[missing[run_start]] + run_len * spb;
+			if (gcache->sector_map[missing[run_start + run_len]] == expected_lba)
+				run_len++;
+			else
+				break;
+		}
+
+		/* Load the run */
+		for (int k = 0; k < run_len; k++) {
+			int bank = missing[run_start + k];
+			int a = spr_cache_evict_pos++;
+			if (spr_cache_evict_pos >= gcache->max_slot) spr_cache_evict_pos = 0;
+
+			Uint8 *dest = gcache->data + a * gcache->slot_size;
+
+			DRESULT dres = disk_read(gcache->pdrv, gcache->bounce_buf,
+			                         gcache->sector_map[bank], spb);
+			if (dres == RES_OK) {
+				memcpy(dest, gcache->bounce_buf, gcache->slot_size);
+			} else {
+				memset(dest, 0, gcache->slot_size);
+			}
+
+			if (gcache->usage[a] != -1)
+				gcache->ptr[gcache->usage[a]] = 0;
+			gcache->usage[a] = bank;
+			gcache->ptr[bank] = dest;
+		}
+		i += run_len;
+	}
+}
+#endif /* ESP32_PLATFORM */
+
 void draw_screen(void) {
 	int sx = 0, sy = 0, oy = 0, my = 0, zx = 1, rzy = 1;
 	unsigned int offs, i, count, y;
@@ -471,8 +613,21 @@ void draw_screen(void) {
 
 	//    int drawtrans=0;
 
+#ifdef ESP32_PLATFORM
+	/* Pre-fetch all sprite banks from SD card before rendering.
+	 * This separates I/O from rendering for better L2 cache behavior
+	 * and batches consecutive sector reads. */
+	prefetch_sprite_banks();
+#endif
+
+#ifdef ESP32_PLATFORM
+	int64_t t_fill_s = esp_timer_get_time();
+#endif
 	SDL_FillRect(buffer, NULL, current_pc_pal[4095]);
 	SDL_LockSurface(buffer);
+#ifdef ESP32_PLATFORM
+	int64_t t_fill_e = esp_timer_get_time();
+#endif
 
 	/* Draw sprites */
 	for (count = 0; count < 0x300; count += 2) {
@@ -697,6 +852,10 @@ void draw_screen(void) {
 		} /* for y */
 	} /* for count */
 
+#ifdef ESP32_PLATFORM
+	int64_t t_spr_e = esp_timer_get_time();
+#endif
+
 	draw_fix_char(buffer->pixels, 0, 0);
 	SDL_UnlockSurface(buffer);
 
@@ -707,8 +866,33 @@ void draw_screen(void) {
 	if (conf.show_fps)
 		SDL_textout(buffer, visible_area.x+8, visible_area.y, fps_str);
 
+#ifdef ESP32_PLATFORM
+	int64_t t_fix_e = esp_timer_get_time();
+#endif
 
 	screen_update();
+
+#ifdef ESP32_PLATFORM
+	{
+		int64_t t_end = esp_timer_get_time();
+		static int64_t sum_fill = 0, sum_spr = 0, sum_fix = 0, sum_disp = 0;
+		static int draw_count = 0;
+		static int64_t last_draw_stat = 0;
+		sum_fill += (t_fill_e - t_fill_s);
+		sum_spr  += (t_spr_e - t_fill_e);
+		sum_fix  += (t_fix_e - t_spr_e);
+		sum_disp += (t_end - t_fix_e);
+		draw_count++;
+		if (t_end - last_draw_stat > 2000000) {  /* every 2s */
+			printf("  draw: fill=%lld spr=%lld fix=%lld disp=%lld us (n=%d)\n",
+			       sum_fill / draw_count, sum_spr / draw_count,
+			       sum_fix / draw_count, sum_disp / draw_count, draw_count);
+			sum_fill = 0; sum_spr = 0; sum_fix = 0; sum_disp = 0;
+			draw_count = 0;
+			last_draw_stat = t_end;
+		}
+	}
+#endif
 }
 
 void draw_screen_scanline(int start_line, int end_line, int refresh) {

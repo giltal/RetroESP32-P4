@@ -1271,16 +1271,15 @@ static int setup_sprite_streaming(const char *ctile_path, Uint32 tile_size) {
 		if (init_sprite_cache(cache_bytes, SPRITE_BANK_SIZE) == GN_TRUE) {
 			printf("Sprite streaming: %u MB cache, %u tiles, bank=%d\n",
 				   cache_sizes[i], memory.nb_of_tiles, SPRITE_BANK_SIZE);
-			/* DMA-aligned bounce buffer in internal RAM.  SDMMC DMA on
-			 * ESP32-P4 requires cache-line-aligned buffers.  Allocating
-			 * with MALLOC_CAP_DMA + 64-byte alignment lets SDMMC do
-			 * direct DMA without its own bounce allocation. */
-			gcache->bounce_buf = heap_caps_aligned_alloc(64, SPRITE_BANK_SIZE, MALLOC_CAP_DMA);
+			/* DMA-aligned bounce buffer in internal RAM for SDMMC DMA. */
+			gcache->bounce_buf = heap_caps_aligned_alloc(64, SPRITE_BANK_SIZE,
+														 MALLOC_CAP_DMA);
 			if (gcache->bounce_buf)
-				printf("Sprite bounce buffer: %d bytes (DMA-aligned @ %p)\n",
-					   SPRITE_BANK_SIZE, gcache->bounce_buf);
+				printf("Sprite bounce buffer: %d bytes (DMA @ %p, free=%u)\n",
+					   SPRITE_BANK_SIZE, gcache->bounce_buf,
+					   (unsigned)heap_caps_get_free_size(MALLOC_CAP_DMA));
 			else
-				printf("WARNING: bounce buffer alloc failed (%u bytes free DMA)\n",
+				printf("WARNING: bounce buffer alloc failed (%u free DMA)\n",
 					   (unsigned)heap_caps_get_free_size(MALLOC_CAP_DMA));
 			return GN_TRUE;
 		}
