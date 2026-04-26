@@ -45,7 +45,7 @@ static int endian_flag=0x0;
 #define ROOTPATH "sd:/apps/gngeo/"
 #elif defined (__AMIGA__)
 #define ROOTPATH "/PROGDIR/data/"
-#else
+#elif !defined(ROOTPATH)
 #define ROOTPATH ""
 #endif
 

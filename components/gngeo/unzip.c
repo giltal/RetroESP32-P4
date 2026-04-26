@@ -191,6 +191,12 @@ static int unzip_locate_file(PKZIP *zf, const char *filename, uint32_t file_crc)
 	char *fname = NULL;
     size_t tr=0;
 
+	/* Precompute basename length for fallback matching */
+	const char *req_dot = strrchr(filename, '.');
+	int req_baselen = req_dot ? (int)(req_dot - filename) : (int)strlen(filename);
+	uint32_t basename_offset = 0;
+	int basename_found = 0;
+
 	fseek(zf->file, zf->cd_offset, SEEK_SET);
 	pos = ftell(zf->file);
 	if (file_crc == 0)
@@ -207,7 +213,6 @@ static int unzip_locate_file(PKZIP *zf, const char *filename, uint32_t file_crc)
 			fname = calloc(fname_len + 1, sizeof(unsigned char));
 			tr+=fread(fname, fname_len, 1, zf->file);
 			fskip(zf->file, xf_len + fcomment_len);
-			printf("ZIP entry: '%s' (looking for '%s')\n",fname,filename);
 			if ((strcasecmp(fname, filename) == 0 && strlen(fname) == strlen(
 					filename)) || crc == file_crc) {
 				//printf("Found 0x%08x %s\n", crc, fname);
@@ -215,11 +220,30 @@ static int unzip_locate_file(PKZIP *zf, const char *filename, uint32_t file_crc)
 				fseek(zf->file, offset, SEEK_SET);
 				return 0;
 			}
+			/* Track first basename match as fallback (handles MAME
+			   version differences like "005-pg1.bin" vs "005-pg1.p1") */
+			if (!basename_found) {
+				const char *zip_dot = strrchr(fname, '.');
+				int zip_baselen = zip_dot ? (int)(zip_dot - fname) : (int)strlen(fname);
+				if (zip_baselen == req_baselen &&
+					strncasecmp(fname, filename, req_baselen) == 0) {
+					basename_offset = offset;
+					basename_found = 1;
+				}
+			}
 		} else
 			break;
 	}
 	if (fname)
 		free(fname);
+
+	/* Fallback: basename match (ignore extension) */
+	if (basename_found) {
+		printf("ZIP basename fallback: '%s' matched by base name\n", filename);
+		fseek(zf->file, basename_offset, SEEK_SET);
+		return 0;
+	}
+
 	return -1;
 }
 

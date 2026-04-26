@@ -385,11 +385,19 @@
     return *a == 0 && *b == 0;
   }
 
+  /* Neo Geo: skip support files that aren't game ROMs */
+  static bool is_neogeo_system_file(const char *name) {
+    return (strcasecmp(name, "neogeo.zip") == 0 ||
+            strcasecmp(name, "gngeo_data.zip") == 0);
+  }
+
   bool matches_rom_extension(const char *name, int step) {
     if (name[0] == '.') return false;
     const char *dot = strrchr(name, '.');
     if (!dot) return false;
     const char *ext = dot + 1;
+    /* Neo Geo (step 17): hide neogeo.zip and gngeo_data.zip */
+    if (step == 17 && is_neogeo_system_file(name)) return false;
     if (strlen(EXTENSIONS[step]) > 0 && ext_eq(ext, EXTENSIONS[step])) return true;
     // Atari 800 supports .xex, .atr, and .a52 (Atari 5200 cartridge)
     if (step == 14 && ext_eq(ext, "atr")) return true;
@@ -1979,7 +1987,10 @@
         struct dirent *file;
         while ((file = readdir(directory)) != NULL) {
           bool extenstion = matches_rom_extension(file->d_name, STEP);
-          if(extenstion || (file->d_type == 2)) {
+          /* Neo Geo (STEP 17): skip directories and system files */
+          bool is_dir = (file->d_type == 2);
+          if (is_dir && STEP == 17) continue;
+          if(extenstion || is_dir) {
             SEEK[ROMS.total+1] = telldir(directory);
             ROMS.total++;
           }
@@ -1994,7 +2005,9 @@
           seekdir(directory, 0);
           while ((file = readdir(directory)) != NULL && SORTED_COUNT < ROMS.total) {
             bool extenstion = matches_rom_extension(file->d_name, STEP);
-            if(extenstion || (file->d_type == 2)) {
+            bool is_dir2 = (file->d_type == 2);
+            if (is_dir2 && STEP == 17) continue;
+            if(extenstion || is_dir2) {
               size_t len = strlen(file->d_name);
               if (file->d_type == 2) {
                 SORTED_FILES[SORTED_COUNT] = (char*)malloc(len + 5);

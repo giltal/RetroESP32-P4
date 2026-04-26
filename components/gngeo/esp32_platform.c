@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 #include "SDL.h"
 #include "emu.h"
 #include "screen.h"
@@ -149,6 +150,7 @@ static int neo_font_index(char c) {
 #define COL_CYAN    0x07FF
 #define COL_DKGRAY  0x4208
 #define COL_GREEN   0x07E0
+#define COL_RED     0xF800
 #define COL_BLUE    0x001F
 
 /* Loading screen state */
@@ -435,6 +437,10 @@ static volatile bool neo_videoTaskRunning = false;
 /* Forward declaration — points to current write buffer */
 static uint16_t *lcd_fb;
 
+/* Forward declarations for save state pixel buffers (defined later with other globals) */
+static uint8_t *state_img_pixels;     /* 304*224*2 bytes in PSRAM */
+static uint8_t *state_img_tmp_pixels;  /* 304*224*2 bytes in PSRAM */
+
 static void neo_show_volume(void)
 {
     static const char * const level_names[] = { "MUTE", "LOW", "MED", "HIGH", "MAX" };
@@ -538,8 +544,8 @@ static bool neo_show_menu(void)
     if (!lcd_fb) return false;
 
     int sel = 0;
-    const int ITEMS = 2;
-    const char *labels[] = { "RESUME", "EXIT GAME" };
+    const int ITEMS = 4;
+    const char *labels[] = { "RESUME", "SAVE STATE", "LOAD STATE", "EXIT GAME" };
 
     odroid_gamepad_state prev;
     odroid_input_gamepad_read(&prev);
@@ -553,7 +559,7 @@ static bool neo_show_menu(void)
     }
 
     while (1) {
-        int box_w = 120, box_h = 18 + ITEMS * 14;
+        int box_w = 140, box_h = 18 + ITEMS * 14;
         int box_x = (NEO_FB_W - box_w) / 2;
         int box_y = (NEO_FB_H - box_h) / 2;
 
@@ -602,7 +608,42 @@ static bool neo_show_menu(void)
             sel = (sel + 1) % ITEMS;
         if (gp.values[ODROID_INPUT_A] && !prev.values[ODROID_INPUT_A]) {
             if (sel == 0) return false;  /* Resume */
-            if (sel == 1) return true;   /* Exit */
+            if (sel == 1) {              /* Save State */
+                if (conf.game && state_img_pixels) {
+                    /* Copy current visible frame into state_img for the screenshot */
+                    uint16_t *other_fb = lcd_fb_arr[lcd_fb_write ^ 1];
+                    memcpy(state_img_pixels, other_fb, 304 * 224 * 2);
+                    /* Ensure save directory exists */
+                    struct stat st;
+                    if (stat(ROOTPATH "save", &st) == -1)
+                        mkdir(ROOTPATH "save", 0777);
+                    if (save_state(conf.game, 0) == 1) {
+                        menu_draw_str(lcd_fb, NEO_FB_W, NEO_FB_H, box_x + 20, box_y + box_h + 4, "SAVED!", COL_GREEN);
+                    } else {
+                        menu_draw_str(lcd_fb, NEO_FB_W, NEO_FB_H, box_x + 20, box_y + box_h + 4, "SAVE FAILED", COL_RED);
+                    }
+                    ili9341_write_frame_rgb565_custom(lcd_fb, NEO_FB_W, NEO_FB_H, 2.0f, false);
+                    vTaskDelay(pdMS_TO_TICKS(800));
+                }
+                return false;
+            }
+            if (sel == 2) {              /* Load State */
+                if (conf.game && state_img_tmp_pixels) {
+                    if (how_many_slot(conf.game) > 0) {
+                        if (load_state(conf.game, 0) == 1) {
+                            menu_draw_str(lcd_fb, NEO_FB_W, NEO_FB_H, box_x + 20, box_y + box_h + 4, "LOADED!", COL_GREEN);
+                        } else {
+                            menu_draw_str(lcd_fb, NEO_FB_W, NEO_FB_H, box_x + 20, box_y + box_h + 4, "LOAD FAILED", COL_RED);
+                        }
+                    } else {
+                        menu_draw_str(lcd_fb, NEO_FB_W, NEO_FB_H, box_x + 20, box_y + box_h + 4, "NO SAVE FOUND", COL_YELLOW);
+                    }
+                    ili9341_write_frame_rgb565_custom(lcd_fb, NEO_FB_W, NEO_FB_H, 2.0f, false);
+                    vTaskDelay(pdMS_TO_TICKS(800));
+                }
+                return false;
+            }
+            if (sel == 3) return true;   /* Exit */
         }
         if (gp.values[ODROID_INPUT_MENU] && !prev.values[ODROID_INPUT_MENU])
             return false;
@@ -662,8 +703,9 @@ Uint8 *joy_button[2];
 Sint32 *joy_axe[2];
 Uint32 joy_numaxes[2];
 
-/* state_img for menu screenshot capture */
+/* state_img for save state screenshot capture */
 static SDL_Surface state_img_surface;
+static SDL_Surface state_img_tmp_surface;
 SDL_Surface *state_img = &state_img_surface;
 Uint8 state_version = 3;
 char fps_str[32];
@@ -787,6 +829,31 @@ int screen_init(void) {
     /* Pre-render sidebar button labels (MENU / VOL) */
     neo_init_sidebar_buttons();
     sidebar_countdown = 2;
+
+    /* Allocate state_img / state_img_tmp pixel buffers for save states.
+     * 304×224 @ 16bpp = 136,192 bytes each.  We set .pixels here so
+     * neogeo_init_save_state() in state.c (which checks !state_img) is
+     * bypassed — our static surfaces are always non-NULL. */
+    state_img_pixels = heap_caps_calloc(1, 304 * 224 * 2, MALLOC_CAP_SPIRAM);
+    state_img_tmp_pixels = heap_caps_calloc(1, 304 * 224 * 2, MALLOC_CAP_SPIRAM);
+    if (state_img_pixels && state_img_tmp_pixels) {
+        state_img_surface.w = 304;
+        state_img_surface.h = 224;
+        state_img_surface.pitch = 304 * 2;
+        state_img_surface.pixels = state_img_pixels;
+        state_img_surface.format = &buf_fmt;
+        state_img_tmp_surface.w = 304;
+        state_img_tmp_surface.h = 224;
+        state_img_tmp_surface.pitch = 304 * 2;
+        state_img_tmp_surface.pixels = state_img_tmp_pixels;
+        state_img_tmp_surface.format = &buf_fmt;
+        state_img = &state_img_surface;
+        extern SDL_Surface *state_img_tmp;
+        state_img_tmp = &state_img_tmp_surface;
+        ESP_LOGI(TAG, "Save state buffers allocated (2 × %d bytes)", 304 * 224 * 2);
+    } else {
+        ESP_LOGW(TAG, "Failed to allocate save state buffers — save/load disabled");
+    }
 
     return 0;
 }

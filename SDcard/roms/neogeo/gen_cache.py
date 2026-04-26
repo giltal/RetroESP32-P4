@@ -34,6 +34,51 @@ REGION_SPRITES        = 9   # C ROMs
 CUSAGE_MAGIC   = 0x43553039  # "CU09"
 TILE_INVISIBLE = 1
 
+# Games that use CMC42 GFX encryption: {game_name: extra_xor}
+CMC42_GAMES = {
+    "kof99":    0x00,
+    "kof99n":   0x00,
+    "garou":    0x06,
+    "garouo":   0x06,
+    "garoubl":  0x06,
+    "mslug3":   0x06,
+    "mslug3h":  0x06,
+    "mslug3n":  0x06,
+    "ganryu":   0x07,
+    "s1945p":   0x05,
+    "preisle2": 0x9f,
+    "bangbead": 0xf8,
+    "nitd":     0xff,
+    "zupapa":   0xbd,
+    "sengoku3": 0xfe,
+}
+
+# Games that use CMC50 GFX encryption (different XOR tables)
+CMC50_GAMES = {
+    "kof2000":  0xad,
+    "kof2000n": 0xad,
+    "kof2001":  0x1e,
+    "mslug4":   0x31,
+    "ms4plus":  0x31,
+    "rotd":     0x3f,
+    "kof2002":  0xec,
+    "kof2002b": 0xec,
+    "kf2k2pls": 0xec,
+    "kf2k2mp":  0xec,
+    "kof2km2":  0xec,
+    "matrim":   0x6a,
+    "pnyaa":    0x2e,
+    "mslug5":   0x19,
+    "ms5pcb":   0x19,
+    "svc":      0x57,
+    "svcpcb":   0x57,
+    "kof2003":  0x9d,
+    "kof2003n": 0x9d,
+    "kf2k3pcb": 0x9d,
+    "samsh5sp": 0x0d,
+    "samsho5":  0x0f,
+}
+
 
 def read_drv(data):
     """Parse a .drv ROM definition file from gngeo_data.zip."""
@@ -97,6 +142,115 @@ def convert_roms_tile(tile_data):
     return bytes(out), usage
 
 
+# ---------------------------------------------------------------------------
+# CMC42/CMC50 GFX Decryption (Python port of neocrypt.c)
+# ---------------------------------------------------------------------------
+
+def load_xor_tables(datafile_path, table_name):
+    """Load XOR tables from gngeo_data.zip."""
+    with zipfile.ZipFile(datafile_path, 'r') as zf:
+        data = zf.read(f'rom/{table_name}')
+
+    return (
+        data[0:256],      # type0_t03
+        data[256:512],    # type0_t12
+        data[512:768],    # type1_t03
+        data[768:1024],   # type1_t12
+        data[1024:1280],  # address_8_15_xor1
+        data[1280:1536],  # address_8_15_xor2
+        data[1536:1792],  # address_16_23_xor1
+        data[1792:2048],  # address_16_23_xor2
+        data[2048:2304],  # address_0_7_xor
+    )
+
+
+def _decrypt_byte_pair(c0, c1, table0hi, table0lo, table1, base, invert, addr_0_7_xor):
+    """Decrypt one byte pair. Matches decrypt() in neocrypt.c."""
+    tmp = table1[(base & 0xff) ^ addr_0_7_xor[(base >> 8) & 0xff]]
+    xor0 = (table0hi[(base >> 8) & 0xff] & 0xfe) | (tmp & 0x01)
+    xor1 = (tmp & 0xfe) | (table0lo[(base >> 8) & 0xff] & 0x01)
+
+    if invert:
+        return (c1 ^ xor0) & 0xff, (c0 ^ xor1) & 0xff
+    else:
+        return (c0 ^ xor0) & 0xff, (c1 ^ xor1) & 0xff
+
+
+def neogeo_gfx_decrypt(rom, rom_size, extra_xor, tables):
+    """Apply CMC42/CMC50 GFX decryption in-place."""
+    (type0_t03, type0_t12, type1_t03, type1_t12,
+     addr_8_15_x1, addr_8_15_x2, addr_16_23_x1, addr_16_23_x2, addr_0_7_x) = tables
+
+    quarter = rom_size // 4
+
+    # Phase 1: Data XOR -> buf
+    print("  Phase 1: Data XOR decryption...")
+    buf = bytearray(rom_size)
+    t0 = time.time()
+
+    for rpos in range(quarter):
+        off = 4 * rpos
+        r0, r3 = _decrypt_byte_pair(
+            rom[off+0], rom[off+3],
+            type0_t03, type0_t12, type1_t03,
+            rpos, (rpos >> 8) & 1, addr_0_7_x)
+        invert2 = ((rpos >> 16) ^ addr_16_23_x2[(rpos >> 8) & 0xff]) & 1
+        r1, r2 = _decrypt_byte_pair(
+            rom[off+1], rom[off+2],
+            type0_t12, type0_t03, type1_t12,
+            rpos, invert2, addr_0_7_x)
+
+        buf[off+0] = r0
+        buf[off+1] = r1
+        buf[off+2] = r2
+        buf[off+3] = r3
+
+        if rpos > 0 and rpos % 2000000 == 0:
+            elapsed = time.time() - t0
+            pct = 100 * rpos // quarter
+            print(f"    {pct}% ({elapsed:.1f}s)")
+
+    # Phase 2: Address XOR (shuffle)
+    print("  Phase 2: Address XOR shuffle...")
+    t1 = time.time()
+
+    for rpos in range(quarter):
+        baser = rpos
+        baser ^= extra_xor
+        baser ^= addr_8_15_x1[(baser >> 16) & 0xff] << 8
+        baser ^= addr_8_15_x2[baser & 0xff] << 8
+        baser ^= addr_16_23_x1[baser & 0xff] << 16
+        baser ^= addr_16_23_x2[(baser >> 8) & 0xff] << 16
+        baser ^= addr_0_7_x[(baser >> 8) & 0xff]
+
+        if rom_size == 0x3000000:  # preisle2
+            if rpos < 0x2000000 // 4:
+                baser &= (0x2000000 // 4) - 1
+            else:
+                baser = 0x2000000 // 4 + (baser & ((0x1000000 // 4) - 1))
+        elif rom_size == 0x6000000:  # kf2k3pcb
+            if rpos < 0x4000000 // 4:
+                baser &= (0x4000000 // 4) - 1
+            else:
+                baser = 0x4000000 // 4 + (baser & ((0x1000000 // 4) - 1))
+        else:
+            baser &= (rom_size // 4) - 1
+
+        off_dst = 4 * rpos
+        off_src = 4 * baser
+        rom[off_dst+0] = buf[off_src+0]
+        rom[off_dst+1] = buf[off_src+1]
+        rom[off_dst+2] = buf[off_src+2]
+        rom[off_dst+3] = buf[off_src+3]
+
+        if rpos > 0 and rpos % 2000000 == 0:
+            elapsed = time.time() - t1
+            pct = 100 * rpos // quarter
+            print(f"    {pct}% ({elapsed:.1f}s)")
+
+    print(f"  Decrypt complete: data={t1-t0:.1f}s addr={time.time()-t1:.1f}s")
+
+
 def make_rom_reader(game_zip, parent_zip):
     """Return a function that reads ROM files from game ZIP or parent ZIP."""
     def read_rom_file(filename, crc=0):
@@ -149,7 +303,7 @@ def get_crom_pairs(drv):
     return pairs
 
 
-def generate_ctile(drv, read_rom, output_dir, game_name):
+def generate_ctile(drv, read_rom, output_dir, game_name, gngeo_data_path):
     """Generate .ctile and .cusage files."""
     sprite_size = drv['romsizes'][REGION_SPRITES]
     if sprite_size == 0:
@@ -161,12 +315,28 @@ def generate_ctile(drv, read_rom, output_dir, game_name):
         print("ERROR: No C ROM pairs found in driver.")
         return
 
-    ctile_path = os.path.join(output_dir, f"{game_name}.ctile")
-    cusage_path = os.path.join(output_dir, f"{game_name}.cusage")
+    # Detect encryption
+    encrypt_type = None
+    extra_xor = None
+    if game_name in CMC42_GAMES:
+        encrypt_type = 'cmc42'
+        extra_xor = CMC42_GAMES[game_name]
+    elif game_name in CMC50_GAMES:
+        encrypt_type = 'cmc50'
+        extra_xor = CMC50_GAMES[game_name]
+
+    game_dir = os.path.join(output_dir, game_name)
+    os.makedirs(game_dir, exist_ok=True)
+    ctile_path = os.path.join(game_dir, f"{game_name}.ctile")
+    cusage_path = os.path.join(game_dir, f"{game_name}.cusage")
 
     print(f"\n=== Sprite Cache (.ctile + .cusage) ===")
     print(f"Total sprite size: {sprite_size // (1024*1024)} MB")
     print(f"C ROM pairs: {len(pairs)}")
+    if encrypt_type:
+        print(f"Encryption: {encrypt_type.upper()} (extra_xor=0x{extra_xor:02x})")
+    else:
+        print(f"Encryption: none")
 
     # Allocate interleaved buffer
     tiles_buf = bytearray(sprite_size)
@@ -196,6 +366,17 @@ def generate_ctile(drv, read_rom, output_dir, game_name):
 
     t1 = time.time()
     print(f"Interleave done in {t1 - t0:.1f}s")
+
+    # Apply GFX decryption if needed
+    if encrypt_type is not None:
+        table_file = f"{encrypt_type}.xor"
+        print(f"Loading {table_file} from gngeo_data.zip...")
+        tables = load_xor_tables(gngeo_data_path, table_file)
+        print(f"Decrypting ({encrypt_type}, extra_xor=0x{extra_xor:02x})...")
+        neogeo_gfx_decrypt(tiles_buf, sprite_size, extra_xor, tables)
+        t1b = time.time()
+        print(f"Decryption done in {t1b - t1:.1f}s")
+        t1 = t1b
 
     # Convert tiles and build spr_usage
     nb_tiles = sprite_size >> 7   # 128 bytes per tile
@@ -258,7 +439,9 @@ def generate_vroma(drv, read_rom, output_dir, game_name):
         vroma_files = [r for r in drv['roms']
                        if r['region'] == REGION_AUDIO_DATA_1]
         if vroma_files:
-            out_path = os.path.join(output_dir, f'{game_name}.vroma')
+            game_dir = os.path.join(output_dir, game_name)
+            os.makedirs(game_dir, exist_ok=True)
+            out_path = os.path.join(game_dir, f'{game_name}.vroma')
             print(f"\n=== ADPCM-A Cache (.vroma) ===")
             print(f"Size: {adpcma_size // 1024} KB, files: {len(vroma_files)}")
 
@@ -285,7 +468,9 @@ def generate_vroma(drv, read_rom, output_dir, game_name):
         vromb_files = [r for r in drv['roms']
                        if r['region'] == REGION_AUDIO_DATA_2]
         if vromb_files:
-            out_path = os.path.join(output_dir, f'{game_name}.vromb')
+            game_dir = os.path.join(output_dir, game_name)
+            os.makedirs(game_dir, exist_ok=True)
+            out_path = os.path.join(game_dir, f'{game_name}.vromb')
             print(f"\n=== ADPCM-B Cache (.vromb) ===")
             print(f"Size: {adpcmb_size // 1024} KB, files: {len(vromb_files)}")
 
@@ -375,7 +560,7 @@ def main():
     t_start = time.time()
 
     # Generate all cache files
-    generate_ctile(drv, read_rom, out_dir, game_name)
+    generate_ctile(drv, read_rom, out_dir, game_name, gngeo_data_path)
     generate_vroma(drv, read_rom, out_dir, game_name)
 
     # Cleanup
@@ -387,17 +572,18 @@ def main():
     print(f"\n{'='*50}")
     print(f"All cache files generated in {t_total:.1f}s")
     print(f"\nUpload to device:")
-    ctile_path = os.path.join(out_dir, f'{game_name}.ctile')
-    cusage_path = os.path.join(out_dir, f'{game_name}.cusage')
-    vroma_path = os.path.join(out_dir, f'{game_name}.vroma')
+    game_subdir = os.path.join(out_dir, game_name)
+    ctile_path = os.path.join(game_subdir, f'{game_name}.ctile')
+    cusage_path = os.path.join(game_subdir, f'{game_name}.cusage')
+    vroma_path = os.path.join(game_subdir, f'{game_name}.vroma')
     if os.path.isfile(ctile_path):
-        print(f"  python tools/upload_papp.py {game_name}.cusage "
-              f"--dest /sd/roms/neogeo/{game_name}.cusage")
-        print(f"  python tools/upload_papp.py {game_name}.ctile "
-              f"--dest /sd/roms/neogeo/{game_name}.ctile")
+        print(f"  python tools/upload_papp.py {game_name}/{game_name}.cusage "
+              f"--dest /sd/roms/neogeo/{game_name}/{game_name}.cusage")
+        print(f"  python tools/upload_papp.py {game_name}/{game_name}.ctile "
+              f"--dest /sd/roms/neogeo/{game_name}/{game_name}.ctile")
     if os.path.isfile(vroma_path):
-        print(f"  python tools/upload_papp.py {game_name}.vroma "
-              f"--dest /sd/roms/neogeo/{game_name}.vroma")
+        print(f"  python tools/upload_papp.py {game_name}/{game_name}.vroma "
+              f"--dest /sd/roms/neogeo/{game_name}/{game_name}.vroma")
 
 
 if __name__ == '__main__':

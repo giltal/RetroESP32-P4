@@ -964,7 +964,7 @@ static FILE *stream_adpcma_file = NULL;
 static FILE *stream_adpcmb_file = NULL;
 
 static void get_cache_path(const char *name, const char *ext, char *out, int maxlen) {
-	snprintf(out, maxlen, "%s%s.%s", ROOTPATH, name, ext);
+	snprintf(out, maxlen, "%s%s/%s.%s", ROOTPATH, name, name, ext);
 }
 
 static int cache_file_exists(const char *path) {

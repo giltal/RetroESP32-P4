@@ -131,7 +131,9 @@ def main():
 
     # Generate ADPCM-A cache
     if adpcma_size > 0 and vroma_files:
-        out_path = os.path.join(output_dir, f'{game_name}.vroma')
+        game_dir = os.path.join(output_dir, game_name)
+        os.makedirs(game_dir, exist_ok=True)
+        out_path = os.path.join(game_dir, f'{game_name}.vroma')
         print(f"\nGenerating {out_path} ({adpcma_size // (1024*1024)} MB)...")
         t0 = time.time()
 
@@ -153,7 +155,9 @@ def main():
 
     # Generate ADPCM-B cache (if different from A)
     if adpcmb_size > 0 and vromb_files:
-        out_path = os.path.join(output_dir, f'{game_name}.vromb')
+        game_dir = os.path.join(output_dir, game_name)
+        os.makedirs(game_dir, exist_ok=True)
+        out_path = os.path.join(game_dir, f'{game_name}.vromb')
         print(f"\nGenerating {out_path} ({adpcmb_size // (1024*1024)} MB)...")
         t0 = time.time()
 
@@ -178,9 +182,9 @@ def main():
     print("\nAll ADPCM cache files generated successfully.")
     print("Upload with:")
     if adpcma_size > 0:
-        print(f"  python tools/upload_papp.py {game_name}.vroma --dest /sd/roms/neogeo/{game_name}.vroma")
+        print(f"  python tools/upload_papp.py {game_name}/{game_name}.vroma --dest /sd/roms/neogeo/{game_name}/{game_name}.vroma")
     if adpcmb_size > 0 and vromb_files:
-        print(f"  python tools/upload_papp.py {game_name}.vromb --dest /sd/roms/neogeo/{game_name}.vromb")
+        print(f"  python tools/upload_papp.py {game_name}/{game_name}.vromb --dest /sd/roms/neogeo/{game_name}/{game_name}.vromb")
 
 
 if __name__ == '__main__':

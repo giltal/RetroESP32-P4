@@ -538,11 +538,16 @@ static void neogeo_gfx_decrypt(running_machine *machine, int extra_xor)
 	UINT8 *rom;
 	int rpos;
 	int cnt;
+
+	rom = memory_region(machine, "sprites");
+	if (!rom) {
+		printf("GFX decrypt skipped (tiles streaming)\n");
+		return;
+	}
+
 	rom_size = memory_region_length(machine, "sprites");
 
 	buf = alloc_array_or_die(UINT8, rom_size);
-
-	rom = memory_region(machine, "sprites");
 	gn_init_pbar("Decrypting...", rom_size/2);
 	// Data xor
 	cnt=0;
@@ -606,9 +611,14 @@ static void neogeo_gfx_decrypt(running_machine *machine, int extra_xor)
 void neogeo_sfix_decrypt(running_machine *machine)
 {
 	int i;
+	UINT8 *sprites = memory_region(machine, "sprites");
+	if (!sprites) {
+		printf("SFIX decrypt skipped (tiles streaming)\n");
+		return;
+	}
 	int rom_size = memory_region_length(machine, "sprites");
 	int tx_size = memory_region_length(machine, "fixed");
-	UINT8 *src = memory_region(machine, "sprites")+rom_size-tx_size;
+	UINT8 *src = sprites+rom_size-tx_size;
 	UINT8 *dst = memory_region(machine, "fixed");
 
 	for (i = 0;i < tx_size;i++)
