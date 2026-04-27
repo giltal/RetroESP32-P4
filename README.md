@@ -26,6 +26,7 @@ Built from my recent revival of the original RetroESP32, this project brings mod
 - PC Engine
 - SNES
 - Sega Genesis / Mega Drive
+
 **- The mighty NeoGeo!!!** Fully operational!
 
 ## ⚡ Performance
