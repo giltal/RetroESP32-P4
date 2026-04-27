@@ -25,9 +25,8 @@ Built from my recent revival of the original RetroESP32, this project brings mod
 - Atari 800XL / 5200  (Supports paddle for breakout, Kaboom and and the alike in the console mode)
 - PC Engine
 - SNES
+- **The mighty NeoGeo**!!! Fully operational!
 - Sega Genesis / Mega Drive
-
-**- The mighty NeoGeo!!!** Fully operational!
 
 ## ⚡ Performance
 
