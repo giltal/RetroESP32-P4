@@ -2,7 +2,7 @@
 
 RetroESP32-P4 is a retro gaming and application platform based on the powerful ESP32-P4.
 
-Built from my recent revival of the original RetroESP32, this project brings modern UI, **HDMI** support, touchscreen support, 14 emulators, and native apps running from SRAM.
+Built from my recent revival of the original RetroESP32, this project brings modern UI, **HDMI** support, touchscreen support, 15 emulators, and native apps running from SRAM.
 
 ![Banner](images/image-20260419092805506.png)
 
