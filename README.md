@@ -10,7 +10,7 @@ Built from my recent revival of the original RetroESP32, this project brings mod
 
 # ✨ Features
 
-## 🎮 14 Supported Emulators
+## 🎮 15 Supported Emulators
 
 - NES
 - Game Boy
@@ -26,11 +26,13 @@ Built from my recent revival of the original RetroESP32, this project brings mod
 - PC Engine
 - SNES
 - Sega Genesis / Mega Drive
+**- The mighty NeoGeo!!!** Fully operational!
 
 ## ⚡ Performance
 
 - Most systems run at 60 FPS (without frame skips!)
 - SNES / Genesis run ~50 FPS
+- NeoGeo 40-60 FPS (game play is totaly smooth)
 
 ## 💾 Save States
 
@@ -102,7 +104,8 @@ Included:
 3. Flash firmware to address **0** (**RetroESP32_P4_v1**.bin or **RetroESP32_P4_HDMI_v1**.bin) (https://espressif.github.io/esptool-js/)
 4. Insert SD card
 5. Connect controller or plug into the console frame
-6. Enjoy
+6. For NeoGeo games you will need to run the python script to generate the cache files (script is at the SD card folder)
+7. Enjoy
 
 ---
 
@@ -144,6 +147,10 @@ Based on the original RetroESP32 project, revived and modernized for ESP32-P4.
 To original creators of the RetroESP32
 
 The creator of the ESP32 based Atari 800 emulator
+
+SNES and Genesis creators
+
+NeoGeo Linux version creator
 
 ## 📜 License
 
