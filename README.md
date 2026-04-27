@@ -26,14 +26,13 @@ Built from my recent revival of the original RetroESP32, this project brings mod
 - PC Engine
 - SNES
 - Sega Genesis / Mega Drive
-  
 **- The mighty NeoGeo!!!** Fully operational!
 
 ## ⚡ Performance
 
 - Most systems run at 60 FPS (without frame skips!)
-- SNES / Genesis run ~50 FPS
-- NeoGeo 40-60 FPS (game play is totaly smooth)
+- SNES / Genesis run 60 FPS (with around 10 frames drops per second - game play is totaly smooth)
+- NeoGeo 60 FPS (with around 0-20 frames drops per second - game play is totaly smooth)
 
 ## 💾 Save States
 
