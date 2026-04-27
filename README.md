@@ -62,7 +62,7 @@ Plug **any** USB controller and automatic button mapping starts on first use (**
 
 - Guition ESP32-P4 board (https://www.guition.com/esp32p4-display-module/esp32p4-display-module)
 
-- Olimex LT8912 CSI-to-HDMI bridge (https://www.olimex.com/Products/IoT/ESP32-P4/MIPI-HDMI/open-source-hardware) (**Be very careful to use the correct CSI flat cable**, better to buy it from Olimex - https://www.olimex.com/Products/IoT/ESP32-P4/FPC-15-1.0-150/)
+- Olimex LT8912 DSI(MIPI)-to-HDMI bridge (https://www.olimex.com/Products/IoT/ESP32-P4/MIPI-HDMI/open-source-hardware) (**Be very careful to use the correct CSI flat cable**, better to buy it from Olimex - https://www.olimex.com/Products/IoT/ESP32-P4/FPC-15-1.0-150/)
 
   ![Banner](images/image-20260419091605829.png)
 
