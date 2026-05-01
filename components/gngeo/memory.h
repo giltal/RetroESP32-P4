@@ -109,6 +109,8 @@ typedef struct neo_mem {
 	Uint8 *bksw_unscramble;
 	int *bksw_offset;
 	Uint16 sma_rng_addr;
+	Uint8 kof98_prot;        /* non-zero = kof98 protection active */
+	Uint8 kof98_prot_state;  /* 0=default ROM, 1=0x00C2/0x00FD, 2=0x4E45/0x4F2D */
 	Uint8 memcard[0x800];
 
 	Uint32 watchdog;

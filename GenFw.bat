@@ -1,0 +1,1 @@
+powershell -ExecutionPolicy Bypass -File .\generate_merged_bin.ps1

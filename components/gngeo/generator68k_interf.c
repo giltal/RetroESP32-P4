@@ -265,6 +265,7 @@ void cpu_68k_init(void)
 
     if (!CF_BOOL(cf_get_item_by_name("dump"))) {
 		swap_memory(memory.rom.cpu_m68k.p, memory.rom.cpu_m68k.size);
+
 		if (memory.rom.bios_m68k.p[0]==0x10) {
 			printf("BIOS BYTE1=%08x\n",memory.rom.bios_m68k.p[0]);
 			swap_memory(memory.rom.bios_m68k.p, memory.rom.bios_m68k.size);
@@ -281,14 +282,9 @@ void cpu_68k_init(void)
 	cpu68k_romlen = 0x100000;
     mem68k_init();
 
-    /* Verify dispatch table for CTL1 (page 0x300) and COIN (page 0x320) */
-    printf("DISPATCH TABLE: page 0x300 fetch_byte=%p (expected=%p), page 0x320 fetch_byte=%p (expected=%p)\n",
-           (void*)mem68k_fetch_byte[0x300], (void*)mem68k_fetch_ctl1_byte,
-           (void*)mem68k_fetch_byte[0x320], (void*)mem68k_fetch_coin_byte);
-
     cpu68k_init();
     if (memory.rom.cpu_m68k.size > 0x100000) {
-	cpu_68k_bankswitch(0);
+	cpu_68k_bankswitch(0x100000);
     }
     //cpu_68k_init_save_state();
 }

@@ -41,6 +41,10 @@ void neogeo_run(const char *rom_path)
     ili9341_init();
     ili9341_clear(0x0000);
 
+    /* Neo Geo uses X/Y as C/D buttons — disable X→Menu/Y→Volume aliasing */
+    extern bool odroid_input_xy_menu_disable;
+    odroid_input_xy_menu_disable = true;
+
     ESP_LOGI(TAG, "Free PSRAM: %u KB",
              (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
     ESP_LOGI(TAG, "Free internal: %u KB",

@@ -215,7 +215,12 @@ static int unzip_locate_file(PKZIP *zf, const char *filename, uint32_t file_crc)
 			fskip(zf->file, xf_len + fcomment_len);
 			if ((strcasecmp(fname, filename) == 0 && strlen(fname) == strlen(
 					filename)) || crc == file_crc) {
-				//printf("Found 0x%08x %s\n", crc, fname);
+				int name_match = (strcasecmp(fname, filename) == 0);
+				int crc_match = (crc == file_crc);
+				if (!name_match || !crc_match)
+					printf("ZIP match: '%s' name=%s crc=%s (zip_crc=0x%08X drv_crc=0x%08X)\n",
+						filename, name_match ? "YES" : "NO",
+						crc_match ? "YES" : "NO", crc, file_crc);
 				free(fname);
 				fseek(zf->file, offset, SEEK_SET);
 				return 0;

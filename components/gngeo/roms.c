@@ -418,7 +418,10 @@ int init_sengoku3(GAME_ROMS *r) {
 int init_kof98(GAME_ROMS *r) {
 	if (need_decrypt) kof98_decrypt_68k(r);
 
-	//install_kof98_protection(r);
+	/* Enable kof98 protection, start at state 0 (return original ROM values) */
+	memory.kof98_prot = 1;
+	memory.kof98_prot_state = 0;
+
 	return 0;
 }
 
@@ -1264,10 +1267,19 @@ static int setup_sprite_streaming(const char *ctile_path, Uint32 tile_size) {
 	memory.rom.tiles.p = NULL;
 	memory.nb_of_tiles = tile_size >> 7;
 
-	/* Try cache sizes from large to small */
+	/* Calculate max sprite cache: leave room for ADPCM cache + IPC pool + headroom.
+	 * ADPCM streaming needs up to 4MB, IPC pool needs at least 1MB,
+	 * plus 2MB general headroom for task stacks, framebuffers, etc. */
+	Uint32 free_now = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+	Uint32 reserve = (streaming_adpcma ? ADPCM_CACHE_BUDGET : 0) + (3 * 1024 * 1024);
+	Uint32 max_sprite_cache = (free_now > reserve) ? (free_now - reserve) : (2 * 1024 * 1024);
+
+	/* Try cache sizes from large to small, limited by max_sprite_cache */
 	Uint32 cache_sizes[] = { 12, 8, 6, 4, 2, 0 };
 	for (int i = 0; cache_sizes[i] != 0; i++) {
 		Uint32 cache_bytes = cache_sizes[i] * 1024 * 1024;
+		if (cache_bytes > max_sprite_cache)
+			continue;  /* skip sizes that would starve other allocations */
 		if (init_sprite_cache(cache_bytes, SPRITE_BANK_SIZE) == GN_TRUE) {
 			printf("Sprite streaming: %u MB cache, %u tiles, bank=%d\n",
 				   cache_sizes[i], memory.nb_of_tiles, SPRITE_BANK_SIZE);
@@ -1408,7 +1420,6 @@ static int load_region(PKZIP *pz, GAME_ROMS *r, int region, Uint32 src,
 	int rc;
 	int badcrc = 0;
 	ZFILE *gz;
-
 
 	gz = gn_unzip_fopen(pz, filename, crc);
 	if (gz == NULL) {
@@ -1611,6 +1622,7 @@ static int init_roms(GAME_ROMS *r) {
 	memory.bksw_unscramble = NULL;
 	memory.bksw_offset = NULL;
 	memory.sma_rng_addr = 0;
+	memory.kof98_prot = 0;
 
 	while (init_func_table[i].name) {
 		//printf("INIT ROM ? %s %s\n",init_func_table[i].name,r->info.name);
@@ -1847,6 +1859,32 @@ int dr_load_roms(GAME_ROMS *r, char *rom_path, char *name) {
 	get_cache_path(name, "vroma", vroma_path, sizeof(vroma_path));
 	get_cache_path(name, "vromb", vromb_path, sizeof(vromb_path));
 
+	/* Fall back to parent's cache files for clones that share sprites/audio */
+	if (drv->parent[0] != '\0' && strcmp(drv->parent, "neogeo") != 0) {
+		char parent_path[128];
+		if (!cache_file_exists(ctile_path)) {
+			get_cache_path(drv->parent, "ctile", parent_path, sizeof(parent_path));
+			if (cache_file_exists(parent_path)) {
+				printf("Using parent ctile: %s\n", parent_path);
+				strncpy(ctile_path, parent_path, sizeof(ctile_path));
+			}
+		}
+		if (!cache_file_exists(vroma_path)) {
+			get_cache_path(drv->parent, "vroma", parent_path, sizeof(parent_path));
+			if (cache_file_exists(parent_path)) {
+				printf("Using parent vroma: %s\n", parent_path);
+				strncpy(vroma_path, parent_path, sizeof(vroma_path));
+			}
+		}
+		if (!cache_file_exists(vromb_path)) {
+			get_cache_path(drv->parent, "vromb", parent_path, sizeof(parent_path));
+			if (cache_file_exists(parent_path)) {
+				printf("Using parent vromb: %s\n", parent_path);
+				strncpy(vromb_path, parent_path, sizeof(vromb_path));
+			}
+		}
+	}
+
 	gn_loading_info("Allocating memory...");
 	printf("ROM sizes: tiles=%uMB adpcma=%uMB adpcmb=%uMB free_psram=%uMB\n",
 		   tiles_size / (1024*1024), adpcma_size / (1024*1024),
@@ -1949,6 +1987,15 @@ int dr_load_roms(GAME_ROMS *r, char *rom_path, char *name) {
 	if (streaming_tiles) {
 		char cusage_chk[128];
 		get_cache_path(name, "cusage", cusage_chk, sizeof(cusage_chk));
+		/* Fall back to parent cusage if game-specific one missing */
+		if (!cusage_file_valid(cusage_chk) && drv->parent[0] != '\0' && strcmp(drv->parent, "neogeo") != 0) {
+			char parent_cusage[128];
+			get_cache_path(drv->parent, "cusage", parent_cusage, sizeof(parent_cusage));
+			if (cusage_file_valid(parent_cusage)) {
+				printf("Using parent cusage: %s\n", parent_cusage);
+				strncpy(cusage_chk, parent_cusage, sizeof(cusage_chk));
+			}
+		}
 		if (cache_file_exists(ctile_path) && cusage_file_valid(cusage_chk)) {
 			printf("Sprite cache complete: %s\n", ctile_path);
 			skip_tile_extract = 1;
@@ -2284,6 +2331,45 @@ int dr_load_game(char *name) {
 
 	memcpy(memory.game_vector, memory.rom.cpu_m68k.p, 0x80);
 	memcpy(memory.rom.cpu_m68k.p, memory.rom.bios_m68k.p, 0x80);
+
+	/* For CMC42/CMC50 games in streaming mode, neogeo_sfix_decrypt() is skipped
+	 * because tiles.p is NULL. Load pre-extracted .sfix file if available. */
+	if (memory.rom.tiles.p == NULL) {
+		char sfix_path[128];
+		get_cache_path(name, "sfix", sfix_path, sizeof(sfix_path));
+		if (cache_file_exists(sfix_path)) {
+			FILE *sf = fopen(sfix_path, "rb");
+			if (sf) {
+				fseek(sf, 0, SEEK_END);
+				long sfix_size = ftell(sf);
+				fseek(sf, 0, SEEK_SET);
+				if (sfix_size > 0 && (Uint32)sfix_size <= memory.rom.game_sfix.size) {
+					fread(memory.rom.game_sfix.p, 1, sfix_size, sf);
+					printf("Loaded SFIX cache: %s (%ld bytes)\n", sfix_path, sfix_size);
+				} else if (sfix_size > (long)memory.rom.game_sfix.size) {
+					/* .sfix larger than allocated region — reallocate */
+					Uint8 *new_sfix = heap_caps_malloc(sfix_size, MALLOC_CAP_SPIRAM);
+					if (new_sfix) {
+						fread(new_sfix, 1, sfix_size, sf);
+						heap_caps_free(memory.rom.game_sfix.p);
+						memory.rom.game_sfix.p = new_sfix;
+						memory.rom.game_sfix.size = sfix_size;
+						/* Reallocate usage array for new size */
+						Uint32 new_usage_size = (sfix_size >> 5) * sizeof(Uint32);
+						Uint8 *new_usage = heap_caps_malloc(new_usage_size, MALLOC_CAP_SPIRAM);
+						if (new_usage) {
+							heap_caps_free(memory.rom.gfix_usage.p);
+							memory.rom.gfix_usage.p = new_usage;
+							memory.rom.gfix_usage.size = new_usage_size;
+							memory.fix_game_usage = new_usage;
+						}
+						printf("Loaded SFIX cache (realloc): %s (%ld bytes)\n", sfix_path, sfix_size);
+					}
+				}
+				fclose(sf);
+			}
+		}
+	}
 
 	convert_all_char(memory.rom.game_sfix.p, memory.rom.game_sfix.size,
 			memory.fix_game_usage);
@@ -2854,6 +2940,7 @@ int init_game(char *rom_name) {
     }
 
     open_nvram(conf.game);
+
     open_memcard(conf.game);
 #ifndef GP2X /* crash on the gp2x */
     sdl_set_title(conf.game);

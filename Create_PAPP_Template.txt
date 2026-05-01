@@ -1,8 +1,0 @@
-Need you to create a template project for a user to build a PAPP application for the platform we are using in this project:
-It should have access all of the components we have here, LCD, Touch, PNG, USB game pad, sound ,SD card, PPA, paddle, etc.
-The tamplate folder name should be: ESP32_P4_PAPP_Template
-In the created project create a main, that inits every thing needed (all components)
-Create a framebuffer of size 400x240 which will be the "main" framebuffer, and upon user request call a fuction you will create using the PPA to rotate 270 and scale x2 to fit the 480x800 lcdf
-create an md file for you so you will get into full context when I open this new created folder
-You should be able to complie the project and upload it to the console assuming louncher is running
-For a start create a simple application that draws a light blue screen with a small yellow ball to be moved by the gamepad 

@@ -1135,15 +1135,16 @@ void garou_decrypt_68k(running_machine *machine)
 
 	/* swap address lines for the banked part */
 	rom = (UINT16 *)(memory_region(machine, "maincpu") + 0x100000);
+	UINT16 *buffer2 = malloc(0x8000);
 	for (i = 0;i < 0x800000/2;i+=0x8000/2)
 	{
-		UINT16 buffer[0x8000/2];
-		memcpy(buffer,&rom[i],0x8000);
+		memcpy(buffer2,&rom[i],0x8000);
 		for (j = 0;j < 0x8000/2;j++)
 		{
-			rom[i+j] = buffer[BITSWAP24(j,23,22,21,20,19,18,17,16,15,14,9,4,8,3,13,6,2,7,0,12,1,11,10,5)];
+			rom[i+j] = buffer2[BITSWAP24(j,23,22,21,20,19,18,17,16,15,14,9,4,8,3,13,6,2,7,0,12,1,11,10,5)];
 		}
 	}
+	free(buffer2);
 }
 
 
@@ -1169,15 +1170,16 @@ void garouo_decrypt_68k(running_machine *machine)
 
 	/* swap address lines for the banked part */
 	rom = (UINT16 *)(memory_region(machine, "maincpu") + 0x100000);
+	UINT16 *buffer3 = malloc(0x8000);
 	for (i = 0;i < 0x800000/2;i+=0x8000/2)
 	{
-		UINT16 buffer[0x8000/2];
-		memcpy(buffer,&rom[i],0x8000);
+		memcpy(buffer3,&rom[i],0x8000);
 		for (j = 0;j < 0x8000/2;j++)
 		{
-			rom[i+j] = buffer[BITSWAP24(j,23,22,21,20,19,18,17,16,15,14,12,8,1,7,11,3,13,10,6,9,5,4,0,2)];
+			rom[i+j] = buffer3[BITSWAP24(j,23,22,21,20,19,18,17,16,15,14,12,8,1,7,11,3,13,10,6,9,5,4,0,2)];
 		}
 	}
+	free(buffer3);
 }
 
 
@@ -1203,15 +1205,16 @@ void mslug3_decrypt_68k(running_machine *machine)
 
 	/* swap address lines for the banked part */
 	rom = (UINT16 *)(memory_region(machine, "maincpu") + 0x100000);
+	UINT16 *buffer = malloc(0x10000);
 	for (i = 0;i < 0x800000/2;i+=0x10000/2)
 	{
-		UINT16 buffer[0x10000/2];
 		memcpy(buffer,&rom[i],0x10000);
 		for (j = 0;j < 0x10000/2;j++)
 		{
 			rom[i+j] = buffer[BITSWAP24(j,23,22,21,20,19,18,17,16,15,2,11,0,14,6,4,13,8,9,3,10,7,5,12,1)];
 		}
 	}
+	free(buffer);
 }
 
 

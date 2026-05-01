@@ -125,6 +125,11 @@ unsigned int m68k_read_memory_8(unsigned int address)
     case 0xDC: case 0xDD: case 0xDE: case 0xDF:
         sram_rd_count++;
         return mem68k_fetch_sram_byte(address);
+    case 0x20: case 0x21: case 0x22: case 0x23:
+    case 0x24: case 0x25: case 0x26: case 0x27:
+    case 0x28: case 0x29: case 0x2A: case 0x2B:
+    case 0x2C: case 0x2D: case 0x2E: case 0x2F:
+        return mem68k_fetch_bk_normal_byte(address);
     case 0xC0: case 0xC1:
         return mem68k_fetch_bios_byte(address);
     default:
@@ -353,6 +358,16 @@ void cpu_68k_init(void)
     neogeo_cpu_rom_size = (memory.rom.cpu_m68k.size < 0x100000)
                           ? memory.rom.cpu_m68k.size : 0x100000;
     neogeo_bankaddress = 0;
+
+    /* Debug: compare FETCH vs READ_WORD_ROM for kof98 */
+    if (memory.kof98_prot) {
+        uint16_t raw = *(uint16_t *)(neogeo_cpu_rom + 0x100);
+        uint16_t via_macro = READ_WORD_ROM(neogeo_cpu_rom + 0x100);
+        uint16_t fetch = FETCH16ROM(0x100);
+        printf("KOF98 post-init: raw=%04x READ_WORD_ROM=%04x FETCH16ROM=%04x bytes=[%02x][%02x]\n",
+               raw, via_macro, fetch,
+               neogeo_cpu_rom[0x100], neogeo_cpu_rom[0x101]);
+    }
 
     /* Initialize Musashi */
     m68k_init();

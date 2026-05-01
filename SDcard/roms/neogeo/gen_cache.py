@@ -28,6 +28,7 @@ import argparse
 REGION_AUDIO_CPU_CART = 1
 REGION_AUDIO_DATA_1   = 3   # ADPCM-A
 REGION_AUDIO_DATA_2   = 4   # ADPCM-B
+REGION_FIXED_LAYER_CARTRIDGE = 6  # S ROM (fix layer)
 REGION_SPRITES        = 9   # C ROMs
 
 # Sprite usage magic (must match roms.c and gen_ctile.py)
@@ -41,9 +42,9 @@ CMC42_GAMES = {
     "garou":    0x06,
     "garouo":   0x06,
     "garoubl":  0x06,
-    "mslug3":   0x06,
-    "mslug3h":  0x06,
-    "mslug3n":  0x06,
+    "mslug3":   0xad,
+    "mslug3h":  0xad,
+    "mslug3n":  0xad,
     "ganryu":   0x07,
     "s1945p":   0x05,
     "preisle2": 0x9f,
@@ -251,6 +252,17 @@ def neogeo_gfx_decrypt(rom, rom_size, extra_xor, tables):
     print(f"  Decrypt complete: data={t1-t0:.1f}s addr={time.time()-t1:.1f}s")
 
 
+def neogeo_sfix_extract(decrypted_rom, rom_size, tx_size):
+    """Extract and shuffle SFIX data from the end of decrypted C ROM.
+    Matches neogeo_sfix_decrypt() in neocrypt.c."""
+    src = decrypted_rom[rom_size - tx_size:]
+    dst = bytearray(tx_size)
+    for i in range(tx_size):
+        src_idx = (i & ~0x1f) + ((i & 7) << 2) + ((~i & 8) >> 2) + ((i & 0x10) >> 4)
+        dst[i] = src[src_idx]
+    return bytes(dst)
+
+
 def make_rom_reader(game_zip, parent_zip):
     """Return a function that reads ROM files from game ZIP or parent ZIP."""
     def read_rom_file(filename, crc=0):
@@ -377,6 +389,19 @@ def generate_ctile(drv, read_rom, output_dir, game_name, gngeo_data_path):
         t1b = time.time()
         print(f"Decryption done in {t1b - t1:.1f}s")
         t1 = t1b
+
+        # Extract SFIX (fix layer) from end of decrypted C ROM
+        # neogeo_sfix_decrypt() in neocrypt.c does this but is skipped in streaming mode
+        tx_size = drv['romsizes'][REGION_FIXED_LAYER_CARTRIDGE]
+        if tx_size > 0 and tx_size <= sprite_size:
+            print(f"Extracting SFIX ({tx_size // 1024} KB) from end of decrypted C ROM...")
+            sfix_data = neogeo_sfix_extract(tiles_buf, sprite_size, tx_size)
+            sfix_path = os.path.join(game_dir, f"{game_name}.sfix")
+            with open(sfix_path, 'wb') as f:
+                f.write(sfix_data)
+            print(f"  {sfix_path}: {len(sfix_data):,} bytes")
+        else:
+            print(f"  SFIX: no fixed region in driver (size={tx_size})")
 
     # Convert tiles and build spr_usage
     nb_tiles = sprite_size >> 7   # 128 bytes per tile

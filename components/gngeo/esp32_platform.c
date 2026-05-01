@@ -1470,7 +1470,7 @@ void esp32_init_conf(const char *game_name) {
     conf.sample_rate = 11025;
     conf.sound = 1;
     conf.vsync = 0;
-    conf.raster = 0;     /* Non-raster mode (simpler) */
+    conf.raster = 1;
     conf.debug = 0;
     conf.system = SYS_ARCADE;
     conf.country = CTY_USA;

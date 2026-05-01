@@ -110,6 +110,12 @@ void neogeo_reset(void) {
 	sound_code = 0;
 	pending_command = 0;
 	result_code = 0;
+
+	/* Initialize input registers to idle (active-low: 0xFF = nothing pressed) */
+	memory.intern_p1 = 0xFF;
+	memory.intern_p2 = 0xFF;
+	memory.intern_start = 0xFF;
+	memory.intern_coin = 0x07;
 #ifdef ENABLE_940T
 	shared_ctl->sound_code = sound_code;
 	shared_ctl->pending_command = pending_command;
@@ -700,10 +706,10 @@ void neogeo_main_loop(void) {
 
 				memory.watchdog++;
 
-				if (memory.watchdog > 120) { /* Watchdog: generous timeout for BIOS init with masked interrupts */
+				if (memory.watchdog > 7) { /* Watchdog fires after ~8 frames without kick (matches real HW / raster path) */
                     printf("WATCHDOG RESET %d\n",memory.watchdog);
 					cpu_68k_reset();
-					memory.watchdog = 0; /* Clear counter on reset to avoid infinite loop */
+					memory.watchdog = 0;
                 }
 
 				if (a) {
