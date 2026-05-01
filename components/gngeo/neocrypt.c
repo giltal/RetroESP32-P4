@@ -547,7 +547,11 @@ static void neogeo_gfx_decrypt(running_machine *machine, int extra_xor)
 
 	rom_size = memory_region_length(machine, "sprites");
 
-	buf = alloc_array_or_die(UINT8, rom_size);
+	buf = (UINT8 *)malloc(rom_size);
+	if (!buf) {
+		printf("GFX decrypt skipped (cannot allocate %d MB temp buffer)\n", rom_size / (1024*1024));
+		return;
+	}
 	gn_init_pbar("Decrypting...", rom_size/2);
 	// Data xor
 	cnt=0;

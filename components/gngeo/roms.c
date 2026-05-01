@@ -875,6 +875,20 @@ struct roms_init_func {
 	{ NULL, NULL}
 };
 
+/* Games that need CMC42/CMC50 GFX decryption — requires tiles-sized temp buffer.
+ * If tiles are loaded in PSRAM (not streaming), neogeo_gfx_decrypt() needs to
+ * malloc a buffer equal to tiles_size. This must be accounted for in the PSRAM
+ * budget to avoid OOM crash during init_roms(). */
+static int game_needs_gfx_decrypt(const char *name) {
+	int i = 0;
+	while (init_func_table[i].name) {
+		if (strcmp(init_func_table[i].name, name) == 0)
+			return 1;
+		i++;
+	}
+	return 0;
+}
+
 /* Forward declaration for streaming cache support */
 static int convert_roms_tile(Uint8 *g, int tileno);
 
@@ -1848,8 +1862,14 @@ int dr_load_roms(GAME_ROMS *r, char *rom_path, char *name) {
 	Uint32 adpcmb_size = conf.sound ? drv->romsize[REGION_AUDIO_DATA_2] : 0;
 	Uint32 free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
 
-	/* Need enough for: tiles + adpcma + adpcmb + spr_usage + headroom */
-	Uint32 total_rom_need = tiles_size + adpcma_size + adpcmb_size + PSRAM_HEADROOM;
+	/* Games with CMC GFX encryption need a tiles-sized temp buffer during decrypt.
+	 * Account for this in the budget so we switch to streaming when needed. */
+	Uint32 decrypt_overhead = 0;
+	if (game_needs_gfx_decrypt(name))
+		decrypt_overhead = tiles_size;
+
+	/* Need enough for: tiles + decrypt_buf + adpcma + adpcmb + headroom */
+	Uint32 total_rom_need = tiles_size + decrypt_overhead + adpcma_size + adpcmb_size + PSRAM_HEADROOM;
 	streaming_tiles = 0;
 	streaming_adpcma = 0;
 	streaming_adpcmb = 0;
