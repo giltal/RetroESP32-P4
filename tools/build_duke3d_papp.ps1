@@ -12,7 +12,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ROOT  = "C:\ESPIDFprojects\RetroESP32_P4"
+$ROOT  = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'Resolve-IdfEnv.ps1')
+Initialize-IdfEnv
 $BUILD = "$ROOT\build_papp\duke3d"
 $OUT   = "$ROOT\firmware\duke3d.papp"
 

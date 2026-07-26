@@ -13,9 +13,12 @@
 
 $ErrorActionPreference = "Stop"
 
-$ROOT = "C:\ESPIDFprojects\RetroESP32_P4"
-$BINS = "$ROOT\firmware"
-$OUT  = "$ROOT\RetroESP32_P4_v1.bin"
+$ROOT = $PSScriptRoot
+. (Join-Path $ROOT 'tools\Resolve-IdfEnv.ps1')
+Initialize-IdfEnv
+
+$BINS = Join-Path $ROOT 'firmware'
+$OUT  = Join-Path $ROOT 'RetroESP32_P4_v1.bin'
 
 # Flash map (must match partitions_ota.csv)
 # Format: offset, filename, description

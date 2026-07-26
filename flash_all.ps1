@@ -1,16 +1,16 @@
-# flash_all.ps1 -- Flash all binaries to ESP32-P4 via COM30
+# flash_all.ps1 -- Flash all binaries to ESP32-P4
 # Usage: .\flash_all.ps1
-# Requires ESP-IDF environment to be active
+# Uses $env:IDF_PATH and $env:IDF_PYTHON_ENV_PATH if set; auto-detects otherwise.
+# Port defaults to COM30; override with $env:ESP_PORT.
 
 $ErrorActionPreference = "Continue"
 
-# Ensure ESP-IDF environment is loaded
-$env:IDF_PYTHON_ENV_PATH = "C:\Users\97254\.espressif\python_env\idf5.5_py3.12_env"
-& "C:\Users\97254\esp\v5.5.2\esp-idf\export.ps1" 2>$null
+$ROOT = $PSScriptRoot
+. (Join-Path $ROOT 'tools\Resolve-IdfEnv.ps1')
+Initialize-IdfEnv
 
-$ROOT = "C:\ESPIDFprojects\RetroESP32_P4"
-$BINS = "$ROOT\firmware"
-$PORT = "COM30"
+$BINS = Join-Path $ROOT 'firmware'
+$PORT = if ($env:ESP_PORT) { $env:ESP_PORT } else { "COM30" }
 
 # Kill any python processes holding the port
 Stop-Process -Name python -Force -ErrorAction SilentlyContinue

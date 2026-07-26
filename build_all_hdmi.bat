@@ -6,15 +6,18 @@ echo ============================================
 echo  RetroESP32-P4 Full HDMI Build
 echo ============================================
 
-REM Activate ESP-IDF environment
-call "C:\Users\97254\esp\v5.5.2\esp-idf\export.bat"
+REM Resolve $ROOT from this script's location.
+set "ROOT=%~dp0"
+if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
+
+REM Activate ESP-IDF environment (honors IDF_PATH / IDF_PYTHON_ENV_PATH, else auto-detects).
+call "%ROOT%\tools\resolve_idf_env.bat"
 if errorlevel 1 (
     echo ERROR: Failed to activate ESP-IDF environment
     pause
     exit /b 1
 )
 
-set ROOT=C:\ESPIDFprojects\RetroESP32_P4
 set BINS=%ROOT%\firmware_hdmi
 set HDMI_DEFAULTS=%ROOT%\launcher\sdkconfig.hdmi.defaults
 if not exist "%BINS%" mkdir "%BINS%"

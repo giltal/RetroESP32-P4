@@ -1,17 +1,14 @@
 # build_hdmi.ps1 — Build the launcher and all emulator apps for HDMI output
 # Usage: .\build_hdmi.ps1
-# Requires ESP-IDF environment to be active
+# Uses $env:IDF_PATH and $env:IDF_PYTHON_ENV_PATH if set; auto-detects otherwise.
 
 $ErrorActionPreference = "Stop"
 
-# Ensure ESP-IDF environment is loaded
-$env:IDF_PYTHON_ENV_PATH = "C:\Users\97254\.espressif\python_env\idf5.5_py3.12_env"
-$ErrorActionPreference = "Continue"
-& "C:\Users\97254\esp\v5.5.2\esp-idf\export.ps1" 2>$null
-$ErrorActionPreference = "Stop"
+$ROOT = $PSScriptRoot
+. (Join-Path $ROOT 'tools\Resolve-IdfEnv.ps1')
+Initialize-IdfEnv
 
-$ROOT = "C:\ESPIDFprojects\RetroESP32_P4"
-$BINS = "$ROOT\firmware_hdmi"
+$BINS = Join-Path $ROOT 'firmware_hdmi'
 New-Item -ItemType Directory -Path $BINS -Force | Out-Null
 
 # HDMI sdkconfig overlay — merged with per-app sdkconfig.defaults

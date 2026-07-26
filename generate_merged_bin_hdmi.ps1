@@ -10,9 +10,12 @@
 
 $ErrorActionPreference = "Stop"
 
-$ROOT = "C:\ESPIDFprojects\RetroESP32_P4"
-$BINS = "$ROOT\firmware_hdmi"
-$OUT  = "$ROOT\RetroESP32_P4_HDMI_v1.bin"
+$ROOT = $PSScriptRoot
+. (Join-Path $ROOT 'tools\Resolve-IdfEnv.ps1')
+Initialize-IdfEnv
+
+$BINS = Join-Path $ROOT 'firmware_hdmi'
+$OUT  = Join-Path $ROOT 'RetroESP32_P4_HDMI_v1.bin'
 
 # Flash map (must match partitions_ota.csv)
 $offsets = @("0x2000","0x8000","0xD000","0x10000","0x0D0000","0x160000","0x200000","0x350000","0x410000","0x550000","0x5F0000","0x690000","0x740000","0x8C0000","0x9B0000","0xB00000")
