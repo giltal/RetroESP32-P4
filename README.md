@@ -137,6 +137,7 @@ Included:
 - Native apps + PAPP template
 - Console board production files and schematic
 - Case STL files
+- **Link to a folder with all needed**: https://drive.google.com/drive/folders/10WsCJ_vmL4s-wdIc_0qGttpQOiHe3O8l?usp=sharing
 
 ---
 
