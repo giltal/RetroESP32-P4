@@ -31,6 +31,8 @@ $ErrorActionPreference = "Continue"
 
 $ROOT      = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $TOOLS_DIR = Join-Path $ROOT "tools"
+. (Join-Path $TOOLS_DIR 'Resolve-IdfEnv.ps1')
+Initialize-IdfEnv
 $APP_DIR   = Join-Path (Join-Path $ROOT "apps") $AppName
 $LVGL_DIR  = Join-Path (Join-Path $ROOT "third_party") "lvgl"
 $BUILD_DIR = Join-Path (Join-Path $ROOT "build_papp") $AppName

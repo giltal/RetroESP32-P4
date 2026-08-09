@@ -17,8 +17,8 @@ $SRC = Join-Path (Join-Path $ROOT "ESP32_P4_PAPP_Template") "main.c"
 
 # Source ESP-IDF if not already done
 if (-not (Get-Command "riscv32-esp-elf-gcc" -ErrorAction SilentlyContinue)) {
-    $env:IDF_PYTHON_ENV_PATH = "C:\Users\97254\.espressif\python_env\idf5.5_py3.12_env"
-    & "C:\Users\97254\esp\v5.5.2\esp-idf\export.ps1" 2>$null
+    . (Join-Path $ROOT 'tools\Resolve-IdfEnv.ps1')
+    Initialize-IdfEnv
 }
 
 New-Item -ItemType Directory -Force -Path $BUILD | Out-Null

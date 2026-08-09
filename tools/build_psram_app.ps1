@@ -28,6 +28,8 @@ $ErrorActionPreference = "Stop"
 
 $ROOT      = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $TOOLS_DIR = Join-Path $ROOT "tools"
+. (Join-Path $TOOLS_DIR 'Resolve-IdfEnv.ps1')
+Initialize-IdfEnv
 $BUILD_DIR = Join-Path (Join-Path $ROOT "build_papp") $AppName
 $FW_DIR    = Join-Path $ROOT "firmware"
 $LD_SCRIPT = Join-Path $TOOLS_DIR "psram_app.ld"
