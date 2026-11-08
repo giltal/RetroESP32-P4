@@ -1,5 +1,6 @@
 <div align="center">
 
+Please look at the new project that replaces this one from now on: # https://github.com/giltal/ESP32_P4_Launcher # 
 # 🕹️ RetroESP32-P4
 
 ### Fifteen game consoles and native PC-era shooters — on a single ESP32-P4 microcontroller.
